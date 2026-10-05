@@ -95,6 +95,24 @@ class ShizukuServiceIntercept(
         throw SecurityException("Permission denied for $method")
     }
 
+    /**
+     * 仅允许管理器（或服务端自身）调用的方法。
+     *
+     * <p>用于「读写授权标志」这类**权限管理**操作：普通客户端即使已被授权，
+     * 也不应有权修改自己或他人的权限标志（否则一个已授权应用即可为任意 uid 提权）。
+     */
+    private fun enforceCallerIsManager(method: String) {
+        enforceEnabled()
+
+        val callingUid = getCallingUid()
+        val callingPid = getCallingPid()
+
+        if (callingPid == callback.servicePid) return
+        if (checkCallerManagerPermission(callingUid)) return
+
+        throw SecurityException("Permission denied for $method")
+    }
+
     private fun transactRemote(data: Parcel, reply: Parcel?, flags: Int) {
         enforceCallingPermission("transactRemote")
 
@@ -339,11 +357,16 @@ class ShizukuServiceIntercept(
 
     override fun getFlagsForUid(uid: Int, mask: Int): Int {
         if (!isEnabled()) return 0
+        // 修复：原实现无鉴权，任意持 Binder 的应用可读取/篡改他人权限标志
+        enforceCallerIsManager("getFlagsForUid")
         return ShizukuApiConstants.stellarToShizukuFlag(checkPermission(uid))
     }
 
     override fun updateFlagsForUid(uid: Int, mask: Int, value: Int) {
         if (!isEnabled()) return
+        // 修复：原实现无鉴权，任意应用可把自己（或他人）的 shizuku 标志改成 GRANTED，
+        // 随后直接调用 newProcess 以 shell 身份执行命令
+        enforceCallerIsManager("updateFlagsForUid")
         val stellarFlag = ShizukuApiConstants.shizukuToStellarFlag(value)
         configManager.updatePermission(uid, ShizukuApiConstants.PERMISSION_NAME, stellarFlag)
         clientManager.findClients(uid).forEach { it.onetimeMap.remove(ShizukuApiConstants.PERMISSION_NAME) }

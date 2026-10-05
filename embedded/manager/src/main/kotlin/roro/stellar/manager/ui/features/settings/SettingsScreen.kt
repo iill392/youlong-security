@@ -277,7 +277,8 @@ fun SettingsScreen(
     //          UpdateSourceDialog 三个 Composable 及其 import。
     // ==================================================================
 
-    var shizukuCompatEnabled by remember { mutableStateOf(preferences.getBoolean(SHIZUKU_COMPAT_ENABLED, true)) }
+    // ⚠️ 本工程改动（原默认 true）：与 StellarConfig 保持一致，兼容层默认关闭
+    var shizukuCompatEnabled by remember { mutableStateOf(preferences.getBoolean(SHIZUKU_COMPAT_ENABLED, false)) }
 
     LaunchedEffect(Unit) {
         try {

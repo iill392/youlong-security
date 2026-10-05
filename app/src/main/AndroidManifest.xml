@@ -325,10 +325,15 @@
             android:exported="false"
             android:label="特权服务"
             android:configChanges="orientation|screenSize|keyboardHidden" />
-        <!-- 自研 · 特权面板自检入口（仅调试用；不接收任何外部参数） -->
+        <!-- 自研 · 特权面板自检入口（仅调试用；不接收任何外部参数）
+             ⚠️ 安全加固（2026-10）：exported 由 true 改为 false。
+             原因：原来任何第三方应用都能发 PRIV_SELFTEST_ENABLE 打开持久化调试开关、
+             再发 PRIV_SELFTEST/PRIV_SELFTEST_REQUEST 触发应用内特权自检与授权弹窗。
+             改为不可导出后，只有本应用自己（含其内部代码）能触发；
+             如需继续用 adb 触发自检，请临时改为 true，或改用应用内入口。 -->
         <receiver
             android:name="com.youlong.hd.PrivSelfTestReceiver"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.youlong.hd.PRIV_SELFTEST" />
                 <action android:name="com.youlong.hd.PRIV_SELFTEST_ENABLE" />

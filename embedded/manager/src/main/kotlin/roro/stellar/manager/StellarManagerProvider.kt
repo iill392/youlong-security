@@ -15,7 +15,8 @@ class StellarManagerProvider : StellarProvider() {
         val db = AppDatabase.get(context!!)
         when (method) {
             METHOD_GET_SHIZUKU_COMPAT -> {
-                val value = db.configDao().get(KEY_SHIZUKU_COMPAT) ?: "true"
+                // ⚠️ 本工程改动（原默认 "true"）：与 StellarConfig 保持一致，默认关闭兼容层。
+                val value = db.configDao().get(KEY_SHIZUKU_COMPAT) ?: "false"
                 return Bundle().apply { putBoolean(KEY_SHIZUKU_COMPAT, value.toBoolean()) }
             }
             METHOD_LOAD_CONFIG -> {
