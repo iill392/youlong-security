@@ -11,8 +11,6 @@ import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.usage.StorageStats;
 import android.app.usage.StorageStatsManager;
-import android.app.usage.UsageStats;
-import android.app.usage.UsageStatsManager;
 import android.os.storage.StorageManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -49,7 +47,6 @@ import android.view.WindowManager;
 import android.webkit.DownloadListener;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
-import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -78,12 +75,10 @@ import java.util.concurrent.RejectedExecutionException;
 import android.content.SharedPreferences;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Switch;
 import android.view.Gravity;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.content.res.Configuration;
@@ -91,7 +86,6 @@ import android.content.res.Configuration;
 import android.util.Log;
 
 import android.app.Dialog;
-import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.ColorDrawable;
 
 import androidx.compose.ui.platform.ComposeView;
@@ -826,14 +820,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     String[] resources = request.getResources();
                     for (String resource : resources) {
                         if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
-                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO}, 101);
-                                return;
-                            }
+                            // 本应用只加载本地 assets/index.html（单页应用），该页面中不含任何
+                            // 麦克风相关代码（无 getUserMedia / MediaRecorder / SpeechRecognition），
+                            // 因此这里原先的 RECORD_AUDIO 申请属多余权限。
+                            // 现在直接拒绝该资源并清理挂起引用，避免留下悬空请求。
+                            // 若将来确实要支持网页录音：在 AndroidManifest 恢复 RECORD_AUDIO，
+                            // 并把这里改回「检查权限 → 申请 → return」的写法即可。
+                            Log.w("MainActivity",
+                                    "WebView 请求麦克风(RESOURCE_AUDIO_CAPTURE)，已拒绝：本应用不使用录音功能");
+                            pendingWebPermissionRequest = null;
+                            request.deny();
+                            return;
                         }
                     }
 
                     request.grant(resources);
+                    // 放行后清掉引用：原先这里不清，导致该请求一直挂在字段上，
+                    // 之后任何一次权限回调都会在 onRequestPermissionsResult() 里
+                    // 再次对它 grant（见下方改动说明）。
+                    pendingWebPermissionRequest = null;
                 }
             }
 
@@ -2042,10 +2047,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (downloadManager != null) {
             downloadManager.handlePermissionResult(requestCode, permissions, grantResults);
         }
-        if (pendingWebPermissionRequest != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
-            pendingWebPermissionRequest = null;
-        }
+
+        // 原先这里会在任何一次权限回调之后，无条件对挂起的 WebView 请求调用 grant()：
+        //
+        //     if (pendingWebPermissionRequest != null) {
+        //         pendingWebPermissionRequest.grant(pendingWebPermissionRequest.getResources());
+        //         pendingWebPermissionRequest = null;
+        //     }
+        //
+        // 有两个问题：
+        //   1. 没有校验 requestCode，任何权限（通知 / 应用列表…）的回调都会命中；
+        //   2. 没有检查 grantResults，即使用户在弹窗里点了「拒绝」，照样 grant。
+        // 系统层仍会拦下无权限的采集，所以不是安全漏洞，但逻辑不成立。
+        //
+        // WebView 请求现在在 onPermissionRequest() 内同步处理完毕（放行后立即清引用，
+        // 拒绝则 deny 并清引用），此处不再需要任何收尾动作。若将来重新引入
+        // 「先申请系统权限、回调后再放行 WebView 请求」的流程，请在此按 requestCode
+        // 精确匹配并对 grantResults 做判断，不要恢复无条件 grant。
     }
 
     @Override

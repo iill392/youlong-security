@@ -14,8 +14,6 @@ import android.os.Looper;
 
 import androidx.core.app.NotificationCompat;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;

@@ -2,7 +2,6 @@ package com.youlong.hd;
 
 import android.app.Application;
 import android.content.Context;
-import android.os.Process;
 
 /**
  * 游龙安全护盾 Application

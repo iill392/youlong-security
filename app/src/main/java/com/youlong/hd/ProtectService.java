@@ -42,7 +42,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -804,7 +803,12 @@ public class ProtectService extends Service implements SensorEventListener {
                 int slash = afterU0.indexOf('/');
                 if (slash > 0) {
                     String pkg = afterU0.substring(0, slash).trim();
-                    if (pkg.contains(".")) { r.close(); return pkg; }
+                    // 用包名白名单校验，而不是仅 contains(".")：
+                    // 该值来自 dumpsys 文本切片，格式随 ROM/系统版本而变，
+                    // 下游会被拼进 shell 命令（pm uninstall / am force-stop），
+                    // 因此必须确保其中不含任何 shell 元字符。见 PkgGuard。
+                    if (PkgGuard.isValid(pkg)) { r.close(); return pkg; }
+                    Log.w(TAG, "getFgSimple：dumpsys 解析出非法包名，已忽略: " + pkg);
                 }
             }
             r.close();
@@ -855,10 +859,12 @@ public class ProtectService extends Service implements SensorEventListener {
                 int slash = afterU0.indexOf('/');
                 if (slash > 0) {
                     String pkg = afterU0.substring(0, slash).trim();
-                    if (pkg.contains(".")) {
+                    // 同上：dumpsys 文本切片 → 白名单校验后再返回
+                    if (PkgGuard.isValid(pkg)) {
                         Log.d(TAG, "Shizuku检测前台: " + pkg);
                         return pkg;
                     }
+                    Log.w(TAG, "getFgViaStellar：dumpsys 解析出非法包名，已忽略: " + pkg);
                 }
             }
         } catch (Exception e) {
