@@ -58,25 +58,36 @@ set(STELLAR_JNI_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 # --------------------------------------------------------------------------
 # 公用编译/链接选项（等价于上游的全局开关，这里显式展开到每个目标）
 # --------------------------------------------------------------------------
+# ⚠️ 本工程改动（2026-10 加固）：
+#   · 去掉上游的 -fno-threadsafe-statics —— 它会关闭 C++11 对静态局部变量初始化的
+#     线程安全保证；libadb.so / librish.so 是加载进应用进程的 JNI 库，存在多线程
+#     首次访问静态局部对象的风险；
+#   · 新增 -fstack-protector-strong —— 与同工程的 nativecrypto 目标保持一致
+#     （原先只有 nativecrypto 开了栈保护，这 4 个目标漏了）。
 set(STELLAR_COMMON_COMPILE_OPTIONS
         -fdata-sections
         -ffunction-sections
         -fno-exceptions
         -fno-rtti
-        -fno-threadsafe-statics)
+        -fstack-protector-strong)
 
-# 发布构建额外选项：体积 + 隐藏符号（与上游一致）
+# 发布构建额外选项：体积 + 隐藏符号（与上游一致）+ 加固
 set(STELLAR_RELEASE_COMPILE_OPTIONS
         -Os
         -flto
         -fvisibility=hidden
-        -fvisibility-inlines-hidden)
+        -fvisibility-inlines-hidden
+        # ⚠️ 本工程改动（2026-10）：补上 FORTIFY（需配合 -O，故只放在发布选项里）
+        -D_FORTIFY_SOURCE=2)
 
 set(STELLAR_RELEASE_LINK_OPTIONS
         -flto
         -Wl,--exclude-libs,ALL
         -Wl,--gc-sections
-        -Wl,--strip-all)
+        -Wl,--strip-all
+        # ⚠️ 本工程改动（2026-10）：全量 RELRO，GOT 只读（nativecrypto 目标本来就有）
+        -Wl,-z,relro
+        -Wl,-z,now)
 
 # ==========================================================================
 # cxx::cxx —— 来自 prefab 包 org.lsposed.libcxx:libcxx（NDK libc++ 预编译）
