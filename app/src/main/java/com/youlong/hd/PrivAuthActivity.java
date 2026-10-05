@@ -66,6 +66,16 @@ public class PrivAuthActivity extends Activity {
         setContentView(buildContentView());
     }
 
+    /**
+     * 读取服务端发来的授权请求信息。
+     *
+     * <p><b>安全说明（2026-10 加固）</b>：本页是导出组件（服务端以 shell 身份用
+     * `startActivity` 拉起它，所以不能改成 exported=false），因此它携带的
+     * `uid/pid/permission` 都**可能是被第三方伪造的**。这里只把它们当作"界面展示提示"，
+     * 真正的裁决在服务端：服务端会校验「这次回传是否对应它自己发起、且尚未答复的请求」
+     * （见 PendingPermissionConfirmations），不匹配一律丢弃。
+     * 因此伪造 uid 无法拿到授权，界面也不会因此产生越权。
+     */
     private void readIntent() {
         Intent it = getIntent();
         if (it == null) return;

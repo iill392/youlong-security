@@ -10,6 +10,7 @@ import roro.stellar.server.ClientManager
 import roro.stellar.server.ConfigManager
 import roro.stellar.server.ServerConstants
 import roro.stellar.server.service.StellarServiceCore
+import roro.stellar.server.service.permission.PendingPermissionConfirmations
 import roro.stellar.server.userservice.UserServiceManager
 import roro.stellar.server.util.Logger
 import roro.stellar.server.util.PackageManagerCompat
@@ -88,6 +89,14 @@ object ShizukuCallbackFactory {
 
                 val lastDenyTime = clientManager.findClient(uid, pid)?.lastDenyTimeMap?.get(ShizukuApiConstants.PERMISSION_NAME) ?: 0
                 val denyOnce = (System.currentTimeMillis() - lastDenyTime) > 10000
+
+                // 登记「本次 shizuku 授权待用户确认」：只有登记过的请求，其结果回传才会被采信
+                PendingPermissionConfirmations.register(
+                    requestCode,
+                    uid,
+                    pid,
+                    ShizukuApiConstants.PERMISSION_NAME
+                )
 
                 val intent = Intent(ServerConstants.REQUEST_PERMISSION_ACTION)
                     .setPackage(ServerConstants.MANAGER_APPLICATION_ID)
