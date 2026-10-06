@@ -1,4 +1,57 @@
+<a id="readme-top"></a>
+<div align="center">
+
+<img src="docs/assets/banner.svg" alt="游龙安全护盾 YouLong Security Shield" width="900"/>
+
+<a href="#-这是什么"><img src="https://readme-typing-svg.demolab.com?font=Fira+Code&amp;weight=600&amp;size=20&amp;pause=1200&amp;color=3DDC84&amp;center=true&amp;vCenter=true&amp;width=820&amp;height=64&amp;lines=%E4%B8%80%E4%B8%AA%E5%BC%80%E6%BA%90%E4%B8%94%E6%B0%B8%E4%B9%85%E5%85%8D%E8%B4%B9%E7%9A%84%20Android%20%E5%AE%89%E5%85%A8%E9%98%B2%E6%8A%A4%E5%B7%A5%E5%85%B7%0A%E5%85%8D%20Root%20%E7%89%B9%E6%9D%83%20%C2%B7%20%E5%B9%BF%E5%91%8A%E6%8B%A6%E6%88%AA%20%C2%B7%20%E5%BA%94%E7%94%A8%E9%A3%8E%E9%99%A9%E6%B2%BB%E7%90%86%20%C2%B7%20%E7%B4%A7%E6%80%A5%E9%80%83%E7%94%9F%0AJava%20%2B%20Kotlin%20%2B%20NDK%2FC%2B%2B%20%C2%B7%20Stellar%20%E5%86%85%E6%A0%B8%E6%BA%90%E7%A0%81%E7%BA%A7%E5%86%85%E7%BD%AE" alt="游龙安全护盾 — typing"/></a>
+
 # 游龙安全护盾（YouLong Security Shield）
+
+### 🛡️ 免 Root 的 Android 安全防护 / 广告拦截 / 应用风险治理工具
+
+**An open-source &amp; forever-free Android security toolkit — no root required.**
+
+混合架构单包 APK：WebView 单页前端 + 原生 Java/Kotlin + NDK/C++，
+**源码级内置**开源特权内核 [Stellar](https://github.com/roro2239/Stellar)（Shizuku 深度定制分支）——
+不依赖任何外部 App，即可完成卸载 / 强停 / 冻结等 shell 特权操作。
+
+**项目状态 · 许可**
+
+<a href="#-开发状态重点还没做完"><img src="https://img.shields.io/badge/状态-⚙️_研发中快照_·_未完成-F59E0B?style=flat-square" alt="Status: WIP"/></a>
+<a href="#-免责声明"><img src="https://img.shields.io/badge/🪶_许可-AGPL--3.0-lightgrey?style=flat-square" alt="License: AGPL-3.0"/></a>
+<a href="https://github.com/iill392/youlong-security/stargazers"><img src="https://img.shields.io/github/stars/iill392/youlong-security?style=flat-square&amp;color=yellow" alt="Stars"/></a>
+<a href="https://github.com/iill392/youlong-security/forks"><img src="https://img.shields.io/github/forks/iill392/youlong-security?style=flat-square&amp;color=teal" alt="Forks"/></a>
+<a href="https://github.com/iill392/youlong-security/issues"><img src="https://img.shields.io/github/issues/iill392/youlong-security?style=flat-square&amp;color=orange" alt="Issues"/></a>
+<a href="#-编译"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square&amp;logo=github" alt="PRs Welcome"/></a>
+
+**构建环境**
+
+<img src="https://img.shields.io/badge/JDK-21-orange?style=flat-square&amp;logo=openjdk&amp;logoColor=white" alt="JDK 21"/>
+<img src="https://img.shields.io/badge/Gradle-8.14-02303A?style=flat-square&amp;logo=gradle&amp;logoColor=white" alt="Gradle 8.14"/>
+<img src="https://img.shields.io/badge/AGP-8.13.2-3DDC84?style=flat-square&amp;logo=android&amp;logoColor=white" alt="AGP 8.13.2"/>
+<img src="https://img.shields.io/badge/Kotlin-2.2.0-7F52FF?style=flat-square&amp;logo=kotlin&amp;logoColor=white" alt="Kotlin 2.2.0"/>
+<img src="https://img.shields.io/badge/minSdk-24_(Android_7.0)-3DDC84?style=flat-square&amp;logo=android&amp;logoColor=white" alt="minSdk 24"/>
+<img src="https://img.shields.io/badge/NDK-29.0.13113456-black?style=flat-square" alt="NDK"/>
+
+**技术栈**
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://skillicons.dev/icons?i=java,kotlin,androidstudio,gradle,cpp,cmake,html,git,github&amp;theme=dark"/>
+  <img src="https://skillicons.dev/icons?i=java,kotlin,androidstudio,gradle,cpp,cmake,html,git,github&amp;theme=light" alt="Tech Stack" height="42"/>
+</picture>
+
+**快速跳转**
+
+<a href="#-这是什么"><img src="https://img.shields.io/badge/🧭_项目简介-1F6FEB?style=flat-square" alt="Intro"/></a>
+<a href="#-开发状态重点还没做完"><img src="https://img.shields.io/badge/🚧_开发状态-F59E0B?style=flat-square" alt="Dev Status"/></a>
+<a href="#-编译"><img src="https://img.shields.io/badge/🔧_编译指南-2EA44F?style=flat-square" alt="Build"/></a>
+<a href="#-用到的开源项目必须保留的署名"><img src="https://img.shields.io/badge/📜_开源署名-8B5CF6?style=flat-square" alt="Credits"/></a>
+<a href="#-免责声明"><img src="https://img.shields.io/badge/⚠️_免责声明-E95420?style=flat-square" alt="Disclaimer"/></a>
+<a href="#-许可证"><img src="https://img.shields.io/badge/📄_许可证-6E7681?style=flat-square" alt="License"/></a>
+
+</div>
+
+---
 
 > ## ⚠️ 重要声明：这是**下个版本研发中、尚未研发完成**的源码快照
 >
@@ -13,6 +66,104 @@
 
 ---
 
+<a id="at-a-glance"></a>
+## 🔭 一眼看懂
+
+<table>
+<tr>
+<td align="center" width="33%">
+
+🛡️
+
+**实时守护**
+
+前台服务常驻<br/>按用户设定持续巡检
+
+</td>
+<td align="center" width="33%">
+
+🚨
+
+**紧急逃生**
+
+连按音量键 / 摇晃手机<br/>触发紧急拦截救援（可自定义）
+
+</td>
+<td align="center" width="33%">
+
+🎚️
+
+**多档拦截**
+
+基础 / 日常 / 超级 / 极强<br/>命中后可强制停止或卸载
+
+</td>
+</tr>
+<tr>
+<td align="center" width="33%">
+
+🔓
+
+**免 Root 特权**
+
+源码级内置 Stellar 内核<br/>以 shell(uid 2000) 执行特权操作
+
+</td>
+<td align="center" width="33%">
+
+👁️
+
+**无障碍拦截**
+
+基于 AccessibilityService<br/>自动跳过广告、风险提示
+
+</td>
+<td align="center" width="33%">
+
+📋
+
+**日志与自检**
+
+崩溃与运行轨迹落文件<br/>页面一键复制日志回传
+
+</td>
+</tr>
+</table>
+
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
+---
+
+## 📖 目录
+
+<table>
+<tr>
+<td valign="top" width="50%">
+
+**项目**
+- [🔭 一眼看懂](#at-a-glance)
+- [一、这是什么](#-这是什么)
+- [二、开发状态（重点：还没做完）](#-开发状态重点还没做完)
+- [三、编译](#-编译)
+- [四、用到的开源项目（必须保留的署名）](#-用到的开源项目必须保留的署名)
+
+</td>
+<td valign="top" width="50%">
+
+**合规与文档**
+- [五、免责声明](#-免责声明)
+- [六、许可证](#-许可证)
+- [七、开发记录索引（docs/）](#-开发记录索引docs)
+- [📊 Star History](#-star-history)
+- [🤝 贡献](#-贡献)
+
+</td>
+</tr>
+</table>
+
+---
+
+<a id="-这是什么"></a>
 ## 一、这是什么
 
 **游龙安全护盾**是一个 Android 端的**安全防护 / 广告拦截 / 应用风险治理**工具，核心能力：
@@ -49,15 +200,18 @@
   设置页）已全部改为本项目自研，不复用上游界面。
 - **前端可热改**：主界面是 WebView 里的单页应用，改 `assets/index.html` 即可调整 UI。
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
 ---
 
+<a id="-开发状态重点还没做完"></a>
 ## 二、开发状态（重点：还没做完）
 
-### 已完成 / 基本可用
+### ✅ 已完成 / 基本可用
 
 - [x] 实时守护服务、哨兵进程互拉、前台服务与通知
 - [x] 紧急逃生：音量键连按（按键/次数可自定义）与摇一摇（力度档位可自定义）
-      —— 已修复"触发一次后就再也触发不了"的问题，真机连续触发验证通过
+      —— 已修复“触发一次后就再也触发不了”的问题，真机连续触发验证通过
 - [x] 无障碍丢失 / 悬浮窗丢失时的自动降级与恢复
 - [x] 无障碍劫持防护 + 音量键事件接管
 - [x] 多档拦截模式与覆盖层弹窗
@@ -66,26 +220,29 @@
 - [x] 自研应用列表页（RecyclerView + DiffUtil + 异步图标，滚动无明显掉帧）
 - [x] 崩溃与运行轨迹落文件 + 页面一键复制日志
 
-### 未完成 / 已知问题
+### 🚧 未完成 / 已知问题
 
 - [ ] **ADB 无线调试配对**（SPAKE2 + TLS exporter，AOSP 公开协议）**尚未实现**
-      —— 目前免 root 特权只能走"由本应用自己拉起服务端"这一条路
+      —— 目前免 root 特权只能走“由本应用自己拉起服务端”这一条路
 - [ ] 病毒库 / 自动拦截：**本仓库不包含**（见下节），相关检测逻辑保留但为空实现
 - [ ] 部分界面文案与交互仍在调整，个别入口是半成品
 - [ ] 代码里保留了历史迭代的注释与开关，尚未做统一清理
 
-### 明确移除（不随本仓库发布）
+### 🗑️ 明确移除（不随本仓库发布）
 
 | 移除项 | 说明 |
 |---|---|
 | **自动拦截病毒库** | 病毒库数据、服务器域名、5 个列表路径、关键字库**一律不发布**；`VirusDb` 不再发起任何网络请求，`get()` 返回空库 —— 开源版**不会自动卸载任何应用**，也不会误报。接入自有数据源的方法见 `VirusDb` 类注释（TODO）。 |
-| **应用签名** | 发布 keystore、别名、口令、内置的官方签名证书指纹、盗版警告页，以及"签名绑定资源加密"用的种子/盐**全部移除**；`release` 只产出未签名 APK，前端资源以明文分发，**任何人重新签名都能正常跑**（方便二次开发）。 |
+| **应用签名** | 发布 keystore、别名、口令、内置的官方签名证书指纹、盗版警告页，以及“签名绑定资源加密”用的种子/盐**全部移除**；`release` 只产出未签名 APK，前端资源以明文分发，**任何人重新签名都能正常跑**（方便二次开发）。 |
 
 > 也就是说：这个仓库是**能力完整、数据留白**的版本。
 > 想把它变成能用的产品，需要自己接病毒库、自己签名。
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
 ---
 
+<a id="-编译"></a>
 ## 三、编译
 
 ### 环境要求
@@ -143,11 +300,14 @@ apksigner sign --ks 你的.jks --out app-signed.apk \
 └── LICENSE                      本仓库许可：GNU AGPL-3.0（自有代码）
 ```
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
 ---
 
+<a id="-用到的开源项目必须保留的署名"></a>
 ## 四、用到的开源项目（必须保留的署名）
 
-本项目**站在一堆开源项目的肩膀上**，下面按"融合方式"分类列出。
+本项目**站在一堆开源项目的肩膀上**，下面按“融合方式”分类列出。
 完整到组件版本级别的清单见 **[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)**，
 对上游的逐文件修改清单见 **[`NOTICE`](NOTICE)**，许可证全文见 **[`LICENSES/`](LICENSES)**。
 
@@ -190,16 +350,24 @@ apksigner sign --ks 你的.jks --out app-signed.apk \
 |---|---|---|
 | [javascript-obfuscator](https://github.com/javascript-obfuscator/javascript-obfuscator) | BSD-2-Clause | 正式版构建时对前端内联 JS 做混淆；本开源包已移除该构建步骤，因此不需要 Node.js，也不再分发其产物。 |
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
 ---
 
+<a id="-免责声明"></a>
 ## 五、免责声明
 
-- 本仓库是**开发中快照**，按"现状"提供，**不提供任何形式的担保**，作者不对使用后果负责。
+- 本仓库是**开发中快照**，按“现状”提供，**不提供任何形式的担保**，作者不对使用后果负责。
 - 项目涉及**无障碍服务**与**免 root 特权（shell 身份）**能力，权限很高：
   请只在**你自己的设备**上、在**了解其行为**的前提下使用。
 - 请遵守你所在地区的法律法规与各应用商店的政策。**不要用它做任何违法用途。**
 - 第三方组件归各自版权人所有，使用时请同时遵守它们的许可证（见 `THIRD_PARTY_NOTICES.md`）。
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
+---
+
+<a id="-许可证"></a>
 ## 六、许可证
 
 **本仓库（含本项目自有代码）以 [GNU Affero General Public License v3.0](LICENSE) 发布。**
@@ -220,8 +388,11 @@ apksigner sign --ks 你的.jks --out app-signed.apk \
 > Apache-2.0），自本次开源起统一改为 **AGPL-3.0**；`NOTICE`、`THIRD_PARTY_NOTICES.md`
 > 与应用内「开源许可」页面（`res/raw/open_source_licenses.txt`）已同步更新。
 
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
 ---
 
+<a id="-开发记录索引docs"></a>
 ## 七、开发记录索引（`docs/`）
 
 | 文档 | 内容 |
@@ -230,9 +401,48 @@ apksigner sign --ks 你的.jks --out app-signed.apk \
 | [MIGRATION_STELLAR.md](docs/MIGRATION_STELLAR.md) | 内核从 Shizuku 迁移到 Stellar 的完整记录 |
 | [自研特权界面_阶段进展.md](docs/自研特权界面_阶段进展.md) | 界面自研（替换上游界面）的进展与设计 |
 | [自研特权内核_真机验证记录.md](docs/自研特权内核_真机验证记录.md) | 自研内核路线的真机验证与结论（技术储备） |
-| [逃生只能触发一次_修复记录.md](docs/逃生只能触发一次_修复记录.md) | 紧急逃生"只能触发一次"的根因与真机验证 |
+| [逃生只能触发一次_修复记录.md](docs/逃生只能触发一次_修复记录.md) | 紧急逃生“只能触发一次”的根因与真机验证 |
 | [卡顿与闪退_修复记录.md](docs/卡顿与闪退_修复记录.md) | 卡顿/闪退的定位方法与修复（含真机掉帧数据） |
 | [外部授权漏洞加固记录.md](docs/外部授权漏洞加固记录.md) | 授权入口的安全加固 |
 | [白屏修复记录.md](docs/白屏修复记录.md) / [打开即请求权限_实现与实测.md](docs/打开即请求权限_实现与实测.md) / [读取应用列表弹窗_已实现并验证.md](docs/读取应用列表弹窗_已实现并验证.md) / [读取应用列表权限_改回与增强.md](docs/读取应用列表权限_改回与增强.md) | 各功能点的实现与实测记录 |
 | [LICENSE_COMPLIANCE_AUDIT.md](docs/LICENSE_COMPLIANCE_AUDIT.md) | 开源许可证合规自查 |
 | `ROUND*_改动汇总.md` | 各轮迭代的改动汇总 |
+
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
+---
+
+<a id="-star-history"></a>
+## 📊 Star History
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=iill392/youlong-security&amp;type=Date&amp;theme=dark"/>
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=iill392/youlong-security&amp;type=Date"/>
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=iill392/youlong-security&amp;type=Date"/>
+</picture>
+
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
+---
+
+<a id="-贡献"></a>
+## 🤝 贡献
+
+欢迎 Issue 与 PR！提交前请阅读：
+
+- 编译前确认环境（见[三、编译](#-编译)），**工程路径必须为纯 ASCII**；
+- 涉及上游 `embedded/` 的改动请保持版权头与许可证声明原样（见 [NOTICE](NOTICE)）；
+- 新增第三方依赖请同步更新 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；
+- 遵守 [AGPL-3.0](LICENSE) 与各第三方许可证。
+
+<p align="right"><a href="#readme-top" title="返回顶部">⬆️ 返回顶部</a></p>
+
+---
+
+<div align="center">
+
+**🛡️ 游龙安全护盾 · 开源 · 永久免费**
+
+<sub>用 [Stellar](https://github.com/roro2239/Stellar) 等开源项目构建 · 以 AGPL-3.0 发布 · Made with ❤️</sub>
+
+</div>
