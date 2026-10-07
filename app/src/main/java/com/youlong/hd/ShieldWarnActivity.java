@@ -583,24 +583,19 @@ public class ShieldWarnActivity extends Activity {
     }
 
     // ===== 判断是否受保护应用（自己 + 桌面宠物 + 游龙工具 + 白名单），任何卸载/冻结/停止前都必须过滤 =====
+    // 2026-10 修复（白名单没效果）：改用 WhitelistActivity.isWhitelisted 统一判定。
+    // 旧实现只读 whitelist_pkgs 原始串，漏掉两类信任包：
+    //   1) 内置默认信任包（微信/QQ/支付宝/拼多多等）——它们不写入 whitelist_pkgs，
+    //      导致音量键救援 7 秒倒计时后对它们照样拉起系统卸载框；
+    //   2) 历史遗留信任包（com.larus.nova / com.smile.gifmaker）。
     private boolean isProtectedApp(String pkg) {
         if (pkg == null || pkg.isEmpty()) return true;
         if (pkg.equals(getPackageName())) return true;   // 自己
         if (pkg.equals("com.youlong.hd")) return true;  // 硬编码双保险
         if (pkg.equals("com.youlong.zoo")) return true; // 桌面宠物保留
         if (pkg.equals("com.youlong.tool")) return true; // 游龙工具（自家应用保留，绝不冻结/卸载）
-        // 白名单应用不处理
-        try {
-            SharedPreferences prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
-            String raw = prefs.getString("whitelist_pkgs", "");
-            if (raw != null && !raw.isEmpty()) {
-                String[] arr = raw.split(",");
-                for (String w : arr) {
-                    if (w != null && pkg.equals(w.trim())) return true;
-                }
-            }
-        } catch (Exception ignored) {}
-        return false;
+        // 白名单应用不处理（内置默认 + 历史遗留 + 用户自定义，按条目精确匹配）
+        return WhitelistActivity.isWhitelisted(this, pkg);
     }
 
     // ===== 超级拦截模式 =====
@@ -1116,13 +1111,22 @@ public class ShieldWarnActivity extends Activity {
     }
 
     private void addToWhitelist(String pkg) {
+        if (pkg == null || pkg.isEmpty() || pkg.equals("未知应用")) return;
         try {
             SharedPreferences prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
             String raw = prefs.getString("whitelist_pkgs", "");
-            if (raw.contains(pkg)) return;
-            if (!raw.isEmpty()) raw += ",";
-            raw += pkg;
-            prefs.edit().putString("whitelist_pkgs", raw).apply();
+            // 2026-10 修复：去重必须按条目精确比较，不能用 raw.contains(pkg) 子串匹配。
+            // 旧写法在新增包名是已有条目的子串时（如已有 "com.a.bb" 再加 "com.a.b"）
+            // 会误判"已在白名单"而静默不写入 —— 用户点"信任此应用"却没生效。
+            if (raw != null && !raw.isEmpty()) {
+                for (String p : raw.split(",")) {
+                    if (pkg.equals(p.trim())) return; // 已存在，无需重复添加
+                }
+            }
+            StringBuilder sb = new StringBuilder(raw == null ? "" : raw);
+            if (sb.length() > 0) sb.append(",");
+            sb.append(pkg);
+            prefs.edit().putString("whitelist_pkgs", sb.toString()).apply();
             Log.d(TAG, "已将 " + pkg + " 加入白名单");
         } catch (Exception e) {
             Log.e(TAG, "addToWhitelist error", e);

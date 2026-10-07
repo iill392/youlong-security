@@ -259,6 +259,19 @@ public class BatchCleanupActivity extends Activity {
             public void run() {
                 for (int i = 0; i < foundPackages.size(); i++) {
                     final String pkg = foundPackages.get(i);
+
+                    // ===== 保护检查：自己/桌面宠物/游龙工具/白名单应用绝不卸载 =====
+                    // 2026-10 修复（白名单没效果）：批量清除页此前不区分白名单，
+                    // 一键清除会把用户明确信任的应用一并拉起卸载框。
+                    if (pkg.equals(getPackageName())
+                            || "com.youlong.hd".equals(pkg)
+                            || "com.youlong.zoo".equals(pkg)
+                            || "com.youlong.tool".equals(pkg)
+                            || WhitelistActivity.isWhitelisted(BatchCleanupActivity.this, pkg)) {
+                        Log.w(TAG, "受保护/白名单应用，跳过批量卸载: " + pkg);
+                        continue;
+                    }
+
                     Log.w(TAG, "批量卸载: " + pkg + " (" + (i + 1) + "/" + foundPackages.size() + ")");
 
                     // 直接打开系统原生卸载界面

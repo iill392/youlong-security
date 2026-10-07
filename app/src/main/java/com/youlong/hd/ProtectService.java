@@ -761,8 +761,9 @@ public class ProtectService extends Service implements SensorEventListener {
         // 内置信任应用（不可拦截，与白名单管理页一致）
         whitelistCache.addAll(WhitelistActivity.DEFAULT_TRUSTED_PKGS);
         // 兼容旧版硬编码跳过列表，统一并入白名单管理
-        whitelistCache.add("com.larus.nova");
-        whitelistCache.add("com.smile.gifmaker");
+        // （2026-10：挪到 WhitelistActivity.LEGACY_TRUSTED_PKGS 统一维护，
+        //   ShieldWarnActivity/NotifyUninstallReceiver 等组件此前读不到这两个包）
+        whitelistCache.addAll(WhitelistActivity.LEGACY_TRUSTED_PKGS);
         // 用户自定义白名单
         SharedPreferences prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
         String raw = prefs.getString("whitelist_pkgs", "");
@@ -1148,12 +1149,29 @@ public class ProtectService extends Service implements SensorEventListener {
         Log.i(TAG, "救援前台检测结果: " + (fgPkg != null ? fgPkg : "(null)"));
 
         // ===== 日常模式：不受任何前台界面限制 =====
-        // 系统界面（桌面/设置/关机菜单/锁屏）、白名单应用、甚至识别不出包名时，
-        // 都必须能弹出覆盖层 —— 否则用户在病毒应用里根本叫不出救援窗。
+        // 系统界面（桌面/设置/关机菜单/锁屏）、甚至识别不出包名时，都必须能弹出覆盖层
+        // —— 否则用户在病毒应用里根本叫不出救援窗。
         // 注意：此处仅跳过"前台判定"，应用内不可卸载自身/宠物/工具的保护仍然生效。
+        // 2026-10 修复（白名单没效果）：前台是白名单应用时不再弹任何拦截窗。
+        //   旧逻辑"窗口照弹但不动应用"在用户眼里就是"还是拦截了白名单里的"：
+        //   误触音量键/摇一摇时会照样弹全屏拦截窗、发"正在拦截"Toast、写拦截历史、
+        //   循环重发"请尽快卸载"通知。现在只给一条轻量 Toast 反馈（逃生通道没坏，
+        //   只是前台应用被用户明确信任了）。
         if (isDailyMode) {
+            // 用实时白名单（而非 4 秒一刷的缓存）：用户刚在白名单页添加完应用就误触逃生时，
+            // 不能因为缓存滞后继续弹拦截窗。SharedPreferences 首次加载后为内存读，代价可忽略。
+            if (fgPkg != null && !fgPkg.isEmpty()
+                    && WhitelistActivity.isWhitelisted(ProtectService.this, fgPkg)) {
+                Log.i(TAG, "日常模式：前台应用在白名单中，跳过拦截（不弹窗/不写拦截历史）: " + fgPkg);
+                CrashLogger.event("[逃生] 前台是白名单应用，已跳过拦截: " + fgPkg);
+                h.post(() -> Toast.makeText(ProtectService.this,
+                        "前台应用在白名单中，已跳过拦截（如需拦截请先在白名单中移除）",
+                        Toast.LENGTH_LONG).show());
+                lastShakeRescueTime = System.currentTimeMillis(); // 防止立即重复触发
+                return;
+            }
             String safePkg = (fgPkg == null || fgPkg.isEmpty()) ? "(无法识别的界面)" : fgPkg;
-            Log.i(TAG, "日常模式：不受前台/白名单/系统应用限制，直接弹出覆盖层（前台=" + safePkg + "）");
+            Log.i(TAG, "日常模式：不受前台/系统应用限制，直接弹出覆盖层（前台=" + safePkg + "）");
             warnPopup(safePkg, 2, "逃生触发", true);
             return;
         }
@@ -1164,13 +1182,21 @@ public class ProtectService extends Service implements SensorEventListener {
             return;
         }
 
-        // 白名单应用：照样弹出救援窗。
-        // 用户是「主动」触发救援（音量三连击），界面必须出来 —— 只弹个 Toast 等于什么都没做。
-        // 安全性不受影响：弹窗内的应用列表、卸载/冻结逻辑都会把白名单应用排除在外，
-        // 即「窗口照弹，但绝不动这个应用」。
-        if (fgPkg != null && !fgPkg.isEmpty() && isWhitelisted(fgPkg)) {
-            Log.i(TAG, "前台应用在白名单中：仍弹出救援窗（列表自动排除白名单应用）: " + fgPkg);
-            warnPopup(fgPkg, 2, "逃生触发（白名单应用）", true);
+        // 白名单应用：不再弹任何拦截/救援窗（2026-10 修复"白名单没效果"）。
+        // 用户已明确信任的应用，绝不应该被当成病毒对待：
+        //   旧逻辑"窗口照弹但绝不动这个应用"，实际体验是误触音量键/摇一摇时
+        //   白名单应用照样被全屏拦截窗盖住、发"正在拦截"Toast、写拦截历史、
+        //   循环重发"请尽快卸载"通知 —— 即"添加到白名单没有效果"。
+        // 现在改为：只给一条轻量 Toast 反馈（逃生通道不是坏了，而是前台应用被信任）。
+        // 安全性不受影响：弹窗内的应用列表、卸载/冻结逻辑本就把白名单应用排除在外。
+        if (fgPkg != null && !fgPkg.isEmpty()
+                && WhitelistActivity.isWhitelisted(ProtectService.this, fgPkg)) {
+            Log.i(TAG, "前台应用在白名单中：跳过拦截，不弹救援窗: " + fgPkg);
+            CrashLogger.event("[逃生] 前台是白名单应用，已跳过拦截: " + fgPkg);
+            h.post(() -> Toast.makeText(ProtectService.this,
+                    "前台应用在白名单中，已跳过拦截（如需拦截请先在白名单中移除）",
+                    Toast.LENGTH_LONG).show());
+            lastShakeRescueTime = System.currentTimeMillis(); // 防止关闭后立即重复触发
             return;
         }
 
@@ -1637,6 +1663,36 @@ public class ProtectService extends Service implements SensorEventListener {
                     @Override
                     public void run() {
                         if (countdownTask[0] != null) h.removeCallbacks(countdownTask[0]);
+
+                        // ===== 保护检查：受保护应用（自己/桌面宠物/游龙工具/白名单）绝不允许强制停止 =====
+                        // 2026-10 修复（白名单没效果）：旧逻辑这里直接 am force-stop 前台包，
+                        // 没有白名单检查 —— 倒计时 5 秒一到，白名单应用照样被杀。
+                        // 对照：ShieldWarnActivity.doSuperIntercept 与极强模式逐应用过滤都有检查，唯独这里漏了。
+                        if (!pkgUnknown && isProtectedFinalPkg(pkgF)) {
+                            Log.w(TAG, "超级拦截：受保护应用（含白名单），禁止强制停止: " + pkgF);
+                            h.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    countdownTv.setText("⚠ 受保护应用，禁止强制停止: " + pkgF);
+                                    countdownTv.setTextColor(0xFFFF4444);
+                                    reasonTv.setText("此应用为受保护应用（自己/桌面宠物/游龙工具/白名单）");
+                                    reasonTv.setTextColor(0xFFFF4444);
+                                    pkgTv.setText("受保护应用：" + pkgF);
+                                    pkgTv.setTextColor(0xFF4CAF50);
+                                    btnMain.setText("关闭");
+                                    btnMain.setEnabled(true);
+                                    btnMain.setOnClickListener(new View.OnClickListener() {
+                                        @Override
+                                        public void onClick(View v) {
+                                            lastShakeRescueTime = System.currentTimeMillis();
+                                            try { wm.removeView(root); } catch (Exception ignored) {}
+                                        }
+                                    });
+                                    btnClose.setVisibility(View.GONE);
+                                }
+                            });
+                            return;
+                        }
                         stageDone[0] = true;
                         countdownTv.setText("正在通过 Shizuku 强制停止...");
                         countdownTv.setTextColor(0xFFFFCC00);
@@ -5099,6 +5155,17 @@ public class ProtectService extends Service implements SensorEventListener {
 
     // ===== 弹出警告窗 =====
     private void warnPopup(String pkg, int warnCount, String warnReason, boolean isVolumeRescue) {
+        // ===== 终极保险：白名单应用一律不弹拦截窗（2026-10 修复"白名单没效果"）=====
+        // 正常调用方（黑白名单巡检/病毒库/逃生触发）在各自路径都已先检查过白名单，
+        // 这里再拦一道是纵深防御：任何未来新增的调用路径也绝不会把白名单应用
+        // 当病毒对待（不弹窗、不发"正在拦截"Toast、不写拦截历史、不发卸载通知）。
+        // 注意：pkg 也可能是 "(无法识别的界面)" / "未知应用" 这类占位串，
+        // 它们不会命中白名单，仍按原逻辑弹窗。
+        if (pkg != null && WhitelistActivity.isWhitelisted(this, pkg)) {
+            Log.i(TAG, "白名单应用，跳过拦截弹窗（不弹窗/不写拦截历史）: " + pkg);
+            CrashLogger.event("[拦截] 白名单应用，已跳过弹窗: " + pkg);
+            return;
+        }
         lastWarnPkg = pkg;
         lastWarnTime = System.currentTimeMillis();
 
@@ -5636,24 +5703,34 @@ public class ProtectService extends Service implements SensorEventListener {
                     if (fg == null) fg = getFgViaStellar();
                     if (fg == null) fg = getFgSimple();
 
+                    // ===== 白名单应用：不弹任何拦截窗（2026-10 修复"白名单没效果"）=====
+                    // 与音量键逃生同规则：用户明确信任的应用绝不当病毒对待，
+                    // 只给一条轻量 Toast 反馈（摇一摇触发没坏，只是前台被信任）。
+                    // 用实时白名单（而非 4 秒缓存）：刚添加完白名单就摇动时不能因缓存滞后继续拦。
+                    if (fg != null && !fg.isEmpty()
+                            && WhitelistActivity.isWhitelisted(ProtectService.this, fg)) {
+                        Log.i(TAG, "摇动触发：前台在白名单中，跳过拦截（不弹窗/不写拦截历史）: " + fg);
+                        CrashLogger.event("[摇动] 前台是白名单应用，已跳过拦截: " + fg);
+                        Toast.makeText(ProtectService.this,
+                                "前台应用在白名单中，已跳过拦截（如需拦截请先在白名单中移除）",
+                                Toast.LENGTH_LONG).show();
+                        lastShakeRescueTime = System.currentTimeMillis();
+                        return;
+                    }
+
                     // ===== 日常模式：不受任何前台界面限制 =====
-                    // 系统界面 / 白名单应用 / 无法识别包名 → 一律照常弹出救援窗
+                    // 系统界面 / 无法识别包名 → 一律照常弹出救援窗
                     if (isDailyMode()) {
                         String safePkg = (fg == null || fg.isEmpty())
                                 ? "(无法识别的界面)" : fg;
-                        Log.i(TAG, "摇动触发（日常模式）：不受前台/白名单限制，前台=" + safePkg);
+                        Log.i(TAG, "摇动触发（日常模式）：不受前台限制，前台=" + safePkg);
                         warnPopup(safePkg, 1, "检测到猛烈摇动", true);
                         return;
                     }
 
                     if (fg != null && !fg.equals(getPackageName())) {
-                        // 白名单应用界面摇动 → 同样弹出救援窗（主动触发必须看得见界面），
-                        // 弹窗中的应用列表/卸载逻辑仍会排除白名单应用，不会动它
-                        boolean wl = isWhitelisted(fg);
-                        Log.i(TAG, "摇动触发：前台=" + fg
-                                + (wl ? "（白名单应用，仍弹窗）" : ""));
-                        warnPopup(fg, 1,
-                                wl ? "检测到猛烈摇动（白名单应用）" : "检测到猛烈摇动", true);
+                        Log.i(TAG, "摇动触发：前台=" + fg);
+                        warnPopup(fg, 1, "检测到猛烈摇动", true);
                     }
                 }, 200);
             }

@@ -30,6 +30,14 @@ import java.util.Set;
  * 白名单管理。
  * 进页面只显示"加入白名单"按钮。点击弹出应用列表让用户多选。
  * 已加入的应用显示在下方，可移除（内置信任应用除外）。
+ *
+ * <p>本类同时提供**全应用统一的白名单判定**：
+ * {@link #isWhitelisted(Context, String)} 按条目精确匹配，且同时覆盖
+ * 内置默认信任包（{@link #DEFAULT_TRUSTED_PKGS}）、历史版本遗留的硬编码信任包
+ * （{@link #LEGACY_TRUSTED_PKGS}）与用户自定义白名单。
+ * 各拦截/卸载入口请一律调用它，避免出现"某一处漏检查→白名单应用仍被拦截/卸载"
+ * 的不一致（历史上 ShieldWarnActivity 只读原始串、漏掉内置信任包，导致微信等
+ * 内置信任应用在音量键救援 7 秒倒计时后仍被拉起系统卸载框）。
  */
 public class WhitelistActivity extends Activity {
 
@@ -41,6 +49,37 @@ public class WhitelistActivity extends Activity {
             "com.youlong.zoo",
             "com.tencent.mobileqq"
     ));
+
+    /**
+     * 历史版本硬编码跳过的包名（统一并入白名单判定，与白名单管理页语义一致）。
+     * 原先只写死在 ProtectService.loadWhitelist() 里，其他组件读不到。
+     */
+    public static final java.util.Set<String> LEGACY_TRUSTED_PKGS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "com.larus.nova",
+            "com.smile.gifmaker"
+    ));
+
+    /**
+     * 统一的白名单判定（各拦截/卸载入口共用，按条目精确匹配）。
+     *
+     * <p>覆盖：内置默认信任包 + 历史遗留信任包 + 用户在白名单管理页/拦截弹窗里
+     * 添加的自定义白名单。匹配规则为「按逗号拆条、逐条 trim 后 equals」，
+     * 不做子串匹配——子串匹配会把 "com.a.b" 误判成已在白名单（如已存在 "com.a.bb"），
+     * 导致"信任此应用"静默失败。
+     */
+    public static boolean isWhitelisted(Context ctx, String pkg) {
+        if (ctx == null || pkg == null || pkg.isEmpty()) return false;
+        if (DEFAULT_TRUSTED_PKGS.contains(pkg) || LEGACY_TRUSTED_PKGS.contains(pkg)) return true;
+        try {
+            SharedPreferences prefs = ctx.getSharedPreferences("shield_prefs", Context.MODE_PRIVATE);
+            String raw = prefs.getString("whitelist_pkgs", "");
+            if (raw == null || raw.isEmpty()) return false;
+            for (String p : raw.split(",")) {
+                if (pkg.equals(p.trim())) return true;
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
 
     private PackageManager pm;
     private SharedPreferences prefs;
