@@ -189,8 +189,8 @@ class AdbPairOverlay(
             setStatus("配对端口无效：请填系统弹窗里的端口")
             return
         }
-        if (code.length < 6) {
-            setStatus("配对码无效：应为 6 位数字")
+        if (!code.matches(Regex("\\d{6}"))) {
+            setStatus("配对码无效：应为恰好 6 位数字")
             return
         }
 
@@ -247,7 +247,7 @@ class AdbPairOverlay(
                     delay(2500L)
                     withContext(Dispatchers.Main) { hide() }
                 } else {
-                    setStatus("启动命令已执行，但 20 秒内没等到服务：可回特权面板点「重新连接」")
+                    setStatus("启动命令已执行，但 30 秒内没等到服务：可回特权面板点「重新连接」")
                     onLog("等待特权 Binder 超时")
                 }
             } catch (t: Throwable) {

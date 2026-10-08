@@ -14,6 +14,11 @@ public final class YlApplication {
         this.mRemote = remote;
     }
 
+    /** 底层回调 Binder（服务端按 Binder 去重、判空用） */
+    public IBinder asBinder() {
+        return mRemote;
+    }
+
     
     public void onServerReady() throws RemoteException {
         Parcel data = Parcel.obtain();
@@ -84,11 +89,16 @@ public final class YlApplication {
         };
     }
 
-    
+    /**
+     * 从 Bundle 还原回调（键名统一走 {@link YlService#KEY_CALLBACK}，旧实现写死了 "callback"）。
+     *
+     * <p>当前没有调用方：attachApplication 是把回调 Binder 直接放在事务里传的，
+     * 不走 Bundle。保留此方法给 hd 层后续「把回调塞进 Bundle 附带传递」的用法。
+     */
     public static YlApplication fromBundle(Bundle bundle) {
         if (bundle == null) return null;
         bundle.setClassLoader(YlApplication.class.getClassLoader());
-        IBinder b = bundle.getBinder("callback");
+        IBinder b = bundle.getBinder(YlService.KEY_CALLBACK);
         return b == null ? null : new YlApplication(b);
     }
 }

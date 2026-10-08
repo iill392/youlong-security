@@ -14,9 +14,12 @@
 
 static jint setcontext(JNIEnv *env, jobject thiz, jstring jName) {
     const char *name = env->GetStringUTFChars(jName, nullptr);
+    if (name == nullptr) return -1;
 
-    if (!se::setcon)
+    if (!se::setcon) {
+        env->ReleaseStringUTFChars(jName, name);
         return -1;
+    }
 
     int res = se::setcon(name);
     if (res == -1) PLOGE("设置 SELinux 上下文 %s", name);

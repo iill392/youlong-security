@@ -318,7 +318,6 @@ public class PerformanceService extends Service {
                     String pkg = proc.processName.split(":")[0];
                     am.killBackgroundProcesses(pkg);
                     killed++;
-                    tryForceStopPackage(am, pkg);
                 }
             }
             Log.i(TAG, "Cleaned " + killed + " background processes");
@@ -335,13 +334,6 @@ public class PerformanceService extends Service {
                 || proc.processName.contains("huawei")
                 || proc.processName.contains("hmos")
                 || proc.processName.equals(myPkg);
-    }
-
-    private void tryForceStopPackage(ActivityManager am, String pkg) {
-        try {
-            Method forceStop = am.getClass().getMethod("forceStopPackage", String.class);
-            forceStop.invoke(am, pkg);
-        } catch (Exception ignored) {}
     }
 
     // ============================================================

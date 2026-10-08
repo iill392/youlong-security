@@ -481,11 +481,18 @@ public class AdSkipService extends AccessibilityService {
     private boolean hasOverlayWindow() {
         List<AccessibilityWindowInfo> windows = getWindows();
         if (windows == null) return false;
+        // 修复：原实现「存在一个非 active 窗口即 true」——状态栏/导航栏几乎总是
+        // 非 active，导致恒为 true 并盲点屏幕右上角。改为只关心真正的覆盖层：
+        // 非本应用的普通应用窗口（非 active）或无障碍/分屏浮层。
         for (AccessibilityWindowInfo w : windows) {
             if (w == null) continue;
+            int type = w.getType();
             boolean active = w.isActive();
+            boolean relevant = (type == AccessibilityWindowInfo.TYPE_APPLICATION && !active)
+                    || type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY
+                    || type == AccessibilityWindowInfo.TYPE_SPLIT_SCREEN_DIVIDER;
             w.recycle();
-            if (!active) return true;
+            if (relevant) return true;
         }
         return false;
     }

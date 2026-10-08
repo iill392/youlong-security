@@ -40,7 +40,12 @@ ADMINS=""
 LIST_OK=0
 if command -v timeout >/dev/null 2>&1; then
     ADMINS=$(timeout 15 dpm list-owners 2>/dev/null | awk "$AWK_EXTRACT")
-    [ $? -eq 0 ] && LIST_OK=1
+    # 修复：$? 取的是管道尾（awk）的退出码，timeout 杀掉 dpm（rc=124）也会判成功；
+    # 改用 PIPESTATUS 判断 timeout 本身是否超时
+    rc_timeout=${PIPESTATUS[0]}
+    if [ -z "$rc_timeout" ] || [ "$rc_timeout" -ne 124 ] && [ "$rc_timeout" -ne 0 ]; then
+        LIST_OK=1
+    fi
 else
     ADMINS=$(dpm list-owners 2>/dev/null | awk "$AWK_EXTRACT")
     LIST_OK=1

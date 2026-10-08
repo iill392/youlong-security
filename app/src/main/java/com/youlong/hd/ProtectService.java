@@ -175,6 +175,10 @@ public class ProtectService extends Service implements SensorEventListener {
     }
     
     private volatile boolean finalForceStopLoop = false;
+
+    
+    private final java.util.concurrent.atomic.AtomicBoolean finalForceStopThreadAlive =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
     
     
     
@@ -1661,15 +1665,23 @@ public class ProtectService extends Service implements SensorEventListener {
                                 Log.w(TAG, "超级拦截 force-stop 结果: " + result);
 
                                 
+                                final String finalResult = result;
                                 h.post(new Runnable() {
                                     @Override
                                     public void run() {
                                         
-                                        pkgTv.setText("已强制停止：" + pkgF);
-                                        pkgTv.setTextColor(0xFF4CAF50);
-                                        
-                                        reasonTv.setText("am force-stop 已执行，是否继续卸载此应用？");
-                                        reasonTv.setTextColor(0xFFFFCC00);
+                                        boolean stopped = !isAppRunning(pkgF);
+                                        if (stopped || finalResult.contains("OK")) {
+                                            pkgTv.setText("已强制停止：" + pkgF);
+                                            pkgTv.setTextColor(0xFF4CAF50);
+                                            reasonTv.setText("am force-stop 已执行，是否继续卸载此应用？");
+                                            reasonTv.setTextColor(0xFFFFCC00);
+                                        } else {
+                                            pkgTv.setText("强制停止可能失败：" + pkgF);
+                                            pkgTv.setTextColor(0xFFFF4444);
+                                            reasonTv.setText("am force-stop 执行后应用仍在运行，请手动处理");
+                                            reasonTv.setTextColor(0xFFFF4444);
+                                        }
                                         
                                         countdownTv.setText("5 秒后将自动卸载");
                                         countdownTv.setTextColor(0xFFFF4444);
@@ -2037,69 +2049,72 @@ public class ProtectService extends Service implements SensorEventListener {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                
-                if (!StellarUtils.isStellarAvailable() || !StellarUtils.hasStellarPermission()) {
+                finalForceStopThreadAlive.set(true);
+                try {
+                    if (!StellarUtils.isStellarAvailable() || !StellarUtils.hasStellarPermission()) {
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                spinner.setVisibility(View.GONE);
+                                percentTv.setVisibility(View.GONE);
+                                statusTv.setText("⚠ 需要 Shizuku 权限");
+                                statusTv.setTextColor(0xFFFF6B6B);
+                                tipTv.setText("请先在 Shizuku 应用中授权本应用\n授权后重新触发终结模式");
+                                tipTv.setTextColor(0xFFFF6B6B);
+                            }
+                        });
+                        return;
+                    }
+
+                    finalForceStopLoop = true;
+                    finalForceStopPkgs = null;
+
+
                     h.post(new Runnable() {
                         @Override
                         public void run() {
-                            spinner.setVisibility(View.GONE);
-                            percentTv.setVisibility(View.GONE);
-                            statusTv.setText("⚠ 需要 Shizuku 权限");
-                            statusTv.setTextColor(0xFFFF6B6B);
-                            tipTv.setText("请先在 Shizuku 应用中授权本应用\n授权后重新触发终结模式");
-                            tipTv.setTextColor(0xFFFF6B6B);
+                            if (!alive.get()) {
+                                finalForceStopLoop = false;
+                                return;
+                            }
+                            h.postDelayed(percentTicker[0], 120);
+                            h.postDelayed(switchCheck[0], 500);
                         }
                     });
-                    return;
-                }
 
-                finalForceStopLoop = true;
-                finalForceStopPkgs = null; 
 
-                
-                h.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!alive.get()) {
-                            finalForceStopLoop = false;
-                            return;
-                        }
-                        h.postDelayed(percentTicker[0], 120);
-                        h.postDelayed(switchCheck[0], 500);
+                    int stopCount = doFinalForceStopOnce();
+                    firstCount.set(stopCount);
+                    firstDone.set(true);
+
+                    if (!alive.get()) {
+                        finalForceStopLoop = false;
+                        return;
                     }
-                });
 
-                
-                int stopCount = doFinalForceStopOnce();
-                firstCount.set(stopCount);
-                firstDone.set(true);
 
-                if (!alive.get()) {
-                    finalForceStopLoop = false;
-                    return;
-                }
-
-                
-                percent.set(Math.max(percent.get(), Math.min(60, Math.max(15, firstCount.get() / 10))));
-                h.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!alive.get()) {
-                            finalForceStopLoop = false;
-                            return;
+                    percent.set(Math.max(percent.get(), Math.min(60, Math.max(15, firstCount.get() / 10))));
+                    h.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!alive.get()) {
+                                finalForceStopLoop = false;
+                                return;
+                            }
+                            percentTv.setText("正在终止所有系统应用  " + percent.get() + "%");
+                            statusTv.setText("已终结 " + firstCount.get() + " 个应用");
                         }
-                        percentTv.setText("正在终止所有系统应用  " + percent.get() + "%");
-                        statusTv.setText("已终结 " + firstCount.get() + " 个应用");
-                    }
-                });
+                    });
 
-                
-                
-                
-                while (finalForceStopLoop && alive.get()) {
-                    try { Thread.sleep(1500); } catch (InterruptedException e) { break; }
-                    if (!finalForceStopLoop || !alive.get()) break;
-                    doFinalForceStopOnce();
+
+
+                    while (finalForceStopLoop && alive.get()) {
+                        try { Thread.sleep(1500); } catch (InterruptedException e) { break; }
+                        if (!finalForceStopLoop || !alive.get()) break;
+                        doFinalForceStopOnce();
+                    }
+                } finally {
+                    finalForceStopThreadAlive.set(false);
                 }
             }
         }).start();
@@ -2457,7 +2472,7 @@ public class ProtectService extends Service implements SensorEventListener {
                 btnRecover.setEnabled(false);
                 btnRecover.setText("正在重启...");
                 btnConfirm.setEnabled(false);
-                finalForceStopLoop = false; 
+                finalForceStopLoop = false;
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -2468,6 +2483,17 @@ public class ProtectService extends Service implements SensorEventListener {
                             r = execShell("reboot");
                         }
                         Log.w(TAG, "终结模式误触恢复 reboot 结果: " + r);
+                        final String finalR = r;
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (finalR == null || finalR.startsWith("ERROR:")) {
+                                    btnRecover.setText("需要系统权限，请手动重启");
+                                    Toast.makeText(ProtectService.this,
+                                            "需要系统权限，请手动重启", Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        });
                     }
                 }).start();
             }
@@ -2503,7 +2529,7 @@ public class ProtectService extends Service implements SensorEventListener {
                                         final java.util.List<String> targets,
                                         final String statusText,
                                         final boolean uninstall) {
-        
+
         finalForceStopLoop = false;
 
         content.removeAllViews();
@@ -2523,7 +2549,7 @@ public class ProtectService extends Service implements SensorEventListener {
         statusTv.setPadding(0, 0, 0, 16);
         content.addView(statusTv);
 
-        
+
         final Button btnClearingClose = new Button(this);
         btnClearingClose.setText("关闭（退出，不执行任何操作）");
         btnClearingClose.setTextColor(0xFFAAAAAA);
@@ -2542,24 +2568,24 @@ public class ProtectService extends Service implements SensorEventListener {
             }
         });
 
-        
+
         new Thread(new Runnable() {
             @Override
             public void run() {
-                
-                
+
+
                 long waitUntil = System.currentTimeMillis() + 8000;
-                while (finalForceStopLoop && System.currentTimeMillis() < waitUntil) {
+                while (finalForceStopThreadAlive.get() && System.currentTimeMillis() < waitUntil) {
                     try { Thread.sleep(200); } catch (InterruptedException e) { break; }
                 }
 
-                
-                
+
+
                 StringBuilder cmdSb = new StringBuilder();
                 boolean first = true;
                 java.util.List<String> safeTargets = new ArrayList<>();
                 for (String t : targets) {
-                    if (isProtectedFinalPkg(t)) continue; 
+                    if (isProtectedFinalPkg(t)) continue;
                     safeTargets.add(t);
                     if (!first) cmdSb.append("; ");
                     if (uninstall) {
@@ -2669,6 +2695,17 @@ public class ProtectService extends Service implements SensorEventListener {
                             r = execShell("reboot");
                         }
                         Log.w(TAG, "终结模式 reboot 结果: " + r);
+                        final String finalR = r;
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (finalR == null || finalR.startsWith("ERROR:")) {
+                                    btnReboot.setText("需要系统权限，请手动重启");
+                                    Toast.makeText(ProtectService.this,
+                                            "需要系统权限，请手动重启", Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        });
                     }
                 }).start();
             }
@@ -2991,10 +3028,35 @@ public class ProtectService extends Service implements SensorEventListener {
             final String self = getPackageName();
             if (self == null || self.isEmpty()) return;
 
+            
+            StringBuilder blacklistPattern = new StringBuilder();
+            try {
+                for (String p : BlacklistConstants.HARDCODED_BLACKLIST) {
+                    if (p != null && !p.isEmpty()) {
+                        if (blacklistPattern.length() > 0) blacklistPattern.append("|");
+                        blacklistPattern.append(p);
+                    }
+                }
+            } catch (Exception ignored) {}
+            try {
+                SharedPreferences prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
+                String raw = prefs.getString("blacklist_pkgs", "");
+                if (!raw.isEmpty()) {
+                    for (String p : raw.split(",")) {
+                        String t = p.trim();
+                        if (!t.isEmpty()) {
+                            if (blacklistPattern.length() > 0) blacklistPattern.append("|");
+                            blacklistPattern.append(t);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
             StringBuilder sb = new StringBuilder();
             sb.append("T=").append(self).append("; ");
+            sb.append("BL='").append(blacklistPattern).append("'; ");
             sb.append("C=$(settings get secure enabled_accessibility_services 2>/dev/null); ");
-            sb.append("N=$(echo \"$C\" | tr ':' '\\n' | grep \"^$T/\" | tr '\\n' ':' | sed 's/:$//'); ");
+            sb.append("N=$(echo \"$C\" | tr ':' '\\n' | grep -vE \"^($BL)/\" | tr '\\n' ':' | sed 's/:$//'); ");
             sb.append("timeout 5 settings put secure enabled_accessibility_services \"$N\" 2>/dev/null; ");
             sb.append("timeout 5 settings put secure accessibility_enabled 1 2>/dev/null; ");
             sb.append("echo \"当前启用：$(settings get secure enabled_accessibility_services 2>/dev/null)\"");
@@ -3002,16 +3064,16 @@ public class ProtectService extends Service implements SensorEventListener {
             final String script = sb.toString();
             final String out;
             if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                
+
                 out = StellarUtils.runCommand(script, 12000);
             } else {
                 out = execShell(script);
             }
-            Log.i(TAG, "日常模式：无障碍服务已收窄到仅保留自身 —— "
+            Log.i(TAG, "日常模式：无障碍服务已收窄（仅移除黑名单服务） —— "
                     + (out == null ? "null" : out.trim().replace('\n', ' ')));
         } catch (Throwable tr) {
-            
-            
+
+
             Log.w(TAG, "日常模式：清理无障碍服务失败（已忽略）", tr);
         }
     }
@@ -3422,27 +3484,42 @@ public class ProtectService extends Service implements SensorEventListener {
         if (targets != null) {
             for (String p : targets) {
                 if (p == null || p.isEmpty()) continue;
-                if (!p.matches("[A-Za-z0-9_.]+")) continue; 
+                if (!p.matches("[A-Za-z0-9_.]+")) continue;
                 quoted.append(p).append(' ');
             }
         }
         final String targetList = quoted.toString().trim();
 
+        
+        StringBuilder whitelistPattern = new StringBuilder("com.youlong.hd|com.youlong.zoo|com.youlong.tool");
+        try {
+            SharedPreferences prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
+            String raw = prefs.getString("whitelist_pkgs", "");
+            if (!raw.isEmpty()) {
+                for (String p : raw.split(",")) {
+                    String t = p.trim();
+                    if (!t.isEmpty() && t.matches("[A-Za-z0-9_.]+")) {
+                        whitelistPattern.append("|").append(t);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
         StringBuilder sb = new StringBuilder();
         sb.append("TARGETS=\"").append(targetList).append("\"\n");
         sb.append("FLAG=\"").append(flag.getAbsolutePath()).append("\"\n");
         sb.append("i=0\n");
-        
+
         sb.append("while [ $i -lt 600 ]; do\n");
-        
+
         sb.append("  [ -f \"$FLAG\" ] || break\n");
-        
+
         sb.append("  for p in $TARGETS; do am force-stop $p 2>/dev/null; done\n");
-        
+
         sb.append("  if [ $((i % 4)) -eq 0 ]; then\n");
         sb.append("    for p in $(pm list packages -3 2>/dev/null | cut -d: -f2); do\n");
-        
-        sb.append("      case \"$p\" in com.youlong.hd|com.youlong.zoo|com.youlong.tool) continue ;; esac\n");
+
+        sb.append("      case \"$p\" in ").append(whitelistPattern).append(") continue ;; esac\n");
         sb.append("      case \" $TARGETS \" in *\" $p \"*) continue ;; esac\n");
         sb.append("      am force-stop $p 2>/dev/null\n");
         sb.append("    done\n");
@@ -3672,6 +3749,17 @@ public class ProtectService extends Service implements SensorEventListener {
                     public void run() {
                         String r = StellarUtils.runCommand("reboot", 10000);
                         Log.w(TAG, "日常模式 reboot 结果: " + r);
+                        final String finalR = r;
+                        h.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (finalR == null || finalR.startsWith("ERROR:")) {
+                                    btnReboot.setText("需要系统权限，请手动重启");
+                                    Toast.makeText(ProtectService.this,
+                                            "需要系统权限，请手动重启", Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        });
                     }
                 }).start();
             }
@@ -3860,13 +3948,13 @@ public class ProtectService extends Service implements SensorEventListener {
         }
 
         if (!certain.isEmpty()) {
-            Log.w(TAG, "病毒库：发现 " + certain.size() + " 个 100% 病毒应用，立即强制卸载");
+            Log.w(TAG, "病毒库：发现 " + certain.size() + " 个 100% 病毒应用，需用户确认后卸载");
             for (String p : certain) Log.w(TAG, "病毒库命中(100%): " + p);
             
             
             
             final List<String> certainMain = certain;
-            h.post(() -> startVirusUninstall(certainMain, true));
+            h.post(() -> showVirusCertainConfirm(certainMain));
             return;
         }
         if (!suspect.isEmpty()) {
@@ -3903,6 +3991,124 @@ public class ProtectService extends Service implements SensorEventListener {
 
     
     
+    
+    private void showVirusCertainConfirm(final List<String> targets) {
+        try {
+            final WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (wm == null) { virusUninstallRunning = false; return; }
+            removeVirusOverlayIfAny();
+
+            final LinearLayout card = buildVirusCard();
+
+            TextView icon = new TextView(this);
+            icon.setText("\uD83D\uDEE1\uFE0F");
+            icon.setTextSize(42);
+            icon.setGravity(Gravity.CENTER);
+            card.addView(icon);
+
+            TextView title = new TextView(this);
+            title.setText("发现 " + targets.size() + " 个病毒应用");
+            title.setTextColor(0xFFFF6B6B);
+            title.setTextSize(20);
+            title.setGravity(Gravity.CENTER);
+            card.addView(title);
+
+            TextView sub = new TextView(this);
+            sub.setText("以下应用被病毒库 100% 命中，即将卸载：\n\n是否确认卸载？");
+            sub.setTextColor(0xFFFFDDDD);
+            sub.setTextSize(14);
+            sub.setLineSpacing(dp(4), 1f);
+            sub.setGravity(Gravity.CENTER);
+            sub.setPadding(0, dp(10), 0, dp(10));
+            card.addView(sub);
+
+            ScrollView sv = new ScrollView(this);
+            LinearLayout list = new LinearLayout(this);
+            list.setOrientation(LinearLayout.VERTICAL);
+            for (String p : targets) {
+                TextView item = new TextView(this);
+                item.setText("• " + appLabelOf(p) + "\n    " + p);
+                item.setTextColor(0xFFFFDDDD);
+                item.setTextSize(13);
+                item.setPadding(0, dp(4), 0, dp(4));
+                list.addView(item);
+            }
+            sv.addView(list);
+            int screenH = getResources().getDisplayMetrics().heightPixels;
+            int listH = Math.min((int) (screenH * 0.32f), dp(30) + targets.size() * dp(46));
+            if (listH < dp(60)) listH = dp(60);
+            sv.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, listH));
+            card.addView(sv);
+
+            final Button btnGo = new Button(this);
+            btnGo.setText("确认卸载");
+            btnGo.setTextColor(Color.WHITE);
+            btnGo.setTextSize(17);
+            btnGo.setBackgroundColor(0xFFD32F2F);
+            LinearLayout.LayoutParams bp1 = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            bp1.topMargin = dp(14);
+            btnGo.setLayoutParams(bp1);
+            card.addView(btnGo);
+
+            final Button btnLater = new Button(this);
+            btnLater.setText("稍后处理");
+            btnLater.setTextColor(0xFFDDDDDD);
+            btnLater.setTextSize(15);
+            btnLater.setBackgroundColor(0xFF555555);
+            LinearLayout.LayoutParams bp2 = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            bp2.topMargin = dp(8);
+            btnLater.setLayoutParams(bp2);
+            card.addView(btnLater);
+
+            
+            final Runnable[] timeout = new Runnable[1];
+
+            btnGo.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (timeout[0] != null) h.removeCallbacks(timeout[0]);
+                    removeVirusOverlayIfAny();
+                    startVirusUninstall(targets, true);
+                }
+            });
+            btnLater.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (timeout[0] != null) h.removeCallbacks(timeout[0]);
+                    removeVirusOverlayIfAny();
+                    virusUninstallRunning = false;
+                    Log.w(TAG, "病毒库：用户在「100% 病毒确认」弹窗中选择稍后处理");
+                }
+            });
+
+            addVirusOverlay(wm, card);
+
+            timeout[0] = new Runnable() {
+                @Override
+                public void run() {
+                    if (!virusPopupShowing || virusOverlayView != card) return;
+                    Log.w(TAG, "病毒库：100% 病毒确认弹窗超时未响应，按稍后处理");
+                    removeVirusOverlayIfAny();
+                    virusUninstallRunning = false;
+                }
+            };
+            h.postDelayed(timeout[0], 120000);
+            Log.i(TAG, "病毒库：已弹出「100% 病毒确认」弹窗，共 " + targets.size() + " 个应用");
+        } catch (SecurityException e) {
+            
+            Log.w(TAG, "病毒库：无悬浮窗权限，跳过确认弹窗直接系统卸载", e);
+            runSystemUninstall(targets);
+        } catch (Exception e) {
+            Log.e(TAG, "showVirusCertainConfirm 失败", e);
+            runSystemUninstall(targets);
+        }
+    }
+
     
     private void startVirusUninstall(final List<String> pkgs, final boolean certain) {
         if (virusUninstallRunning) return;
@@ -4177,7 +4383,11 @@ public class ProtectService extends Service implements SensorEventListener {
             card.addView(icon);
 
             TextView title = new TextView(this);
-            title.setText("我们发现了威胁病毒，已强制卸载成功");
+            if (!failed.isEmpty()) {
+                title.setText("部分卸载失败（" + failed.size() + " 个）");
+            } else {
+                title.setText("我们发现了威胁病毒，已强制卸载成功");
+            }
             title.setTextColor(Color.WHITE);
             title.setTextSize(19);
             title.setGravity(Gravity.CENTER);
@@ -4718,11 +4928,12 @@ public class ProtectService extends Service implements SensorEventListener {
                 }
                 Log.w(TAG, "超级拦截 pm uninstall 结果: " + result[0]);
 
+                final String finalResult = result[0];
                 h.post(new Runnable() {
                     @Override
                     public void run() {
                         boolean stillInstalled = isAppInstalled(pkg);
-                        if (!stillInstalled || result[0].contains("Success")) {
+                        if (!stillInstalled || finalResult.contains("Success")) {
                             countdownTv.setText("✅ 已成功卸载");
                             countdownTv.setTextColor(0xFF4CAF50);
                         } else {
@@ -4873,11 +5084,12 @@ public class ProtectService extends Service implements SensorEventListener {
                 }
                 Log.w(TAG, "冻结 pm disable-user 结果: " + result[0]);
 
+                final String finalResult = result[0];
                 h.post(new Runnable() {
                     @Override
                     public void run() {
                         boolean disabled = isAppDisabled(pkg);
-                        if (disabled || result[0].contains("disabled") || result[0].contains("Success")) {
+                        if (disabled || finalResult.contains("disabled") || finalResult.contains("Success")) {
                             countdownTv.setText("✅ 已冻结 " + pkg);
                             countdownTv.setTextColor(0xFF4CAF50);
                         } else {
@@ -5010,12 +5222,21 @@ public class ProtectService extends Service implements SensorEventListener {
             t2.start();
             boolean done;
             try {
-                done = p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    done = p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+                } else {
+                    p.waitFor();
+                    done = true;
+                }
             } catch (InterruptedException e) {
                 done = false;
             }
             if (!done) {
-                p.destroyForcibly();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    p.destroyForcibly();
+                } else {
+                    p.destroy();
+                }
                 try { t1.join(500); } catch (Exception ignored) {}
                 try { t2.join(500); } catch (Exception ignored) {}
                 return "ERROR:执行超时(30s): " + cmd;
@@ -5306,6 +5527,25 @@ public class ProtectService extends Service implements SensorEventListener {
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
+    }
+
+    
+    private boolean isAppRunning(String pkg) {
+        try {
+            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            if (am == null) return false;
+            List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
+            if (procs != null) {
+                for (ActivityManager.RunningAppProcessInfo p : procs) {
+                    if (p.pkgList != null) {
+                        for (String s : p.pkgList) {
+                            if (pkg.equals(s)) return true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
     }
 
     

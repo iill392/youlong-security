@@ -31,7 +31,6 @@
 -keep class com.youlong.hd.KeepAliveReceiver { *; }
 
 -keep class com.youlong.hd.DeviceAdminReceiver { *; }
--keep class com.youlong.hd.DownloadService { *; }
 -keep class com.youlong.hd.ProtectService { *; }
 -keep class com.youlong.hd.RescueWindowService { *; }
 
@@ -168,7 +167,7 @@
 -dontwarn androidx.**
 
 
--keep class android.** { *; }
+
 -dontwarn android.**
 
 
@@ -222,8 +221,8 @@
 
 
 
--optimizationpasses 5
--optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+# -optimizationpasses / -optimizations 对 R8 无效（R8 固定优化管道），
+# 已移除（2026-10 审查）
 
 
 -assumenosideeffects class android.util.Log {
@@ -273,9 +272,9 @@
 -keepclassmembers class **.R$* {
     public static <fields>;
 }
--assumenosideeffects class **.R$* {
-    public static final int *;
-}
+
+# -assumenosideeffects 只对方法生效，作用于字段（R$* 的 int 字段）无效，
+# 已移除（2026-10 审查）
 
 
 -keepclassmembers,allowobfuscation class * {

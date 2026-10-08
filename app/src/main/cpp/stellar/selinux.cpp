@@ -5,11 +5,14 @@
 #include <cerrno>
 #include <syscall.h>
 #include <cstdlib>
+#include "logging.h"
 #include "selinux.h"
 
 namespace se {
 
     static int __getcon(char **context) {
+        if (context == nullptr) return -1;
+        *context = nullptr;
         int fd = open("/proc/self/attr/current", O_RDONLY | O_CLOEXEC);
         if (fd < 0)
             return fd;
@@ -34,7 +37,7 @@ namespace se {
             goto out2;
 
         if (ret == 0) {
-            *context = nullptr;
+            ret = 0;
             goto out2;
         }
 
@@ -50,7 +53,7 @@ namespace se {
         errno_hold = errno;
         close(fd);
         errno = errno_hold;
-        return 0;
+        return ret;
     }
 
     static int __setcon(const char *ctx) {
@@ -63,19 +66,12 @@ namespace se {
         return rc != len;
     }
 
-    static int __setfilecon(const char *path, const char *ctx) {
-        int rc = syscall(__NR_setxattr, path, "security.selinux", ctx,
-                         strlen(ctx) + 1, 0);
-        if (rc) {
-            errno = -rc;
-            return -1;
-        }
-        return 0;
-    }
-
+    // 桩实现：libselinux.so 不可用时 fail-closed（返回 -1），
+    // 并明确打日志，避免调用方误以为 SELinux 检查已通过
     static int __selinux_check_access(const char *scon, const char *tcon,
                                       const char *tclass, const char *perm, void *auditdata) {
-        return 0;
+        LOGE("SELinux 检查不可用（未加载 libselinux）：%s %s %s %s", scon, tcon, tclass, perm);
+        return -1;
     }
 
     static void __freecon(char *con) {
@@ -84,7 +80,7 @@ namespace se {
 
     getcon_t *getcon = __getcon;
     setcon_t *setcon = __setcon;
-    setfilecon_t *setfilecon = __setfilecon;
+    setfilecon_t *setfilecon = nullptr;
     selinux_check_access_t *selinux_check_access = __selinux_check_access;
     freecon_t *freecon = __freecon;
 
@@ -101,5 +97,8 @@ namespace se {
         setfilecon = (setfilecon_t *) dlsym(handle, "setfilecon");
         selinux_check_access = (selinux_check_access_t *) dlsym(handle, "selinux_check_access");
         freecon = (freecon_t *) (dlsym(handle, "freecon"));
+        if (selinux_check_access == nullptr) {
+            selinux_check_access = __selinux_check_access;
+        }
     }
 }

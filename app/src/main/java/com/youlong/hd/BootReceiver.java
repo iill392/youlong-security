@@ -46,7 +46,7 @@ public class BootReceiver extends BroadcastReceiver {
             try {
                 am.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                         SystemClock.elapsedRealtime() + 60_000, 120_000, keepPi);
-                Log.i(TAG, "开机保活闹钟已设置（每2分钟）");
+                Log.i(TAG, "开机保活闹钟已设置（请求间隔 2 分钟；系统实际最小间隔约 15 分钟）");
             } catch (Exception e) {
                 Log.e(TAG, "设置保活闹钟失败", e);
             }

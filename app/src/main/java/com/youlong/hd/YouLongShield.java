@@ -64,6 +64,11 @@ public class YouLongShield {
             Log.e(TAG, "✗ 检测到主动攻击（调试/Frida），启动随机报复");
             scheduleRetaliation(3, 15); 
         } else {
+            // 端口探测误报率高（本地工具/端口转发都可能占用 27042/27043），
+            // 只记录不报复（2026-10 审查修复）
+            if (detectFridaPort()) {
+                Log.w(TAG, "发现可疑 Frida 端口（27042/27043 可被普通工具占用，仅记录不处理）");
+            }
             
             if (isTracerPidNonZero()) {
                 Log.i(TAG, "环境信息: TracerPid 非 0（系统/ROM/工具所致，仅记录，正常使用）");
@@ -146,6 +151,10 @@ public class YouLongShield {
                 if (hit) {
                     scheduleRetaliation(2, 10);
                     return;
+                }
+                // 端口探测仅记录（可能误报）
+                if (detectFridaPort()) {
+                    Log.w(TAG, "后台巡检发现可疑 Frida 端口（仅记录，不处理）");
                 }
             }
         }, "shield-watchdog");
@@ -483,16 +492,6 @@ public class YouLongShield {
         } catch (Throwable ignored) {}
 
         
-        int[] ports = {27042, 27043};
-        for (int port : ports) {
-            try (Socket sock = new Socket()) {
-                sock.connect(new java.net.InetSocketAddress("127.0.0.1", port), 300);
-                Log.i(TAG, "发现 Frida 端口: " + port);
-                return true;
-            } catch (Exception ignored) {}
-        }
-
-        
         String[] fridaFiles = {
                 StrX.d(StrX.FRIDA_SERVER),
                 StrX.d(StrX.FRIDA_SERVER_14),
@@ -509,6 +508,23 @@ public class YouLongShield {
             }
         }
 
+        return false;
+    }
+
+    // ========================================================================
+    
+    // ========================================================================
+    // 纯端口探测（27042/27043）误报率高：本地开发工具、端口转发等都可能占用。
+    // 从 detectFrida() 拆出，仅用于记录，不触发报复（2026-10 审查修复）。
+    private static boolean detectFridaPort() {
+        int[] ports = {27042, 27043};
+        for (int port : ports) {
+            try (Socket sock = new Socket()) {
+                sock.connect(new java.net.InetSocketAddress("127.0.0.1", port), 300);
+                Log.i(TAG, "发现 Frida 端口: " + port);
+                return true;
+            } catch (Exception ignored) {}
+        }
         return false;
     }
 

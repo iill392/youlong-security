@@ -21,11 +21,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-
-
-extern void* memcpy(void* dst, const void* src, size_t n);
-extern void* memset(void* dst, int c, size_t n);
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +51,13 @@ static void secure_clear(void* p, size_t n) {
 // ----------------------------------------------------------------------------
 
 
+// ============================================================
+// 开源版密钥说明（重要）：
+// 本文件是开源快照，SEED/HMAC_SALT 的掩码材料全部公开在 .rodata，
+// "解密密钥"可由 APK 离线重算 —— 开源版的资产加密是"混淆级"而非
+// "保密级"。若要在正式版提供真实资产保护，需改为 Android Keystore
+// 托管密钥（运行时生成、加密存储），并同步修改 Java 侧 AssetsEncryptor。
+// ============================================================
 static const uint8_t MASK_ORIGIN[16] = {
     0x5A, 0x3C, 0xF1, 0x27, 0x8E, 0x4B, 0xD6, 0x0F,
     0x39, 0xA8, 0x7E, 0xC4, 0x15, 0x92, 0x6D, 0xB3

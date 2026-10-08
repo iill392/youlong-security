@@ -119,7 +119,8 @@ public class StellarUtils {
 
         try {
             String cleanCmd = command.trim();
-            Log.d(TAG, "Exec: " + cleanCmd);
+            // 脱敏：完整特权命令可能含路径/包名，只记摘要
+            Log.d(TAG, "Exec: " + (cleanCmd.length() > 40 ? cleanCmd.substring(0, 40) + "…(" + cleanCmd.length() + " 字符)" : cleanCmd));
 
             process = newPrivilegedProcess(new String[]{"sh"}, null, null);
             final Process p = process;
@@ -160,16 +161,37 @@ public class StellarUtils {
                 long remaining = deadline - System.currentTimeMillis();
                 if (remaining <= 0) break;
                 try {
-                    done = p.waitFor(Math.min(remaining, 200L),
-                            java.util.concurrent.TimeUnit.MILLISECONDS);
-                } catch (Exception e) {
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        done = p.waitFor(Math.min(remaining, 200L),
+                                java.util.concurrent.TimeUnit.MILLISECONDS);
+                    } else {
+                        // API 24/25 没有 waitFor(long, TimeUnit)：轮询 exitValue 模拟超时
+                        try {
+                            p.exitValue();
+                            done = true;
+                        } catch (IllegalThreadStateException e) {
+                            try {
+                                Thread.sleep(Math.min(remaining, 200L));
+                            } catch (InterruptedException ie) {
+                                done = true;
+                            }
+                        }
+                    }
+                } catch (Throwable e) {
                     Log.w(TAG, "waitFor err: " + e.getMessage());
                     done = true;
                 }
             }
 
             if (!done) {
-                p.destroyForcibly();
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= 26) {
+                        p.destroyForcibly();
+                    } else {
+                        p.destroy();
+                    }
+                } catch (Throwable ignored) {
+                }
                 outReader.join(500);
                 errReader.join(500);
                 return "ERROR:执行超时（" + timeoutMs + "ms）";

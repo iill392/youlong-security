@@ -11,16 +11,29 @@
 
 #define perrorf(...) fprintf(stderr, __VA_ARGS__)
 
+static int is_numeric(const char *s) {
+    if (!s || !*s) return 0;
+    for (const char *p = s; *p; p++) {
+        if (*p < '0' || *p > '9') return 0;
+    }
+    return 1;
+}
+
 static void pwtoid(const char *tok, uid_t *uid, gid_t *gid) {
     struct passwd *pw;
     pw = getpwnam(tok);
     if (pw) {
         if (uid) *uid = pw->pw_uid;
         if (gid) *gid = pw->pw_gid;
-    } else {
-        uid_t tmpid = atoi(tok);
+    } else if (is_numeric(tok)) {
+        uid_t tmpid = (uid_t) atoi(tok);
         if (uid) *uid = tmpid;
         if (gid) *gid = tmpid;
+    } else {
+        // 解析失败：置 -1，让后续 setuid/setgid 失败退出，
+        // 而不是把非法输入悄悄解析成 0（等效不降权）
+        if (uid) *uid = (uid_t) -1;
+        if (gid) *gid = (gid_t) -1;
     }
 }
 
@@ -103,13 +116,19 @@ int main(int argc, char **argv) {
             return -saved_errno;
         }
     } else if (argc > 3) {
-        char *exec_args[argc - 1];
-        memset(exec_args, 0, sizeof(exec_args));
-        memcpy(exec_args, &argv[2], sizeof(exec_args));
+        // 参数数组改堆分配（原 VLA 是非标准扩展）
+        char **exec_args = (char **) malloc((size_t) (argc - 1) * sizeof(char *));
+        if (!exec_args) {
+            perrorf("chid: 内存分配失败\n");
+            return 1;
+        }
+        // 从 argv[2] 起拷贝 (argc-1) 个指针，末位即 argv[argc]（NULL 结尾）
+        memcpy(exec_args, &argv[2], (size_t) (argc - 1) * sizeof(char *));
 
         if (execvp(argv[2], exec_args) < 0) {
             int saved_errno = errno;
-            perrorf("chid: 执行 %s 失败，错误: %s\n", argv[2], strerror(errno));
+            free(exec_args);
+            perrorf("chid: 执行 %s 失败，错误: %s\n", argv[2], strerror(saved_errno));
             return -saved_errno;
         }
     }

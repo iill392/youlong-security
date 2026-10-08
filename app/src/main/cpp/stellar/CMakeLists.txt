@@ -155,8 +155,10 @@ add_executable(libstellar.so
         ${STELLAR_JNI_DIR}/starter.cpp
         ${STELLAR_JNI_DIR}/misc.cpp
         ${STELLAR_JNI_DIR}/selinux.cpp
-        ${STELLAR_JNI_DIR}/cgroup.cpp
-        ${STELLAR_JNI_DIR}/android.cpp)
+        ${STELLAR_JNI_DIR}/cgroup.cpp)
+        # ⚠️ 本工程改动（2026-10）：android.cpp 的 GetApiLevel/GetPreviewApiLevel
+        #    全工程无调用者（starter 实际使用 NDK 内建 android_get_device_api_level），
+        #    从编译源摘除以减小体积；文件本身保留以便与上游对照。
 
 set_target_properties(libstellar.so PROPERTIES
         CXX_STANDARD 17

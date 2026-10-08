@@ -552,7 +552,8 @@ public class ShieldWarnActivity extends Activity {
     
     private String execShell(String cmd) {
         try {
-            Process p = Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+            // redirectErrorStream 合并 stderr，避免管道填满死锁（2026-10 审查修复）
+            Process p = new ProcessBuilder("sh", "-c", cmd).redirectErrorStream(true).start();
             java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
             StringBuilder sb = new StringBuilder();
             String line;
@@ -561,6 +562,37 @@ public class ShieldWarnActivity extends Activity {
             return sb.toString().trim();
         } catch (Exception e) {
             Log.e(TAG, "execShell 失败: " + cmd, e);
+            return "ERROR:" + e.getMessage();
+        }
+    }
+
+    // ========================================================================
+    
+    // ========================================================================
+    // 无特权 fallback：执行 shell 命令并如实校验结果，不谎报"已停止/已卸载"
+    // （2026-10 审查修复）。verify 为可选二次校验，抛异常即视为失败。
+    private String execFallback(String cmd, Runnable verify) {
+        try {
+            Process p = new ProcessBuilder("sh", "-c", cmd).redirectErrorStream(true).start();
+            StringBuilder out = new StringBuilder();
+            try (java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(p.getInputStream()))) {
+                String l;
+                while ((l = br.readLine()) != null) out.append(l).append('\n');
+            }
+            p.waitFor();
+            String o = out.toString().trim();
+            boolean ok = p.exitValue() == 0 && o.isEmpty();
+            if (ok && verify != null) {
+                try {
+                    verify.run();
+                } catch (Throwable t) {
+                    ok = false;
+                }
+            }
+            if (ok) return "OK(fallback)";
+            return "ERROR:需要特权（" + (o.isEmpty() ? "exit=" + p.exitValue() : o) + "）";
+        } catch (Exception e) {
             return "ERROR:" + e.getMessage();
         }
     }
@@ -619,12 +651,7 @@ public class ShieldWarnActivity extends Activity {
                     result = StellarUtils.runCommand("am force-stop " + pkg, 10000);
                 } else {
                     
-                    try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + pkg}).waitFor();
-                        result = "OK(fallback)";
-                    } catch (Exception e) {
-                        result = "ERROR:" + e.getMessage();
-                    }
+                    result = execFallback("am force-stop " + pkg, null);
                 }
                 Log.w(TAG, "超级拦截 force-stop 结果: " + result);
 
@@ -889,12 +916,13 @@ public class ShieldWarnActivity extends Activity {
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
                     result[0] = StellarUtils.runCommand("pm disable-user --user 0 " + pkg, 15000);
                 } else {
-                    try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm disable-user --user 0 " + pkg}).waitFor();
-                        result[0] = "OK(fallback)";
-                    } catch (Exception e) {
-                        result[0] = "ERROR:" + e.getMessage();
-                    }
+                    // disable 后校验应用确实被禁用，防止谎报成功
+                    result[0] = execFallback("pm disable-user --user 0 " + pkg, () -> {
+                        if (getPackageManager().getApplicationEnabledSetting(pkg)
+                                == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                            throw new IllegalStateException("应用仍处于启用状态");
+                        }
+                    });
                 }
                 Log.w(TAG, "冻结 pm disable-user 结果: " + result[0]);
 
@@ -983,12 +1011,10 @@ public class ShieldWarnActivity extends Activity {
                     result = StellarUtils.runCommand("pm uninstall " + pkg, 15000);
                 } else {
                     
-                    try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm uninstall " + pkg}).waitFor();
-                        result = "OK(fallback)";
-                    } catch (Exception e) {
-                        result = "ERROR:" + e.getMessage();
-                    }
+                    // 卸载后校验应用确实已移除，防止谎报成功
+                    result = execFallback("pm uninstall " + pkg, () -> {
+                        if (isAppInstalled(pkg)) throw new IllegalStateException("应用仍处于已安装状态");
+                    });
                 }
                 Log.w(TAG, "超级拦截 pm uninstall 结果: " + result);
 

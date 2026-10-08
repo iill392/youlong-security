@@ -3,9 +3,17 @@ package com.youlong.priv;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
+import android.util.Log;
 
-
+/**
+ * 握手信道：把服务端 Binder 交付给等待中的客户端。
+ *
+ * <p>客户端先提供一个“握手 Binder”（{@link #asBinder}），服务端 Binder 到手后
+ * 通过 {@link #deliver} 反向通知它 —— 这样调用方不需要轮询。
+ */
 public final class YlHandshake {
+
+    private static final String TAG = "YlHandshake";
 
     
     public static final int TX_DELIVER = 1;
@@ -50,7 +58,9 @@ public final class YlHandshake {
             data.writeStrongBinder(service);
             handshake.transact(TX_DELIVER, data, reply, 0);
             reply.readException();
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            // 交付失败要留痕（旧实现静默吞掉，握手失败时完全查不到原因）
+            Log.e(TAG, "交付服务端 Binder 失败（对端可能已退出）", t);
         } finally {
             reply.recycle();
             data.recycle();

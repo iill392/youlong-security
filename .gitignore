@@ -40,3 +40,6 @@ Thumbs.db
 *.aab
 *.hprof
 captures/
+
+# 内部交接文档（不提交）
+AI_CONTEXT.md

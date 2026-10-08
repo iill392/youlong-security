@@ -382,6 +382,9 @@ public final class VirusDb {
     }
 
     
+    // 注意（2026-10 审查）：本方法仅被 refreshNowLegacy 调用，而 refresh 系列在
+    // 开源版是空实现，此链路不可达。若未来接入数据源：必须强制 HTTPS（manifest
+    // usesCleartextTraffic 已改为 false）并对响应做签名校验，防止 MITM 注入包名。
     private static String httpGet(String url) {
         HttpURLConnection conn = null;
         try {

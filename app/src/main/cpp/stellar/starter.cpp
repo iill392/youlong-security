@@ -81,6 +81,10 @@ if (v == nullptr) { \
 } else { \
     v = (char **) realloc(v, v_size);\
 } \
+if (v == nullptr) { \
+    perrorf("错误：内存分配失败\n"); \
+    exit(EXIT_FATAL_APP_PROCESS); \
+} \
 v_current = (uintptr_t) v + v_size - sizeof(char *); \
 *((char **) v_current) = arg ? strdup(arg) : nullptr;
 
@@ -143,7 +147,10 @@ static void start_server(const char *path, const char *main_class, const char *p
         case 0: {
             LOGD("子进程");
             setsid();
-            chdir("/");
+            if (chdir("/") != 0) {
+                perrorf("错误：无法切换工作目录\n");
+                _exit(EXIT_FATAL_APP_PROCESS);
+            }
 
             int null_fd = open("/dev/null", O_RDWR);
             if (null_fd != -1) {
@@ -225,7 +232,9 @@ int main(int argc, char *argv[]) {
         switch_cgroup();
 
         if (android_get_device_api_level() >= 29) {
-            switch_mnt_ns(1);
+            if (switch_mnt_ns(1) != 0) {
+                printf("警告：无法切换 mount namespace\n");
+            }
         }
     }
 

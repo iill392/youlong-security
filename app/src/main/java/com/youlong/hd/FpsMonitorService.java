@@ -28,7 +28,7 @@ import androidx.core.app.NotificationCompat;
 public class FpsMonitorService extends Service {
 
     private static final String CHANNEL_ID = "fps_monitor_channel";
-    private static final int NOTIFICATION_ID = 3001;
+    private static final int NOTIFICATION_ID = 3002;
     public static final String ACTION_STOP = "com.youlong.hd.action.STOP_FPS";
 
     private static WindowManager windowManager;

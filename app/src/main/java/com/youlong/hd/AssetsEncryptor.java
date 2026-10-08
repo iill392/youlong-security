@@ -56,16 +56,36 @@ public class AssetsEncryptor {
 
     // ========================================================================
     
+    // 与 native 侧 crypto_core.h 保持一致的掩码派生（开源版密钥材料公开，
+    // 此处仅作为 native 库缺失时的同值回退，不构成保密）：
+    //   mask_byte(i) = MASK_ORIGIN[i] ^ MASK_ORIGIN[(i+7)%16] ^ 0x3D
+    //   seed/salt   = 全零 CIPHER 数组 ^ mask_byte(i) = mask_byte(i)
+    // ========================================================================
+    private static final byte[] MASK_ORIGIN = {
+            (byte) 0x5A, (byte) 0x3C, (byte) 0xF1, (byte) 0x27,
+            (byte) 0x8E, (byte) 0x4B, (byte) 0xD6, (byte) 0x0F,
+            (byte) 0x39, (byte) 0xA8, (byte) 0x7E, (byte) 0xC4,
+            (byte) 0x15, (byte) 0x92, (byte) 0x6D, (byte) 0xB3
+    };
+
+    private static byte[] deriveSeedSalt() {
+        byte[] out = new byte[16];
+        for (int i = 0; i < 16; i++) {
+            out[i] = (byte) (MASK_ORIGIN[i] ^ MASK_ORIGIN[(i + 7) % 16] ^ 0x3D);
+        }
+        return out;
+    }
+
+    // ========================================================================
     
     // ========================================================================
     private static byte[] javaFallbackDeriveKey(byte[] fp) throws Exception {
         MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
         int fpLen = (fp != null) ? fp.length : 0;
         byte[] combined = new byte[16 + 16 + fpLen];
-        
-        
-        byte[] seed = NativeCrypto.deriveSeedForFallback();
-        byte[] salt = NativeCrypto.deriveSaltForFallback();
+
+        byte[] seed = deriveSeedSalt();
+        byte[] salt = deriveSeedSalt();
         System.arraycopy(seed, 0, combined, 0, 16);
         System.arraycopy(salt, 0, combined, 16, 16);
         if (fp != null && fp.length > 0) {
@@ -124,8 +144,7 @@ public class AssetsEncryptor {
             if (decrypted != null) {
                 return decrypted;
             }
-            
-            throw new IllegalArgumentException("native decrypt failed");
+            // native 解密失败（如签名指纹变化）：回退 Java 实现
         }
 
         

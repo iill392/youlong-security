@@ -1,5 +1,6 @@
 package com.youlong.hd
 
+import kotlin.jvm.Volatile
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -48,6 +49,8 @@ class AdbPairActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var tvLog: TextView
 
+    // IO 协程 finally 写、主线程读：需要可见性保证
+    @Volatile
     private var busy = false
 
     
@@ -284,8 +287,8 @@ class AdbPairActivity : AppCompatActivity() {
             setStatus("配对端口无效：请填系统弹窗里的端口号")
             return
         }
-        if (code.length < 6) {
-            setStatus("配对码无效：应为 6 位数字")
+        if (!code.matches(Regex("\\d{6}"))) {
+            setStatus("配对码无效：应为恰好 6 位数字")
             return
         }
 
@@ -297,7 +300,7 @@ class AdbPairActivity : AppCompatActivity() {
                 log("开始配对：host=127.0.0.1 port=$pairPort")
                 val paired = pair(pairPort, code)
                 if (!paired) {
-                    setStatus("配对失败：请确认配对码与端口是**当前弹窗**里显示的（弹窗关闭即失效）")
+                    setStatus("配对失败：请确认配对码与端口是当前弹窗里显示的（弹窗关闭即失效）")
                     log("配对失败：SPAKE2 未通过。常见原因：配对码错误、端口填成了连接端口、" +
 "弹窗已关闭或超时。请重新打开「使用配对码配对设备」再试。")
                     return@launch

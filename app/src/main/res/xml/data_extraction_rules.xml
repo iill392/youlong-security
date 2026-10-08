@@ -2,6 +2,14 @@
 <data-extraction-rules>
     <cloud-backup>
         <include domain="sharedpref" path="."/>
+        <!-- ADB 配对 RSA 私钥存于 StellarSettings 的 settings prefs（key "adbkey"），
+             绝不能进入云备份/D2D 迁移 -->
         <exclude domain="sharedpref" path="device.xml"/>
+        <exclude domain="sharedpref" path="settings.xml"/>
     </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="."/>
+        <exclude domain="sharedpref" path="device.xml"/>
+        <exclude domain="sharedpref" path="settings.xml"/>
+    </device-transfer>
 </data-extraction-rules>

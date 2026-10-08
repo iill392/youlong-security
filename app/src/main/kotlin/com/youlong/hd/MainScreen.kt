@@ -14,17 +14,22 @@ fun ComposeView.setMainContent(
     onTabSelected: (Int) -> Unit = {}
 ) {
     setContent {
-        MainScreen(webView = webView)
+        MainScreen(webView = webView, onTabSelected = onTabSelected)
     }
 }
 
 
 @Composable
-fun MainScreen(webView: WebView) {
+fun MainScreen(webView: WebView, onTabSelected: (Int) -> Unit = {}) {
     Box(Modifier.fillMaxSize()) {
         AndroidView(
             factory = { webView },
             modifier = Modifier.fillMaxSize()
         )
+        // 接通底部玻璃导航：点击回调此前被丢弃（2026-10 审查修复）
+        val backdrop = com.kyant.backdrop.backdrops.rememberCanvasBackdrop {
+            drawRect(androidx.compose.ui.graphics.Color.White)
+        }
+        GlassBottomBar(backdrop = backdrop, onTabSelected = onTabSelected)
     }
 }

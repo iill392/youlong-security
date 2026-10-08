@@ -122,6 +122,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private PermissionRequest pendingWebPermissionRequest;
     private DownloadManager downloadManager;
 
+    // 三个 JS 桥的名字（注入/移除共用同一份，避免手写字符串漂移）
+    private static final String BRIDGE_NAME_JS = "Android";
+    private static final String BRIDGE_NAME_NATIVE = StrX.d(StrX.BRIDGE_ANDROID_NATIVE);
+    private static final String BRIDGE_NAME_SHIZUKU = StrX.d(StrX.BRIDGE_SHIZUKU);
+
+    // 当前页面是否为本应用受信任的本地页面：决定 JS 桥是否保留、传感器数据是否回灌
+    private volatile boolean currentPageTrusted = false;
+    // JS 桥当前是否已挂载，避免重复 add/remove
+    private boolean jsBridgesAttached = false;
+
     
     private static final int REQ_NOTIFICATION_PERMISSION = 0x7A21;
     private static final int REQ_APPLIST_PERMISSION = 0x7A22;
@@ -251,6 +261,59 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return false;
     }
 
+    // ======================================================================
+    // 进程等待/终止兼容层
+    // ----------------------------------------------------------------------
+    // Process.waitFor(long, TimeUnit) 与 Process.destroyForcibly() 都是 API 26
+    // 才有的方法，API 24/25 上直接调用会抛 NoSuchMethodError 崩溃，所以统一走这里。
+    // ======================================================================
+    // 语义与 Process.waitFor(timeout, unit) 一致：超时返回 false，进程已结束返回 true
+    private static boolean waitForTimeout(Process proc, long timeoutMs) {
+        if (proc == null) return true;
+        final long waitMs = Math.max(0L, timeoutMs);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                return proc.waitFor(waitMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return true;
+            } catch (Throwable tr) {
+                Log.w("MainActivity", "waitFor(timeout) 失败，改用轮询", tr);
+            }
+        }
+        final long deadline = System.currentTimeMillis() + waitMs;
+        while (true) {
+            try {
+                proc.exitValue();
+                return true;
+            } catch (IllegalThreadStateException stillRunning) {
+                if (System.currentTimeMillis() >= deadline) return false;
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return true;
+                }
+            } catch (Throwable tr) {
+                // 查不到状态（底层异常）按已结束处理，避免卡死调用方
+                return true;
+            }
+        }
+    }
+
+    // 尽力终止进程：API 26+ 用 destroyForcibly，低版本回退 destroy
+    private static void destroyQuietly(Process proc) {
+        if (proc == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                proc.destroyForcibly();
+                return;
+            } catch (Throwable ignored) {
+            }
+        }
+        try { proc.destroy(); } catch (Throwable ignored) {}
+    }
+
     
     private boolean suGrantsRoot() {
         
@@ -276,9 +339,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             reader.setDaemon(true);
             reader.start();
 
-            boolean done = p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS);
+            boolean done = waitForTimeout(p, 3000L);
             if (!done) {
-                try { p.destroyForcibly(); } catch (Throwable ignored) {}
+                destroyQuietly(p);
                 return false;
             }
             reader.join(500);
@@ -345,8 +408,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             });
             r.setDaemon(true);
             r.start();
-            if (!p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) {
-                try { p.destroyForcibly(); } catch (Throwable ignored) {}
+            if (!waitForTimeout(p, 3000L)) {
+                destroyQuietly(p);
                 suOut = "(timeout)";
             } else {
                 r.join(500);
@@ -466,7 +529,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         VirusDb.loadFromCache(this);
         VirusDb.refreshAsync(this);
 
-        decryptAllAssetsAndLoad();
+        verifyAssetsAndLoad();
     }
 
     private void getStatusBarHeight() {
@@ -495,6 +558,150 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
+    // ======================================================================
+    // WebView 页面可信判定 / JS 桥开关 / 跳转策略
+    // ----------------------------------------------------------------------
+    // 只有打包进 APK 的本地页面算可信页面：
+    //   · LOCAL_SCHEME（https://app.local/ 资产页，由 shouldInterceptRequest 提供）
+    //   · file:///android_asset/、file:///android_res/（APK 内只读资源）
+    //   · about:blank / data:（本地错误页 loadDataWithBaseURL）
+    // 可信页面才注入三个 JS 桥；http/https 等外部页面一律摘掉桥，且不允许在应用内加载。
+    // ======================================================================
+    // 允许通过 intent:// 拉起的本应用 Activity（白名单，别的一律拦截）
+    private static final java.util.Set<String> TRUSTED_APP_ACTIVITIES =
+            new java.util.HashSet<>(java.util.Arrays.asList(
+                    "com.youlong.hd.MainActivity",
+                    "com.youlong.hd.ShieldWarnActivity",
+                    "com.youlong.hd.BatchCleanupActivity",
+                    "com.youlong.hd.PrivAuthActivity",
+                    "com.youlong.hd.WhitelistActivity",
+                    "com.youlong.hd.BlacklistActivity",
+                    "com.youlong.hd.AppListActivity",
+                    "com.youlong.hd.PrivSettingsActivity",
+                    "com.youlong.hd.PrivilegeActivity",
+                    "com.youlong.hd.AdbPairActivity"));
+
+    private static boolean isTrustedPageUrl(String url) {
+        if (url == null || url.isEmpty()) return false;
+        final String lower = url.toLowerCase(java.util.Locale.US);
+        if (lower.startsWith(LOCAL_SCHEME.toLowerCase(java.util.Locale.US))) return true;
+        if (lower.startsWith("file:///android_asset/")) return true;
+        if (lower.startsWith("file:///android_res/")) return true;
+        if (lower.startsWith("about:blank")) return true;
+        if (lower.startsWith("data:")) return true;
+        return false;
+    }
+
+    // 按 URL 判定当前页面是否可信，并挂载/摘除三个 JS 桥（只能在 UI 线程调用）
+    private void updateJsBridgesForUrl(String url) {
+        final boolean trusted = isTrustedPageUrl(url);
+        currentPageTrusted = trusted;
+        try {
+            if (trusted && !jsBridgesAttached) {
+                webView.addJavascriptInterface(new JavaScriptInterface(), BRIDGE_NAME_JS);
+                webView.addJavascriptInterface(new ScreenFilterBridge(this), BRIDGE_NAME_NATIVE);
+                webView.addJavascriptInterface(new StellarBridge(), BRIDGE_NAME_SHIZUKU);
+                jsBridgesAttached = true;
+                Log.i("MainActivity", "JS 桥已注入（本地受信任页面）");
+            } else if (!trusted && jsBridgesAttached) {
+                webView.removeJavascriptInterface(BRIDGE_NAME_JS);
+                webView.removeJavascriptInterface(BRIDGE_NAME_NATIVE);
+                webView.removeJavascriptInterface(BRIDGE_NAME_SHIZUKU);
+                jsBridgesAttached = false;
+                Log.w("MainActivity", "JS 桥已移除（非本地页面）：" + url);
+            }
+        } catch (Throwable tr) {
+            Log.w("MainActivity", "更新 JS 桥失败 trusted=" + trusted, tr);
+        }
+    }
+
+    // 页面跳转策略：本地页面留在 WebView，其它一律拦截或交给系统
+    private boolean handleUrlOverride(String url) {
+        if (url == null || url.isEmpty()) return false;
+
+        // 本地受信任页面（app.local 资产页 / file:///android_asset 等）留在 WebView 内加载
+        if (isTrustedPageUrl(url)) return false;
+
+        final String lower = url.toLowerCase(java.util.Locale.US);
+
+        // 外部网页：交给系统浏览器打开，不在应用内加载
+        if (lower.startsWith("http://") || lower.startsWith("https://")) {
+            openUrlInSystemBrowser(url);
+            return true;
+        }
+
+        // 本地文件与 javascript: 一律拦截，不加载不执行
+        if (lower.startsWith("file://")) {
+            Log.w("MainActivity", "已拦截 file:// 跳转：" + url);
+            return true;
+        }
+        if (lower.startsWith("javascript:")) {
+            Log.w("MainActivity", "已拦截 javascript: 跳转");
+            return true;
+        }
+
+        if (lower.startsWith("intent://")) {
+            return handleIntentUrl(url);
+        }
+
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Toast.makeText(MainActivity.this, "无法打开此链接", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+    }
+
+    // intent:// 只允许拉起本应用白名单内的组件，其它一律拦截
+    private boolean handleIntentUrl(String url) {
+        try {
+            Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+            if (intent == null) return true;
+
+            // 强行限定到本应用，并清掉页面指定的 URI 授权标志
+            intent.setPackage(getPackageName());
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            final int grantFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION;
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                intent.removeFlags(grantFlags);
+            } else {
+                // Intent.removeFlags 需要 API 26：低版本用 setFlags 等价清除
+                intent.setFlags(intent.getFlags() & ~grantFlags);
+            }
+
+            ComponentName cn = intent.getComponent();
+            final boolean known = cn != null
+                    && getPackageName().equals(cn.getPackageName())
+                    && TRUSTED_APP_ACTIVITIES.contains(cn.getClassName());
+            if (!known) {
+                Log.w("MainActivity", "已拦截非白名单 intent:// 跳转："
+                        + (cn == null ? "(无组件)" : cn.flattenToShortString()));
+                return true;
+            }
+            startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Toast.makeText(MainActivity.this, "无法打开此链接", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+    }
+
+    private void openUrlInSystemBrowser(final String url) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(MainActivity.this, "无法打开此链接", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void setupWebView() {
         WebSettings webSettings = webView.getSettings();
 
@@ -512,10 +719,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         
         webSettings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
         
+        // 本地 assets 页面需要文件访问能力；但 file:// 页面不得再读其它本地文件、不得跨域请求
         webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
-        webSettings.setAllowFileAccessFromFileURLs(true);
-        webSettings.setAllowUniversalAccessFromFileURLs(true);
+        webSettings.setAllowContentAccess(false);
+        webSettings.setAllowFileAccessFromFileURLs(false);
+        webSettings.setAllowUniversalAccessFromFileURLs(false);
 
         
         webSettings.setLoadWithOverviewMode(true);
@@ -548,7 +756,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            // 禁止 https 页面再夹带 http 混合内容
+            webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         }
 
         
@@ -582,11 +791,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         
         
 
-        webView.addJavascriptInterface(new JavaScriptInterface(), "Android");
+        webView.addJavascriptInterface(new JavaScriptInterface(), BRIDGE_NAME_JS);
         
-        webView.addJavascriptInterface(new ScreenFilterBridge(this), StrX.d(StrX.BRIDGE_ANDROID_NATIVE));
+        webView.addJavascriptInterface(new ScreenFilterBridge(this), BRIDGE_NAME_NATIVE);
         
-        webView.addJavascriptInterface(new StellarBridge(), StrX.d(StrX.BRIDGE_SHIZUKU));
+        webView.addJavascriptInterface(new StellarBridge(), BRIDGE_NAME_SHIZUKU);
+        // 首个页面固定是本地受信任页（app.local 的 index.html），先挂上三个桥；
+        // 之后每次页面导航都由 onPageStarted → updateJsBridgesForUrl 按 URL 重新判定：
+        // 本地页面（app.local / file:///android_asset）保留，http/https 等外部页面一律摘掉桥
+        jsBridgesAttached = true;
 
         webView.setWebViewClient(new WebViewClient() {
             
@@ -604,7 +817,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     
                     if (path.isEmpty()) path = "index.html";
 
-                    WebResourceResponse response = decryptAndServe(path);
+                    WebResourceResponse response = serveAssetResponse(path);
                     if (response != null) return response;
                 }
                 return super.shouldInterceptRequest(view, request);
@@ -621,44 +834,33 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     if (fIdx >= 0) path = path.substring(0, fIdx);
                     if (path.isEmpty()) path = "index.html";
 
-                    WebResourceResponse response = decryptAndServe(path);
+                    WebResourceResponse response = serveAssetResponse(path);
                     if (response != null) return response;
                 }
                 return super.shouldInterceptRequest(view, url);
             }
 
             @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request == null) return false;
+                String reqUrl = request.getUrl() == null ? null : request.getUrl().toString();
+                if (!request.isForMainFrame()) {
+                    // 子框架：只放行本地资源，远程 iframe 一律不加载，避免远程页面拿到 JS 桥
+                    return !isTrustedPageUrl(reqUrl);
+                }
+                return handleUrlOverride(reqUrl);
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://") || url.startsWith("javascript:")) {
-                    return false;
-                }
-
-                if (url.startsWith("intent://")) {
-                    try {
-                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
-                        if (intent != null) {
-                            startActivity(intent);
-                            return true;
-                        }
-                    } catch (Exception e) {
-                        Toast.makeText(MainActivity.this, "无法打开此链接", Toast.LENGTH_SHORT).show();
-                    }
-                    return true;
-                }
-
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                    return true;
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "无法打开此链接", Toast.LENGTH_SHORT).show();
-                    return true;
-                }
+                return handleUrlOverride(url);
             }
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
+                // 按 URL 判定当前页面是否可信：本地页面保留/挂上 JS 桥，外部页面摘掉桥
+                updateJsBridgesForUrl(url);
                 
                 
                 String js = "(function(){" +
@@ -1219,7 +1421,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         webView.evaluateJavascript(js, null);
     }
 
-    private void decryptAllAssetsAndLoad() {
+    // 说明：这里只校验 assets 能否读出并启动首页，没有任何解密动作（旧名 decrypt* 会误导）
+    private void verifyAssetsAndLoad() {
         
         
         
@@ -1248,7 +1451,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             runOnUiThread(() -> {
                 hideLoading();
                 if (!success) {
-                    Toast.makeText(MainActivity.this, "资源解密失败", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "资源加载失败", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
@@ -1284,7 +1487,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     
-    private WebResourceResponse decryptAndServe(String path) {
+    // 说明：这里只是把 assets 里的文件原样读出（AssetsEncryptor 的加解密并未参与），
+    //       旧名 decryptAndServe 会被误读成"解密后返回"，改名不改行为
+    private WebResourceResponse serveAssetResponse(String path) {
         InputStream is = null;
         try {
             is = getAssets().open(path);
@@ -1303,64 +1508,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         } finally {
             if (is != null) {
                 try { is.close(); } catch (Exception ignored) {}
-            }
-        }
-    }
-
-    
-    private static class WipeInputStream extends java.io.InputStream {
-        private byte[] buf;
-        private int pos;
-        private int count;
-
-        WipeInputStream(byte[] data) {
-            this.buf = data;
-            this.pos = 0;
-            this.count = data != null ? data.length : 0;
-        }
-
-        @Override
-        public int read() {
-            if (buf == null) return -1;
-            if (pos >= count) { wipe(); return -1; }
-            return buf[pos++] & 0xFF;
-        }
-
-        @Override
-        public int read(byte[] b, int off, int len) {
-            if (buf == null) return -1;
-            if (off < 0 || len < 0 || len > b.length - off) throw new IndexOutOfBoundsException();
-            if (pos >= count) { wipe(); return -1; }
-            int n = Math.min(len, count - pos);
-            System.arraycopy(buf, pos, b, off, n);
-            pos += n;
-            if (pos >= count) wipe();
-            return n;
-        }
-
-        @Override
-        public int available() {
-            return buf == null ? 0 : count - pos;
-        }
-
-        @Override
-        public long skip(long n) {
-            if (buf == null || n <= 0) return 0;
-            int skip = (int) Math.min(n, count - pos);
-            pos += skip;
-            if (pos >= count) wipe();
-            return skip;
-        }
-
-        @Override
-        public void close() {
-            wipe();
-        }
-
-        private void wipe() {
-            if (buf != null) {
-                java.util.Arrays.fill(buf, (byte) 0);
-                buf = null;
             }
         }
     }
@@ -1497,6 +1644,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        // 仅向本地受信任页面回灌传感器数据，外部页面不回灌
+        if (!currentPageTrusted) return;
         
         long now2 = System.currentTimeMillis();
         if (now2 - lastSensorUpdateTime < 200) {
@@ -1530,63 +1679,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {}
 
-
-
-    
-
-    
-    private boolean isTampered() {
-        try {
-            
-            if (android.os.Debug.isDebuggerConnected()
-                    || android.os.Debug.waitingForDebugger()) {
-                return true;
-            }
-
-            
-            try {
-                ClassLoader cl = getClassLoader();
-                cl.loadClass("de.robv.android.xposed.XposedBridge");
-                return true; 
-            } catch (ClassNotFoundException ignored) {
-                
-            }
-
-            
-            String[] fridaPaths = {
-                    "/data/local/tmp/frida-server",
-                    "/data/local/tmp/frida-agent",
-                    "/data/local/tmp/re.frida.server",
-                    "/sdcard/frida-agent"
-            };
-            for (String p : fridaPaths) {
-                if (new java.io.File(p).exists()) return true;
-            }
-
-            
-            try {
-                java.io.BufferedReader br = new java.io.BufferedReader(
-                        new java.io.InputStreamReader(
-                                new java.io.FileInputStream("/proc/self/maps")));
-                String line;
-                while ((line = br.readLine()) != null) {
-                    if (line.contains("frida")
-                            || line.contains("xposed")
-                            || line.contains("gum-js-loop")
-                            || line.contains("gmain")) {
-                        br.close();
-                        return true;
-                    }
-                }
-                br.close();
-            } catch (Exception ignored) {}
-
-            return false;
-        } catch (Exception e) {
-            
-            return false;
-        }
-    }
 
     
 
@@ -3100,11 +3192,12 @@ private boolean hasAppListAccess() {
             if (root) {
                 level = "root";
                 title = "当前系统环境异常";
-                message = "您无法享受日常模式的100%拦截，当前拦截率为73.2%";
+                // 拦截率是真实运行统计，这里不编造数字
+                message = "检测到 Root 环境，拦截率统计中";
             } else if (dhizuku) {
                 level = "dhizuku";
                 title = "当前系统环境异常";
-                message = "您无法享受日常模式的100%拦截，当前拦截率为96.2%";
+                message = "检测到 Dhizuku 环境，拦截率统计中";
             }
 
             return "{\"level\":\"" + level + "\",\"dhizuku\":" + dhizuku
@@ -3969,16 +4062,11 @@ private boolean hasAppListAccess() {
             while (!done) {
                 long remaining = deadline - System.currentTimeMillis();
                 if (remaining <= 0) break;
-                try {
-                    done = p.waitFor(Math.min(remaining, 200L), java.util.concurrent.TimeUnit.MILLISECONDS);
-                } catch (Exception e) {
-                    Log.w("StellarCMD", "waitFor err: " + e.getMessage());
-                    done = true;
-                }
+                done = waitForTimeout(p, Math.min(remaining, 200L));
             }
 
             if (!done) {
-                p.destroyForcibly();
+                destroyQuietly(p);
                 outReader.join(500);
                 errReader.join(500);
                 return "执行超时（" + timeoutMs + "ms），进程已终止";
@@ -4122,6 +4210,11 @@ private boolean hasAppListAccess() {
 
         @JavascriptInterface
         public String getServiceStatus() {
+            // 注意：下面三个返回值是前端逐字比对的协议常量（index.html 里
+            // 'Shizuku已连接'/'Shizuku待授权'/'Shizuku未启动'，分别对应
+            // 已连接 / 待授权 / 未启动三种界面状态与按钮），不是品牌文案。
+            // 只改 Java 侧会让页面落到「桥接不可用」分支、丢掉「点击启动」入口，
+            // 要改必须和 index.html 同步改（见 docs/MIGRATION_STELLAR.md §6.1）。
             if (!isStellarAvailable()) {
                 return "Shizuku未启动";
             }

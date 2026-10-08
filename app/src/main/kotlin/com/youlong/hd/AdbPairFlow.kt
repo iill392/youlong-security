@@ -65,7 +65,13 @@ object AdbPairFlow {
                 observer,
                 { if (!deferred.isCompleted) deferred.complete(-1) },
                 { status -> if (status.isNotEmpty()) onStatus(status) },
-                AdbMdns.MAX_REFRESH_COUNT
+                AdbMdns.MAX_REFRESH_COUNT,
+                // 修复：onPermissionRequired 此前未接线，权限缺失时静默空转等满超时；
+                // 现在立即结束并给出明确提示
+                {
+                    onStatus("缺少本地网络权限，无法搜索无线调试服务")
+                    if (!deferred.isCompleted) deferred.complete(-1)
+                }
             )
             mdns.start()
             val result = withTimeoutOrNull(timeoutMs) { deferred.await() }

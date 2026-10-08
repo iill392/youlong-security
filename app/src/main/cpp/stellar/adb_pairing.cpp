@@ -21,7 +21,15 @@ static const uint8_t kServerName[] = "adb pair server";
 
 static constexpr size_t kHkdfKeyLength = 16;
 
+// 加解密输入长度上限：配对消息体远小于此值，防止对端可控长度造成栈溢出
+static constexpr size_t kMaxIoSize = 64 * 1024;
+
+// 校验用 magic：识别已销毁/被篡改的上下文指针，防止 double-free
+static constexpr uint32_t kPairingMagic = 0xADB2C7E9u;
+
 struct PairingContextNative {
+    uint32_t magic;
+
     SPAKE2_CTX *spake2_ctx;
     uint8_t key[SPAKE2_MAX_MSG_SIZE];
     size_t key_size;
@@ -30,6 +38,10 @@ struct PairingContextNative {
     uint64_t dec_sequence;
     uint64_t enc_sequence;
 };
+
+static bool ctxValid(PairingContextNative *ctx) {
+    return ctx != nullptr && ctx->magic == kPairingMagic;
+}
 
 static jlong PairingContext_Constructor(JNIEnv *env, jclass clazz, jboolean isClient, jbyteArray jPassword) {
     spake2_role_t spake_role;
@@ -60,6 +72,10 @@ static jlong PairingContext_Constructor(JNIEnv *env, jclass clazz, jboolean isCl
 
     auto pswd_size = env->GetArrayLength(jPassword);
     auto pswd = env->GetByteArrayElements(jPassword, nullptr);
+    if (pswd == nullptr) {
+        SPAKE2_CTX_free(spake2_ctx);
+        return 0;
+    }
 
     size_t key_size = 0;
     uint8_t key[SPAKE2_MAX_MSG_SIZE];
@@ -73,8 +89,13 @@ static jlong PairingContext_Constructor(JNIEnv *env, jclass clazz, jboolean isCl
     }
     env->ReleaseByteArrayElements(jPassword, pswd, 0);
 
-    auto ctx = (PairingContextNative *) malloc(sizeof(PairingContextNative));
-    memset(ctx, 0, sizeof(PairingContextNative));
+    auto ctx = (PairingContextNative *) calloc(1, sizeof(PairingContextNative));
+    if (ctx == nullptr) {
+        LOGE("分配 PairingContext 失败。");
+        SPAKE2_CTX_free(spake2_ctx);
+        return 0;
+    }
+    ctx->magic = kPairingMagic;
     ctx->spake2_ctx = spake2_ctx;
     memcpy(ctx->key, key, SPAKE2_MAX_MSG_SIZE);
     ctx->key_size = key_size;
@@ -83,7 +104,9 @@ static jlong PairingContext_Constructor(JNIEnv *env, jclass clazz, jboolean isCl
 
 static jbyteArray PairingContext_Msg(JNIEnv *env, jobject obj, jlong ptr) {
     auto ctx = (PairingContextNative *) ptr;
+    if (!ctxValid(ctx)) return nullptr;
     jbyteArray our_msg = env->NewByteArray(ctx->key_size);
+    if (our_msg == nullptr) return nullptr;
     env->SetByteArrayRegion(our_msg, 0, ctx->key_size, (jbyte *) ctx->key);
     return our_msg;
 }
@@ -92,6 +115,7 @@ static jboolean PairingContext_InitCipher(JNIEnv *env, jobject obj, jlong ptr, j
     auto res = JNI_TRUE;
 
     auto ctx = (PairingContextNative *) ptr;
+    if (!ctxValid(ctx)) return JNI_FALSE;
     auto spake2_ctx = ctx->spake2_ctx;
     auto their_msg_size = env->GetArrayLength(jTheirMsg);
 
@@ -101,6 +125,7 @@ static jboolean PairingContext_InitCipher(JNIEnv *env, jobject obj, jlong ptr, j
     }
 
     auto their_msg = env->GetByteArrayElements(jTheirMsg, nullptr);
+    if (their_msg == nullptr) return JNI_FALSE;
 
     size_t key_material_len = 0;
     uint8_t key_material[SPAKE2_MAX_KEY_SIZE];
@@ -136,13 +161,25 @@ static jboolean PairingContext_InitCipher(JNIEnv *env, jobject obj, jlong ptr, j
 
 static jbyteArray PairingContext_Encrypt(JNIEnv *env, jobject obj, jlong ptr, jbyteArray jIn) {
     auto ctx = (PairingContextNative *) ptr;
+    if (!ctxValid(ctx)) return nullptr;
     auto aes_ctx = ctx->aes_ctx;
+    if (aes_ctx == nullptr) return nullptr;
 
     auto in = env->GetByteArrayElements(jIn, nullptr);
+    if (in == nullptr) return nullptr;
     auto in_size = env->GetArrayLength(jIn);
+    if (in_size < 0 || (size_t) in_size > kMaxIoSize) {
+        LOGE("加密输入长度 [%d] 超过上限 [%zu]。", in_size, kMaxIoSize);
+        env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
+        return nullptr;
+    }
 
     auto out_size = (size_t) in_size + EVP_AEAD_max_overhead(EVP_AEAD_CTX_aead(ctx->aes_ctx));
-    uint8_t out[out_size];
+    auto out = (uint8_t *) calloc(1, out_size);
+    if (out == nullptr) {
+        env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
+        return nullptr;
+    }
 
     auto nonce_size = EVP_AEAD_nonce_length(EVP_AEAD_CTX_aead(aes_ctx));
     uint8_t nonce[nonce_size];
@@ -152,28 +189,46 @@ static jbyteArray PairingContext_Encrypt(JNIEnv *env, jobject obj, jlong ptr, jb
     size_t written_sz;
     int status = EVP_AEAD_CTX_seal(aes_ctx, out, &written_sz, out_size, nonce, nonce_size, (uint8_t *) in, in_size, nullptr, 0);
 
-    env->ReleaseByteArrayElements(jIn, in, 0);
+    env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
 
     if (!status) {
         LOGE("加密失败（输入长度=%d, 输出长度=%" PRIuPTR", 需要长度=%d)", in_size, out_size, in_size);
+        free(out);
         return nullptr;
     }
     ++ctx->enc_sequence;
 
     jbyteArray jOut = env->NewByteArray(written_sz);
+    if (jOut == nullptr) {
+        free(out);
+        return nullptr;
+    }
     env->SetByteArrayRegion(jOut, 0, written_sz, (jbyte *) out);
+    free(out);
     return jOut;
 }
 
 static jbyteArray PairingContext_Decrypt(JNIEnv *env, jobject obj, jlong ptr, jbyteArray jIn) {
     auto ctx = (PairingContextNative *) ptr;
+    if (!ctxValid(ctx)) return nullptr;
     auto aes_ctx = ctx->aes_ctx;
+    if (aes_ctx == nullptr) return nullptr;
 
     auto in = env->GetByteArrayElements(jIn, nullptr);
+    if (in == nullptr) return nullptr;
     auto in_size = env->GetArrayLength(jIn);
+    if (in_size < 0 || (size_t) in_size > kMaxIoSize) {
+        LOGE("解密输入长度 [%d] 超过上限 [%zu]。", in_size, kMaxIoSize);
+        env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
+        return nullptr;
+    }
 
     auto out_size = (size_t) in_size;
-    uint8_t out[out_size];
+    auto out = (uint8_t *) calloc(1, out_size);
+    if (out == nullptr) {
+        env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
+        return nullptr;
+    }
 
     auto nonce_size = EVP_AEAD_nonce_length(EVP_AEAD_CTX_aead(aes_ctx));
     uint8_t nonce[nonce_size];
@@ -183,21 +238,29 @@ static jbyteArray PairingContext_Decrypt(JNIEnv *env, jobject obj, jlong ptr, jb
     size_t written_sz;
     int status = EVP_AEAD_CTX_open(aes_ctx, out, &written_sz, out_size, nonce, nonce_size, (uint8_t *) in, in_size, nullptr, 0);
 
-    env->ReleaseByteArrayElements(jIn, in, 0);
+    env->ReleaseByteArrayElements(jIn, in, JNI_ABORT);
 
     if (!status) {
         LOGE("解密失败（输入长度=%d, 输出长度=%" PRIuPTR", 需要长度=%d)", in_size, out_size, in_size);
+        free(out);
         return nullptr;
     }
     ++ctx->dec_sequence;
 
     jbyteArray jOut = env->NewByteArray(written_sz);
+    if (jOut == nullptr) {
+        free(out);
+        return nullptr;
+    }
     env->SetByteArrayRegion(jOut, 0, written_sz, (jbyte *) out);
+    free(out);
     return jOut;
 }
 
 static void PairingContext_Destroy(JNIEnv *env, jobject obj, jlong ptr) {
     auto ctx = (PairingContextNative *) ptr;
+    if (!ctxValid(ctx)) return;  // 已销毁或指针非法：忽略，防 double-free
+    ctx->magic = 0;
     SPAKE2_CTX_free(ctx->spake2_ctx);
     if (ctx->aes_ctx) EVP_AEAD_CTX_free(ctx->aes_ctx);
     free(ctx);
@@ -218,8 +281,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
             {"nativeDestroy",     "(J)V",    (void *) PairingContext_Destroy},
     };
 
-    env->RegisterNatives(env->FindClass("roro/stellar/manager/adb/PairingContext"), methods_PairingContext,
-                         sizeof(methods_PairingContext) / sizeof(JNINativeMethod));
+    auto clazz = env->FindClass("roro/stellar/manager/adb/PairingContext");
+    if (clazz == nullptr) {
+        LOGE("无法找到 PairingContext 类，JNI 注册中止。");
+        return JNI_ERR;
+    }
+    if (env->RegisterNatives(clazz, methods_PairingContext,
+                             sizeof(methods_PairingContext) / sizeof(JNINativeMethod)) != JNI_OK) {
+        LOGE("RegisterNatives 失败。");
+        return JNI_ERR;
+    }
 
     return JNI_VERSION_1_6;
 }

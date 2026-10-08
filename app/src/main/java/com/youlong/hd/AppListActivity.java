@@ -139,16 +139,23 @@ public class AppListActivity extends AppCompatActivity {
 
     private static boolean hasHighRisk(android.content.Context ctx, String pkg) {
         try {
-            PackageInfo pi = ctx.getPackageManager()
-                    .getPackageInfo(pkg, PackageManager.GET_PERMISSIONS);
+            PackageManager pm = ctx.getPackageManager();
+            PackageInfo pi = pm.getPackageInfo(pkg, PackageManager.GET_PERMISSIONS);
             String[] perms = pi.requestedPermissions;
-            if (perms == null) return false;
-            for (String p : perms) {
-                if ("android.permission.SYSTEM_ALERT_WINDOW".equals(p)
-                        || "android.permission.BIND_ACCESSIBILITY_SERVICE".equals(p)) {
-                    return true;
+            if (perms != null) {
+                for (String p : perms) {
+                    if ("android.permission.SYSTEM_ALERT_WINDOW".equals(p)) {
+                        return true;
+                    }
                 }
             }
+            // BIND_ACCESSIBILITY_SERVICE 是系统授予 Service 的权限，普通应用不会出现在
+            // requestedPermissions 中——改用 Intent 查询该包是否注册了无障碍服务
+            // （2026-10 审查修复）
+            Intent a11y = new Intent(android.accessibilityservice.AccessibilityService.SERVICE_INTERFACE);
+            a11y.setPackage(pkg);
+            List<android.content.pm.ResolveInfo> services = pm.queryIntentServices(a11y, 0);
+            if (services != null && !services.isEmpty()) return true;
         } catch (Throwable ignored) {
         }
         return false;

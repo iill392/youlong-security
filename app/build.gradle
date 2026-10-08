@@ -187,7 +187,7 @@ android {
         applicationId "com.youlong.hd"
         minSdk 24
         targetSdk 37
-        versionCode 1234567929
+        versionCode rootProject.ext.versionCode
         versionName "9.1.1"
         multiDexEnabled true
 
@@ -254,8 +254,9 @@ android {
             }
         }
         debug {
-            minifyEnabled true
-            shrinkResources true
+            // debug 关闭 R8/shrink：保留日志与断点行号，加快构建（2026-10 审查修复）
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             
         }

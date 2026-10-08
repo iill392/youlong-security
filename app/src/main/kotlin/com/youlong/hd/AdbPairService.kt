@@ -1,5 +1,6 @@
 package com.youlong.hd
 
+import kotlin.jvm.Volatile
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -28,6 +29,9 @@ class AdbPairService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var portJob: Job? = null
     private var pipelineJob: Job? = null
+
+    // 跨线程（主线程写 / IO 协程读写）访问，需可见性保证
+    @Volatile
     private var port = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -66,6 +70,9 @@ class AdbPairService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
+                // 修复：ACTION_START 分支此前丢弃了用户手填的配对端口
+                val startPort = intent?.getIntExtra(EXTRA_PORT, -1) ?: -1
+                if (startPort in 1..65535) port = startPort
                 CrashLogger.event("[无线配对] 通知配对已启动（等待用户输入配对码）")
                 startPortSearch()
                 return START_STICKY
@@ -161,7 +168,7 @@ class AdbPairService : Service() {
                     updateNotification("特权服务已启动 ✔（uid 2000 / shell）。可回特权面板跑自检", pairPort)
                     CrashLogger.event("[无线配对] 已通过通知配对启动特权服务（连接端口=$connectPort）")
                 } else {
-                    updateNotification("启动命令已执行，但 20 秒内没等到服务；可回特权面板点「重新连接」", pairPort)
+                    updateNotification("启动命令已执行，但 30 秒内没等到服务；可回特权面板点「重新连接」", pairPort)
                 }
             } catch (t: Throwable) {
                 updateNotification("出错：" + (t.message ?: t.javaClass.simpleName), port)
@@ -172,7 +179,15 @@ class AdbPairService : Service() {
                     stopForeground(if (ok) STOP_FOREGROUND_DETACH else STOP_FOREGROUND_REMOVE)
                 } catch (_: Throwable) {
                 }
-                if (!ok) stopSelf()
+                if (!ok) {
+                    stopSelf()
+                } else {
+                    // 成功后延迟数秒自停，避免服务空跑常驻
+                    scope.launch {
+                        delay(2_000L)
+                        stopSelf()
+                    }
+                }
             }
         }
     }

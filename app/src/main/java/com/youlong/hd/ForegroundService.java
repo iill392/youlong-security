@@ -176,7 +176,7 @@ public class ForegroundService extends Service {
             List<ActivityManager.RunningAppProcessInfo> procs = am.getRunningAppProcesses();
             if (procs == null) return -1;
             for (ActivityManager.RunningAppProcessInfo p : procs) {
-                if (p.pid > 0 && p.processName != null && p.processName.equals("com.youlong.hd")) {
+                if (p.pid > 0 && p.processName != null && p.processName.equals(getPackageName())) {
                     return p.pid;
                 }
             }

@@ -178,9 +178,8 @@ public class ColorModeUtils {
         if (val == 1) return "Vivid";
         if (val == 2 || val == 3) return "Standard";
 
-        val = tryGetSystemInt(cr, KEY_XIAOMI_COLOR_SCHEME, -1);
-        if (val == 1) return "Vivid";
-        if (val == 0 || val == 2) return "Standard";
+        // KEY_XIAOMI_COLOR_SCHEME 与 KEY_GENERIC_COLOR_MODE 同为 "screen_color_mode"，
+        // 上面的通用分支已覆盖，此分支不可达，已移除（2026-10 审查）
 
         
         val = tryGetGlobalInt(cr, "display_color_enhance", -1);
