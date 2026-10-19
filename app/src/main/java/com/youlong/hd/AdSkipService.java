@@ -156,8 +156,14 @@ public class AdSkipService extends AccessibilityService {
     
     public void onVolumeChanged(int volumeType) {
         Log.v(TAG, "onVolumeChanged type=" + volumeType);
-        if (sVolListener != null) {
-            sVolListener.onVolumeChanged(volumeType, 0);
+        VolumeChangeListener l = sVolListener;
+        if (l != null) {
+            try {
+                l.onVolumeChanged(volumeType, 0);
+            } catch (Throwable t) {
+                // 回调异常不能抛回无障碍服务：进程崩溃会让系统把本服务移出已启用列表
+                Log.e(TAG, "音量回调异常", t);
+            }
         }
     }
 
@@ -172,8 +178,13 @@ public class AdSkipService extends AccessibilityService {
             if (dir != 0) {
                 Log.v(TAG, "onKeyEvent 音量" + (dir > 0 ? "+" : "-") + " 物理按键(不消费)");
                 
-                if (sVolListener != null) {
-                    sVolListener.onVolumeChanged(-1, dir);
+                VolumeChangeListener l = sVolListener;
+                if (l != null) {
+                    try {
+                        l.onVolumeChanged(-1, dir);
+                    } catch (Throwable t) {
+                        Log.e(TAG, "音量回调异常", t);
+                    }
                 }
             }
             
@@ -202,8 +213,13 @@ public class AdSkipService extends AccessibilityService {
             Log.d(TAG, "WINDOW_STATE_CHANGED pkg=" + pkg + " current=" + mCurrentPkg);
             mCurrentPkg = pkg;
             
-            if (sFgListener != null) {
-                sFgListener.onForegroundChanged(pkg);
+            ForegroundChangeListener fl = sFgListener;
+            if (fl != null) {
+                try {
+                    fl.onForegroundChanged(pkg);
+                } catch (Throwable t) {
+                    Log.e(TAG, "前台变化回调异常", t);
+                }
             }
             if (shouldMonitor(pkg)) {
                 Log.d(TAG, "monitor " + pkg + " → scan at 1500/4000ms");

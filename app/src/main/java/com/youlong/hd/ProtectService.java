@@ -189,6 +189,9 @@ public class ProtectService extends Service implements SensorEventListener {
     
     
     private Boolean lastA11yAvailable = null;
+    // 无障碍自动恢复：上次尝试时间（elapsedRealtime），用于节流
+    private volatile long lastA11yRestoreAt = 0;
+    private static final long A11Y_RESTORE_MIN_INTERVAL_MS = 30_000;
     
     private boolean volTriggerSuspendedForA11y = false;
     
@@ -474,6 +477,7 @@ public class ProtectService extends Service implements SensorEventListener {
             if (isAccessibilityServiceEnabled()) return;
             Log.w(TAG, "检测到无障碍权限已丢失，若 Shizuku 已连接仍可正常守护");
             new Thread(() -> {
+                if (tryRestoreAccessibility()) return;
                 boolean hasPriv;
                 try {
                     hasPriv = StellarUtils.isStellarAvailable()
@@ -508,7 +512,7 @@ public class ProtectService extends Service implements SensorEventListener {
     
     // ======================================================================
     private void monitorPermissionDegrade() {
-        final boolean a11yOk = isAccessibilityServiceEnabled();
+        final boolean a11yOk = isAccessibilityServiceEnabled() || tryRestoreAccessibility();
         final boolean overlayOk = canDrawOverlays();
         final SharedPreferences sp = getSharedPreferences("shield_prefs", MODE_PRIVATE);
 
@@ -692,7 +696,69 @@ public class ProtectService extends Service implements SensorEventListener {
         }
     }
 
-    
+    // 无障碍被系统关掉时（本应用被强行停止 / 进程崩溃 / ROM 清理后台，系统会把它从
+    // enabled_accessibility_services 里删掉）自动把自身写回去。
+    // 优先用 WRITE_SECURE_SETTINGS 直接写（若已授权，如 ADB 配对时顺带授予；不依赖特权服务在线），
+    // 没有该权限再走 Stellar shell。30 秒内最多尝试一次，避免崩溃循环时反复写。
+    // 必须在后台线程调用（Stellar runCommand 会阻塞）。
+    // 用户如需手动关闭无障碍且不被拉回，可把 shield_prefs 的 a11y_auto_restore 置为 false。
+    private boolean tryRestoreAccessibility() {
+        if (!getSharedPreferences("shield_prefs", MODE_PRIVATE)
+                .getBoolean("a11y_auto_restore", true)) {
+            return false;
+        }
+        final long now = SystemClock.elapsedRealtime();
+        if (lastA11yRestoreAt != 0 && now - lastA11yRestoreAt < A11Y_RESTORE_MIN_INTERVAL_MS) {
+            return false;
+        }
+        lastA11yRestoreAt = now;
+
+        final String pkg = getPackageName();
+        final String self = new android.content.ComponentName(this, AdSkipService.class)
+                .flattenToString();
+        String via = null;
+        try {
+            if (checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS)
+                    == PackageManager.PERMISSION_GRANTED) {
+                String cur = Settings.Secure.getString(getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+                String next;
+                if (cur == null || cur.isEmpty()) next = self;
+                else if ((":" + cur).contains(":" + pkg + "/")) next = cur;
+                else next = cur + ":" + self;
+                Settings.Secure.putString(getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, next);
+                Settings.Secure.putInt(getContentResolver(),
+                        Settings.Secure.ACCESSIBILITY_ENABLED, 1);
+                via = "WRITE_SECURE_SETTINGS";
+            } else if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
+                String script = "P=" + pkg + "; T=" + self + "; "
+                        + "C=$(settings get secure enabled_accessibility_services 2>/dev/null); "
+                        + "case \":$C\" in "
+                        + "*\":$P/\"*) ;; "
+                        + "\":\"|\":null\") settings put secure enabled_accessibility_services \"$T\" ;; "
+                        + "*) settings put secure enabled_accessibility_services \"$C:$T\" ;; "
+                        + "esac; "
+                        + "settings put secure accessibility_enabled 1";
+                StellarUtils.runCommand(script, 8000);
+                via = "Stellar";
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "无障碍自动恢复失败", t);
+        }
+        if (via == null) return false;
+
+        final boolean ok = isAccessibilityServiceEnabled();
+        Log.i(TAG, "无障碍自动恢复(" + via + ")=" + ok);
+        CrashLogger.event("[权限] 无障碍被关闭，自动恢复(" + via + ")=" + ok);
+        if (ok) {
+            h.post(() -> Toast.makeText(ProtectService.this,
+                    "无障碍权限被系统关闭，已自动重新开启", Toast.LENGTH_SHORT).show());
+        }
+        return ok;
+    }
+
+
     private void scanBlacklistedApps() {
         try {
             PackageManager pm = getPackageManager();
@@ -2995,6 +3061,10 @@ public class ProtectService extends Service implements SensorEventListener {
             sb.append("T=").append(self).append("; ");
             sb.append("C=$(settings get secure enabled_accessibility_services 2>/dev/null); ");
             sb.append("N=$(echo \"$C\" | tr ':' '\\n' | grep \"^$T/\" | tr '\\n' ':' | sed 's/:$//'); ");
+            // 自身恰好不在列表里时 N 为空，直接写空串会把所有无障碍（含自己）一起清掉
+            sb.append("[ -n \"$N\" ] || N=")
+                    .append(new android.content.ComponentName(this, AdSkipService.class).flattenToString())
+                    .append("; ");
             sb.append("timeout 5 settings put secure enabled_accessibility_services \"$N\" 2>/dev/null; ");
             sb.append("timeout 5 settings put secure accessibility_enabled 1 2>/dev/null; ");
             sb.append("echo \"当前启用：$(settings get secure enabled_accessibility_services 2>/dev/null)\"");

@@ -188,7 +188,7 @@ android {
         minSdk 24
         targetSdk 37
         versionCode 1234567929
-        versionName "9.1.1"
+        versionName "9.3"
         multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
