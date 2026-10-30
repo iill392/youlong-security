@@ -409,7 +409,7 @@ public class ShieldWarnActivity extends Activity {
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < pkgs.size(); i++) {
                         if (i > 0) sb.append("; ");
-                        sb.append("am force-stop ").append(pkgs.get(i));
+                        sb.append("am force-stop ").append(ShellArgument.quote(pkgs.get(i)));
                     }
                     cmd = sb.toString();
                 }
@@ -616,11 +616,11 @@ public class ShieldWarnActivity extends Activity {
             public void run() {
                 String result;
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                    result = StellarUtils.runCommand("am force-stop " + pkg, 10000);
+                    result = StellarUtils.runCommand("am force-stop " + ShellArgument.quote(pkg), 10000);
                 } else {
                     
                     try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + pkg}).waitFor();
+                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + ShellArgument.quote(pkg)}).waitFor();
                         result = "OK(fallback)";
                     } catch (Exception e) {
                         result = "ERROR:" + e.getMessage();
@@ -887,10 +887,10 @@ public class ShieldWarnActivity extends Activity {
             public void run() {
                 final String[] result = new String[1];
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                    result[0] = StellarUtils.runCommand("pm disable-user --user 0 " + pkg, 15000);
+                    result[0] = StellarUtils.runCommand("pm disable-user --user 0 " + ShellArgument.quote(pkg), 15000);
                 } else {
                     try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm disable-user --user 0 " + pkg}).waitFor();
+                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm disable-user --user 0 " + ShellArgument.quote(pkg)}).waitFor();
                         result[0] = "OK(fallback)";
                     } catch (Exception e) {
                         result[0] = "ERROR:" + e.getMessage();
@@ -980,11 +980,11 @@ public class ShieldWarnActivity extends Activity {
             public void run() {
                 String result;
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                    result = StellarUtils.runCommand("pm uninstall " + pkg, 15000);
+                    result = StellarUtils.runCommand("pm uninstall " + ShellArgument.quote(pkg), 15000);
                 } else {
                     
                     try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm uninstall " + pkg}).waitFor();
+                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm uninstall " + ShellArgument.quote(pkg)}).waitFor();
                         result = "OK(fallback)";
                     } catch (Exception e) {
                         result = "ERROR:" + e.getMessage();
@@ -1125,7 +1125,7 @@ public class ShieldWarnActivity extends Activity {
     }
 
     private void forceStopPackage(String pkg) {
-        try { Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + pkg}).waitFor(); } catch (Exception ignored) {}
+        try { Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + ShellArgument.quote(pkg)}).waitFor(); } catch (Exception ignored) {}
         try { ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE); if (am != null) am.killBackgroundProcesses(pkg); } catch (Exception ignored) {}
     }
 

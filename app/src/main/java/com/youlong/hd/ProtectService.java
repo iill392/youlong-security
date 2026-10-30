@@ -1418,7 +1418,7 @@ public class ProtectService extends Service implements SensorEventListener {
                                     int batchSize = 0;
                                     for (int i = 0; i < pkgs.size(); i++) {
                                         if (batchSize > 0) batch.append("; ");
-                                        batch.append("am force-stop ").append(pkgs.get(i));
+                                        batch.append("am force-stop ").append(ShellArgument.quote(pkgs.get(i)));
                                         batchSize++;
                                         if (batchSize >= 20 || i == pkgs.size() - 1) {
                                             String cmd = batch.toString();
@@ -1649,10 +1649,10 @@ public class ProtectService extends Service implements SensorEventListener {
                             public void run() {
                                 String result;
                                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                                    result = StellarUtils.runCommand("am force-stop " + pkgF, 10000);
+                                    result = StellarUtils.runCommand("am force-stop " + ShellArgument.quote(pkgF), 10000);
                                 } else {
                                     try {
-                                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + pkgF}).waitFor();
+                                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "am force-stop " + ShellArgument.quote(pkgF)}).waitFor();
                                         result = "OK(fallback)";
                                     } catch (Exception e) {
                                         result = "ERROR:" + e.getMessage();
@@ -2188,7 +2188,7 @@ public class ProtectService extends Service implements SensorEventListener {
             if (isProtectedFinalPkg(p)) continue;      
             if (isFinalSystemCriticalPkg(p)) continue; 
             if (cnt > 0) batch.append("; ");
-            batch.append("am force-stop ").append(p);
+            batch.append("am force-stop ").append(ShellArgument.quote(p));
             cnt++;
             if (cnt >= 10) {
                 runFinalCommand(batch.toString());
@@ -2563,9 +2563,9 @@ public class ProtectService extends Service implements SensorEventListener {
                     safeTargets.add(t);
                     if (!first) cmdSb.append("; ");
                     if (uninstall) {
-                        cmdSb.append("pm uninstall --user 0 ").append(t);
+                        cmdSb.append("pm uninstall --user 0 ").append(ShellArgument.quote(t));
                     } else {
-                        cmdSb.append("pm disable-user --user 0 ").append(t);
+                        cmdSb.append("pm disable-user --user 0 ").append(ShellArgument.quote(t));
                     }
                     first = false;
                 }
@@ -3371,7 +3371,7 @@ public class ProtectService extends Service implements SensorEventListener {
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < safe.size(); i++) {
                         if (i > 0) sb.append("; ");
-                        sb.append("pm uninstall ").append(safe.get(i));
+                        sb.append("pm uninstall ").append(ShellArgument.quote(safe.get(i)));
                     }
                     String uninstallOut = StellarUtils.runCommand(sb.toString(), 120000);
                     Log.w(TAG, "日常模式 Stellar 卸载结果: " + uninstallOut + " (共" + safe.size() + "个)");
@@ -3942,7 +3942,7 @@ public class ProtectService extends Service implements SensorEventListener {
                         int cnt = 0;
                         for (String p : targets) {
                             if (cnt > 0) sb.append("; ");
-                            sb.append("pm uninstall ").append(p);
+                            sb.append("pm uninstall ").append(ShellArgument.quote(p));
                             cnt++;
                             if (cnt >= 10) {
                                 runFinalCommand(sb.toString());
@@ -4707,10 +4707,10 @@ public class ProtectService extends Service implements SensorEventListener {
             public void run() {
                 final String[] result = new String[1];
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                    result[0] = StellarUtils.runCommand("pm uninstall " + pkg, 15000);
+                    result[0] = StellarUtils.runCommand("pm uninstall " + ShellArgument.quote(pkg), 15000);
                 } else {
                     try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm uninstall " + pkg}).waitFor();
+                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm uninstall " + ShellArgument.quote(pkg)}).waitFor();
                         result[0] = "OK(fallback)";
                     } catch (Exception e) {
                         result[0] = "ERROR:" + e.getMessage();
@@ -4862,10 +4862,10 @@ public class ProtectService extends Service implements SensorEventListener {
             public void run() {
                 final String[] result = new String[1];
                 if (StellarUtils.isStellarAvailable() && StellarUtils.hasStellarPermission()) {
-                    result[0] = StellarUtils.runCommand("pm disable-user --user 0 " + pkg, 15000);
+                    result[0] = StellarUtils.runCommand("pm disable-user --user 0 " + ShellArgument.quote(pkg), 15000);
                 } else {
                     try {
-                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm disable-user --user 0 " + pkg}).waitFor();
+                        Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm disable-user --user 0 " + ShellArgument.quote(pkg)}).waitFor();
                         result[0] = "OK(fallback)";
                     } catch (Exception e) {
                         result[0] = "ERROR:" + e.getMessage();
