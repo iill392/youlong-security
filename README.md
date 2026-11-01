@@ -7,7 +7,7 @@
 
 # 游龙安全护盾（YouLong Security Shield）
 
-### 免 Root 的 Android 安全防护 / 广告拦截 / 应用风险治理工具
+### 免 Root 的 Android 安全防护 / 应用风险治理工具
 
 **An open-source &amp; forever-free Android security toolkit — no root required.**
 
@@ -101,12 +101,6 @@
 </td>
 <td align="center" width="33%">
 
-**无障碍拦截**
-
-基于 AccessibilityService<br/>自动跳过广告、风险提示
-
-</td>
-<td align="center" width="33%">
 
 **日志与自检**
 
