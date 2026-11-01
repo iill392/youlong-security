@@ -1,26 +1,26 @@
 // ============================================================
-
+// 游龙 Native 加密核心 v1.0 - YouLong Native Crypto Core
 // ============================================================
-
-
-
-
-
-
+// 职责：
+//   1. 密钥派生 KDF：SHA-256(种子密钥 + HMAC盐 + 签名证书指纹)
+//   2. AES-256-GCM 解密（BoringSSL/OpenSSL 或系统 EVP）
+//   3. 种子密钥以加密常量存储（非明文），运行时在 native 层解密
+//   4. 反调试/反注入：TracerPid 只读检测 + maps 恶意注入扫描（供 Java 层调用）
+//      ⚠️ 仅只读检测，**不修改自身 ptrace 状态**（PTRACE_TRACEME 已移除，见下）
 //
-
-
-
-
+// 安全设计：
+//   - Java 层不再持有任何密钥字节，仅持有证书指纹（动态）
+//   - 种子密钥在 SO 内以 XOR+位移混淆常量存储，grep/hexdump 不可见
+//   - 解密后的明文立即用于上层，本层不缓存
 //
-
+// JNI 接口：
 //   Java_com_youlong_hd_NativeCrypto_deriveKey(
-
+//       byte[] signatureFingerprint /* 32B 证书指纹或空 */) -> byte[32] AES-256 密钥
 //   Java_com_youlong_hd_NativeCrypto_decrypt(
-
-
-
-
+//       byte[] iv, byte[] ciphertext, byte[] signatureFingerprint) -> byte[] 明文
+//   Java_com_youlong_hd_NativeCrypto_isTracerAttached() -> boolean TracerPid 只读检测
+//       （仅供环境信息记录，Java 层不据此报复崩溃，详见函数上方注释）
+//   Java_com_youlong_hd_NativeCrypto_detectFrida() -> boolean 反注入
 // ============================================================
 
 #include <jni.h>
@@ -31,31 +31,31 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// ---- 纯 C 自实现加密核心（零外部依赖）----
+//   SHA-256 / AES-256 / GCM(GHASH+CTR) 全部在本文件内实现
+//   1) 不依赖预编译 OpenSSL（NDK 不内置，避免 ABI/版本坑）
+//   2) 自研实现的逆向难度显著高于调用 OpenSSL（无符号/无特征）
+//   3) 内核只暴露 3 个 JNI 入口，反编译面最小
 
-
-
-
-
-
-
+// ---- Android 日志（仅加密核心错误时使用，检测路径不打日志）----
 #include <android/log.h>
 #define LOG_TAG "YLN"
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
-
-
-
-
-
+// ---- 纯 C 自实现加密核心（零外部依赖，含单元测试可移植）----
+//   SHA-256 / AES-256 / GCM / 混淆种子存储 / 密钥派生 全部在 crypto_core.h
+//   1) 不依赖预编译 OpenSSL（NDK 不内置，避免 ABI/版本坑）
+//   2) 自研实现的逆向难度显著高于调用 OpenSSL（无符号/无特征）
+//   3) 内核只暴露 3 个 JNI 入口，反编译面最小
 #include "crypto_core.h"
 
 // ============================================================
-
+// 反调试：TracerPid 只读检测（读取 /proc/self/status）
 //
-
-
-
-
+// ⚠️ 只读、无副作用，**仅用于环境信息记录**，Java 层不再据此报复崩溃：
+//    TracerPid 非 0 在 Android 上多由厂商 ROM 加固 / 无障碍 / 性能工具 /
+//    沙箱多开引起，无法区分真调试器，据此崩溃会误杀正常用户。
+//    （本文件已不再调用 ptrace(PTRACE_TRACEME)，详见下方"已移除"注释块）
 // ============================================================
 static int check_tracer_pid() {
     FILE* f = fopen("/proc/self/status", "r");
@@ -73,16 +73,16 @@ static int check_tracer_pid() {
 }
 
 // ============================================================
-
-
-
+// 反注入：/proc/self/maps 扫描 Frida/Xposed 特征
+// 特征串 XOR 0x7F 混淆存储、运行时解码 —— strings/grep 提取不到明文
+// 静默检测：命中不打日志（避免被 hook 定位检测点）
 // ============================================================
 static int detect_injection() {
     FILE* f = fopen("/proc/self/maps", "r");
     if (f == NULL) return 0;
     char line[512];
     int suspicious = 0;
-    
+    // XOR 0x7F 编码的特征串（与 Java 层 StrX 的 0x5A 不同，双密钥）
     static const uint8_t enc[][10] = {
         {0x19,0x0D,0x16,0x1B,0x1E},                          // frida
         {0x18,0x1E,0x1B,0x18,0x1A,0x0B},                     // gadget
@@ -107,18 +107,18 @@ static int detect_injection() {
 }
 
 // ============================================================
-
-
-
+// JNI 导出 —— 全部改为 static + RegisterNatives 动态注册
+// 目的：隐藏 Java_com_youlong_hd_* 导出符号，
+//       .dynsym 仅保留 JNI_OnLoad，攻击者 nm/readelf 看不到接口名
 // ============================================================
 
-
+// isNativeLoaded() -> boolean （SO 加载成功后恒为 true）
 static jboolean nc_isNativeLoaded(JNIEnv* env, jobject thiz) {
     (void)env; (void)thiz;
     return JNI_TRUE;
 }
 
-
+// deriveSeedForFallback() -> byte[16]（Java 兜底用，返回混淆存储的种子）
 static jbyteArray nc_deriveSeedForFallback(JNIEnv* env, jobject thiz) {
     (void)thiz;
     const uint8_t* seed = get_seed_key();
@@ -129,7 +129,7 @@ static jbyteArray nc_deriveSeedForFallback(JNIEnv* env, jobject thiz) {
     return result;
 }
 
-
+// deriveSaltForFallback() -> byte[16]（Java 兜底用，返回混淆存储的盐）
 static jbyteArray nc_deriveSaltForFallback(JNIEnv* env, jobject thiz) {
     (void)thiz;
     const uint8_t* salt = get_hmac_salt();
@@ -165,7 +165,7 @@ static jbyteArray nc_deriveKey(JNIEnv* env, jobject thiz, jbyteArray fingerprint
     return result;
 }
 
-
+// decrypt(byte[] iv, byte[] ciphertext, byte[] fingerprint) -> byte[] 明文
 static jbyteArray nc_decrypt(
         JNIEnv* env, jobject thiz,
         jbyteArray iv, jbyteArray ciphertext, jbyteArray fingerprint) {
@@ -228,33 +228,33 @@ static jboolean nc_detectFrida(JNIEnv* env, jobject thiz) {
 }
 
 // ============================================================
-
+// ⛔ 已移除：ptrace(PTRACE_TRACEME)「自占坑」反调试
 //
-
-
+// v9.0 及之前在 JNI_OnLoad 里执行 ptrace(PTRACE_TRACEME)，期望"占坑"后
+// 调试器 attach 失败。这在 Android 上是**反模式**，会造成「启动即无响应」：
 //
-
-
-
-
-
-
-
-
-
-
+//   1) TRACEME = 请求"父进程跟踪我"，而 App 进程的父进程是 zygote。
+//      zygote 只负责 fork，从不履行 tracer 的 wait/continue 职责 →
+//      进程一旦进入 ptrace-stop 就是**永久冻结**（SIGCONT 亦无效）；
+//      主线程被停 → ANR「应用无响应」，:guard 前台服务超时被系统清理。
+//   2) TRACEME 成功后 /proc/self/status 的 TracerPid 变成 zygote 的 pid，
+//      check_tracer_pid() 会把"TracerPid != 0"判定为"被调试"，
+//      而 YouLongShield.init() 据此调用 scheduleRetaliation(3,15) 随机崩溃。
+//      两者叠加 = 用户看到的「3~15 秒卡死 + 应用无响应」。
+//   3) 进程处于"已被追踪"状态时 debuggerd 无法抓现场 →
+//      此类崩溃在崩溃统计里是**隐形的**，极难自查。
 //
-
-
+// 真机案例：realme Neo7 Turbo (RMX5062 / ColorOS / Android 15)，
+//           TracerPid = 1144 (= zygote64)；去掉本调用后症状完全消失。
 //
-
-
-
-
+// 现行反调试策略 = **纯只读检测**（不修改自身 ptrace 状态）：
+//   - check_tracer_pid()  读 /proc/self/status 的 TracerPid（仅记录，不报复）
+//   - detect_injection()  扫 /proc/self/maps 的 Frida/Xposed 特征
+//   - Java 层 Debug.isDebuggerConnected() / Frida 端口与 D-Bus 握手
 // ============================================================
 
 // ============================================================
-
+// JNI_OnLoad：动态注册全部 native 方法（无任何反调试副作用钩子）
 // ============================================================
 static const JNINativeMethod kNativeMethods[] = {
     { "isNativeLoaded",          "()Z",    (void*)nc_isNativeLoaded },
@@ -266,14 +266,14 @@ static const JNINativeMethod kNativeMethods[] = {
     { "detectFrida",             "()Z",    (void*)nc_detectFrida },
 };
 
-
+// 哨兵守护（GuardSentinel.cpp）：fork 子进程监视兄弟进程存活
 extern "C" int register_guard_sentinel(JNIEnv* env);
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
-    
-    
-    
+    // ⛔ 严禁在此调用 ptrace(PTRACE_TRACEME) 之类"自占坑"反调试：
+    //    在 Android 上它会让进程被 zygote 名义追踪，收到信号后永久 ptrace-stop
+    //    → ANR「应用无响应」+ 服务被系统清理。机理详见上方注释块。
 
     JNIEnv* env = NULL;
     if (vm->GetEnv((void**)&env, JNI_VERSION_1_6) != JNI_OK) {
@@ -290,22 +290,22 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     }
     env->DeleteLocalRef(cls);
 
-    
+    // 注册哨兵守护 native 方法（失败不影响主加密核心）
     register_guard_sentinel(env);
     return JNI_VERSION_1_6;
 }
 
 // ============================================================
-
-
+// 以下自实现加密核心已迁移至 crypto_core.h（上方 #include）
+// 此处仅留档，编译期被 #if 0 排除，避免重复定义
 // ============================================================
 #if 0
 // ============================================================
-
+// ================ 自实现加密核心（纯 C） =====================
 // ============================================================
 
 // ------------------------------------------------------------
-
+// SHA-256（FIPS 180-4 标准实现）
 // ------------------------------------------------------------
 static const uint32_t SHA256_K[64] = {
     0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -387,7 +387,7 @@ static void sha256_final(sha256_context* ctx, uint8_t out[32]) {
 }
 
 // ------------------------------------------------------------
-
+// AES-256（Rijndael，Nk=8 / Nr=14；仅需加密方向）
 // ------------------------------------------------------------
 static const uint8_t SBOX[256] = {
     0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd7,0xab,0x76,
@@ -443,10 +443,10 @@ static void aes_sub_bytes(uint8_t* state) {
 
 static void aes_shift_rows(uint8_t* s) {
     uint8_t t;
-    t = s[1];  s[1] = s[5];  s[5] = s[9];  s[9] = s[13];  s[13] = t;  
-    t = s[2];  s[2] = s[10]; s[10] = t;                                 
+    t = s[1];  s[1] = s[5];  s[5] = s[9];  s[9] = s[13];  s[13] = t;  // 行1 左移1
+    t = s[2];  s[2] = s[10]; s[10] = t;                                 // 行2 左移2
     t = s[6];  s[6] = s[14]; s[14] = t;
-    t = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t;      
+    t = s[15]; s[15] = s[11]; s[11] = s[7]; s[7] = s[3]; s[3] = t;      // 行3 左移3
 }
 
 static void aes_mix_columns(uint8_t* s) {
@@ -482,7 +482,7 @@ static void aes256_encrypt_block(const uint8_t key[32], const uint8_t in[16], ui
 }
 
 // ------------------------------------------------------------
-
+// GCM 辅助：GF(2^128) 乘法（NIST SP 800-38D, MSB-first）
 // ------------------------------------------------------------
 static void gcm_shift_left(uint8_t* v) {
     uint8_t carry = 0;
@@ -504,8 +504,8 @@ static void gcm_mul(uint8_t z[16], const uint8_t x[16], const uint8_t y[16]) {
         }
         uint8_t top = (uint8_t)((v[0] >> 7) & 1);
         gcm_shift_left(v);
-        if (top) v[0] ^= 0xE1; 
+        if (top) v[0] ^= 0xE1; // 规约多项式 R = 0xE1 << 120
     }
     secure_clear(v, sizeof(v));
 }
-#endif 
+#endif // 0 - 加密核心已迁移至 crypto_core.h

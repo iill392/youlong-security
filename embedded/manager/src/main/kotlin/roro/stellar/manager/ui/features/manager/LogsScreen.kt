@@ -260,6 +260,8 @@ internal fun LogsScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onBackground,
         topBar = {
             LogsTopBar(
                 onBackClick = onBackClick,
@@ -617,7 +619,8 @@ private fun LogFilterBarVertical(
 @Composable
 private fun LogItem(log: String, modifier: Modifier = Modifier) {
     val level = parseLogLevel(log)
-    val parts = parseLogEntry(log)
+    // 2026-10-30：日志页所有上游显示名统一为 youlong，不改变任何代码包名/接口。
+    val parts = parseLogEntry(sanitizeLogText(log))
     val levelColor = getLevelColor(level)
 
     Surface(
@@ -679,6 +682,13 @@ private fun LogItem(log: String, modifier: Modifier = Modifier) {
 }
 
 private data class LogParts(val timestamp: String, val tag: String, val message: String)
+
+/** 日志页只做显示层替换：不影响源码包名、Binder 接口、数据库原始日志。 */
+private fun sanitizeLogText(text: String): String = text
+    .replace("stellar_server", "youlong_server")
+    .replace("STELLAR", "YOULONG")
+    .replace("Stellar", "youlong")
+    .replace("stellar", "youlong")
 
 private fun parseLogLevel(log: String): String = when {
     log.contains(" E/") -> "E"

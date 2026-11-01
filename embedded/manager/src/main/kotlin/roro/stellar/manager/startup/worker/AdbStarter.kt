@@ -17,42 +17,52 @@ object AdbStarter {
 
     private const val TAG = AppConstants.TAG
 
-    
+    /**
+     * 连接到 ADB 并执行 starter 命令。
+     * 带指数退避重试，最多 [maxRetries] 次。
+     *
+     * 2026-10-31 修复：先用当前端口启动，成功后再切换自定义 TCP 端口。
+     * 此前先 tcpip 切端口，部分 ROM 上新端口 adbd 未完成授权/重连，
+     * 启动命令发不进去，最终表现为“等待服务启动超时”。
+     */
     suspend fun startAdb(host: String, port: Int, maxRetries: Int = 5): Boolean {
-        val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "stellar")
-        var activePort = port
-        val (shouldChange, newPort) = AdbWirelessHelper().shouldChangePort(activePort)
+        val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "youlong")
+        val (shouldChange, newPort) = AdbWirelessHelper().shouldChangePort(port)
 
-        if (shouldChange && newPort > 0) {
-            for (attempt in 0 until maxRetries) {
-                try {
-                    AdbClient(host, activePort, key).use { client ->
-                        client.connect()
-                        client.tcpip(newPort) { }
-                    }
-                    activePort = newPort
-                    break
-                } catch (_: java.io.EOFException) {
-                    activePort = newPort
-                    break
-                } catch (e: Exception) {
-                    Log.w(TAG, "ADB 端口切换尝试 ${attempt + 1}/$maxRetries 失败", e)
-                    if (attempt < maxRetries - 1) {
-                        delay(1000L * (1 shl attempt))
-                    }
-                }
+        // 1. 先使用当前已授权端口启动
+        if (startAt(host, port, key, maxRetries)) {
+            // 2. 服务起来后再切换自定义端口；失败也不影响已启动的服务
+            if (shouldChange && newPort > 0) {
+                switchPortBestEffort(host, port, newPort, key)
             }
+            return true
         }
 
+        // 3. 当前端口确实无法启动时，才尝试切换端口后再启动
+        if (shouldChange && newPort in 1..65535) {
+            switchPortBestEffort(host, port, newPort, key)
+            if (startAt(host, newPort, key, maxRetries)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private suspend fun startAt(
+        host: String,
+        port: Int,
+        key: AdbKey,
+        maxRetries: Int
+    ): Boolean {
         repeat(maxRetries) { attempt ->
             try {
-                AdbClient(host, activePort, key).use { client ->
+                AdbClient(host, port, key).use { client ->
                     client.connect()
-                    client.shellCommand(Starter.wirelessDebuggingCommand) { /* consume output */ }
+                    client.shellCommand(Starter.detachedWirelessDebuggingCommand) { /* consume output */ }
                 }
                 return true
             } catch (_: java.io.EOFException) {
-                
+                // shell stream 关闭是正常的（服务进程已 fork）
                 return true
             } catch (e: Exception) {
                 Log.w(TAG, "ADB 启动尝试 ${attempt + 1}/$maxRetries 失败", e)
@@ -64,10 +74,23 @@ object AdbStarter {
         return false
     }
 
+    private suspend fun switchPortBestEffort(host: String, oldPort: Int, newPort: Int, key: AdbKey) {
+        try {
+            AdbClient(host, oldPort, key).use { client ->
+                client.connect()
+                client.tcpip(newPort) { }
+            }
+            delay(800)
+            Log.i(TAG, "服务启动后端口已切换: $oldPort -> $newPort")
+        } catch (e: Exception) {
+            Log.w(TAG, "服务启动后切换端口失败（不影响服务）: $oldPort -> $newPort", e)
+        }
+    }
+
     suspend fun prepareTcpip(host: String, wirelessPort: Int, tcpipPort: Int, maxRetries: Int = 5): Boolean {
         if (tcpipPort !in 1..65535) return false
 
-        val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "stellar")
+        val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "youlong")
         repeat(maxRetries) { attempt ->
             try {
                 AdbClient(host, wirelessPort, key).use { client ->
@@ -105,7 +128,9 @@ object AdbStarter {
         return false
     }
 
-    
+    /**
+     * 轮询等待 Stellar Binder 可用。
+     */
     suspend fun waitForBinder(timeoutMs: Long = 15_000): Boolean {
         val interval = 300L
         var elapsed = 0L

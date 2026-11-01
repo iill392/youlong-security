@@ -9,63 +9,71 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
-
+/**
+ * 白名单管理（2026-10-30 重做）。
+ *
+ * 需求：
+ *   · 去掉所有内置/自动加入的信任应用；
+ *   · 已加入列表支持搜索；
+ *   · 加入应用的选择器支持搜索、全选/取消全选；
+ *   · 页面改为卡片式，减少「一层套一层」的旧样式。
+ */
 public class WhitelistActivity extends Activity {
 
-    
-    public static final java.util.Set<String> DEFAULT_TRUSTED_PKGS = new java.util.HashSet<>(java.util.Arrays.asList(
-            "com.eg.android.AlipayGphone",
-            "com.tencent.mm",
-            "com.xunmeng.pinduoduo",
-            "com.youlong.zoo",
-            "com.tencent.mobileqq"
-    ));
+    /** 2026-10-30：按用户要求清空内置信任应用。 */
+    public static final Set<String> DEFAULT_TRUSTED_PKGS = Collections.emptySet();
 
-    
-    public static final java.util.Set<String> LEGACY_TRUSTED_PKGS = new java.util.HashSet<>(java.util.Arrays.asList(
-            "com.larus.nova",
-            "com.smile.gifmaker"
-    ));
-
-    
-    public static boolean isWhitelisted(Context ctx, String pkg) {
-        if (ctx == null || pkg == null || pkg.isEmpty()) return false;
-        if (DEFAULT_TRUSTED_PKGS.contains(pkg) || LEGACY_TRUSTED_PKGS.contains(pkg)) return true;
-        try {
-            SharedPreferences prefs = ctx.getSharedPreferences("shield_prefs", Context.MODE_PRIVATE);
-            String raw = prefs.getString("whitelist_pkgs", "");
-            if (raw == null || raw.isEmpty()) return false;
-            for (String p : raw.split(",")) {
-                if (pkg.equals(p.trim())) return true;
-            }
-        } catch (Exception ignored) {}
-        return false;
-    }
+    private static final int COLOR_BG = 0xFFF4F6FB;
+    private static final int COLOR_PRIMARY = 0xFF1565C0;
+    private static final int COLOR_PRIMARY_DARK = 0xFF0B3D91;
+    private static final int COLOR_TEXT = 0xFF172033;
+    private static final int COLOR_SUB = 0xFF7B8499;
+    private static final int COLOR_LINE = 0xFFE6EAF2;
 
     private PackageManager pm;
     private SharedPreferences prefs;
-    private Set<String> currentWhitelist = new HashSet<>();
-    private List<AppItem> allApps = new ArrayList<>();
+    private final Set<String> currentWhitelist = new HashSet<>();
+    private final List<AppItem> allApps = new ArrayList<>();
+
     private LinearLayout whitelistContainer;
     private LinearLayout emptyHint;
+    private TextView emptyTitle;
+    private TextView emptySub;
+    private TextView countText;
+    private TextView sectionTitle;
+    private EditText searchInput;
+    private String query = "";
+
+    private static class AppItem {
+        String packageName;
+        String label;
+        Drawable icon;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,124 +82,17 @@ public class WhitelistActivity extends Activity {
         pm = getPackageManager();
         prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
         loadWhitelist();
+        syncToStellarAsync(this);
 
-        
+        getWindow().setStatusBarColor(COLOR_PRIMARY_DARK);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFFF5F6FA);
+        root.setBackgroundColor(COLOR_BG);
         root.setFitsSystemWindows(true);
 
-        
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setBackgroundColor(0xFF1565C0);
-        header.setPadding(24, dp(12) + getStatusBarHeight(), 24, dp(12));
-
-        TextView backBtn = new TextView(this);
-        backBtn.setText("\u2190");
-        backBtn.setTextColor(Color.WHITE);
-        backBtn.setTextSize(22);
-        backBtn.setPadding(0, 0, dp(16), 0);
-        backBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { finish(); }
-        });
-        header.addView(backBtn);
-
-        TextView title = new TextView(this);
-        title.setText("白名单管理");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(20);
-        title.setTypeface(null, Typeface.BOLD);
-        header.addView(title);
-
-        root.addView(header);
-
-        
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setGravity(Gravity.CENTER_HORIZONTAL);
-        content.setPadding(dp(24), dp(40), dp(24), dp(40));
-
-        
-        TextView iconView = new TextView(this);
-        iconView.setText("+");
-        iconView.setTextColor(0xFF1565C0);
-        iconView.setTextSize(48);
-        iconView.setTypeface(null, Typeface.BOLD);
-        iconView.setGravity(Gravity.CENTER);
-        GradientDrawable iconBg = new GradientDrawable();
-        iconBg.setShape(GradientDrawable.OVAL);
-        iconBg.setColor(0xFFE3F2FD);
-        int iconSize = dp(80);
-        iconBg.setSize(iconSize, iconSize);
-        iconView.setBackground(iconBg);
-        iconView.setMinWidth(iconSize);
-        iconView.setMinHeight(iconSize);
-        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(iconSize, iconSize);
-        ip.gravity = Gravity.CENTER_HORIZONTAL;
-        iconView.setLayoutParams(ip);
-        content.addView(iconView);
-
-        
-        Button addBtn = new Button(this);
-        addBtn.setText("\u52A0\u5165\u767D\u540D\u5355");
-        addBtn.setTextColor(Color.WHITE);
-        addBtn.setTextSize(17);
-        addBtn.setTypeface(null, Typeface.BOLD);
-        GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setShape(GradientDrawable.RECTANGLE);
-        btnBg.setCornerRadius(dp(28));
-        btnBg.setColor(0xFF1565C0);
-        addBtn.setBackground(btnBg);
-        addBtn.setPadding(dp(48), dp(14), dp(48), dp(14));
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        bp.topMargin = dp(24);
-        bp.gravity = Gravity.CENTER_HORIZONTAL;
-        addBtn.setLayoutParams(bp);
-        addBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showAppPicker();
-            }
-        });
-        content.addView(addBtn);
-
-        
-        TextView hint = new TextView(this);
-        hint.setText("\u767D\u540D\u5355\u4E2D\u7684\u5E94\u7528\u5C06\u4E0D\u4F1A\u88AB\u5B89\u5168\u62A4\u76FE\u62E6\u622A");
-        hint.setTextColor(0xFF999999);
-        hint.setTextSize(13);
-        hint.setGravity(Gravity.CENTER);
-        hint.setPadding(0, dp(12), 0, dp(24));
-        content.addView(hint);
-
-        
-        emptyHint = new LinearLayout(this);
-        emptyHint.setOrientation(LinearLayout.VERTICAL);
-        emptyHint.setGravity(Gravity.CENTER);
-        emptyHint.setPadding(0, dp(20), 0, 0);
-        TextView emptyText = new TextView(this);
-        emptyText.setText("\u6682\u65E0\u767D\u540D\u5355\u5E94\u7528");
-        emptyText.setTextColor(0xFFBBBBBB);
-        emptyText.setTextSize(15);
-        emptyText.setGravity(Gravity.CENTER);
-        emptyHint.addView(emptyText);
-        content.addView(emptyHint);
-
-        
-        whitelistContainer = new LinearLayout(this);
-        whitelistContainer.setOrientation(LinearLayout.VERTICAL);
-        whitelistContainer.setPadding(0, dp(16), 0, 0);
-        content.addView(whitelistContainer);
-
-        scroll.addView(content);
-        root.addView(scroll);
+        root.addView(buildHeader());
+        root.addView(buildContent());
 
         setContentView(root);
 
@@ -199,21 +100,247 @@ public class WhitelistActivity extends Activity {
         refreshWhitelistUI();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从全屏选择页返回后刷新列表。
+        if (pm != null) {
+            loadWhitelist();
+            loadApps();
+            refreshWhitelistUI();
+        }
+    }
+
+    // ============================================================
+    // 顶栏
+    // ============================================================
+    private View buildHeader() {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(18), dp(12) + getStatusBarHeight(), dp(18), dp(14));
+
+        GradientDrawable bg = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{COLOR_PRIMARY, COLOR_PRIMARY}
+        );
+        header.setBackground(bg);
+
+        TextView back = new TextView(this);
+        back.setText("\u2190");
+        back.setTextColor(Color.WHITE);
+        back.setTextSize(23);
+        back.setGravity(Gravity.CENTER);
+        back.setPadding(0, 0, dp(14), 0);
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
+        header.addView(back);
+
+        LinearLayout titleCol = new LinearLayout(this);
+        titleCol.setOrientation(LinearLayout.VERTICAL);
+        titleCol.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView title = new TextView(this);
+        title.setText("白名单管理");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(20);
+        title.setTypeface(null, Typeface.BOLD);
+        titleCol.addView(title);
+
+        TextView sub = new TextView(this);
+        sub.setText("只放行你真正信任的应用");
+        sub.setTextColor(0xCCFFFFFF);
+        sub.setTextSize(12);
+        sub.setPadding(0, dp(2), 0, 0);
+        titleCol.addView(sub);
+        header.addView(titleCol);
+
+        TextView add = new TextView(this);
+        add.setText("＋ 添加");
+        add.setTextColor(Color.WHITE);
+        add.setTextSize(14);
+        add.setTypeface(null, Typeface.BOLD);
+        add.setGravity(Gravity.CENTER);
+        add.setPadding(dp(16), dp(9), dp(16), dp(9));
+        GradientDrawable addBg = new GradientDrawable();
+        addBg.setShape(GradientDrawable.RECTANGLE);
+        addBg.setCornerRadius(dp(22));
+        addBg.setColor(0x33FFFFFF);
+        addBg.setStroke(dp(1), 0x66FFFFFF);
+        add.setBackground(addBg);
+        add.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showAppPicker();
+            }
+        });
+        header.addView(add);
+
+        return header;
+    }
+
+    // ============================================================
+    // 内容
+    // ============================================================
+    private View buildContent() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(16), dp(18), dp(28));
+
+        // 概览卡片
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(LinearLayout.VERTICAL);
+        summary.setPadding(dp(18), dp(16), dp(18), dp(16));
+        summary.setBackground(roundRect(Color.WHITE, 18, COLOR_LINE, 1));
+        summary.setElevation(dp(1));
+
+        LinearLayout summaryTop = new LinearLayout(this);
+        summaryTop.setOrientation(LinearLayout.HORIZONTAL);
+        summaryTop.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout countCol = new LinearLayout(this);
+        countCol.setOrientation(LinearLayout.VERTICAL);
+        countCol.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        countText = new TextView(this);
+        countText.setText("0");
+        countText.setTextColor(COLOR_PRIMARY);
+        countText.setTextSize(24);
+        countText.setTypeface(null, Typeface.BOLD);
+        countCol.addView(countText);
+
+        TextView countLabel = new TextView(this);
+        countLabel.setText("个应用已加入白名单");
+        countLabel.setTextColor(COLOR_TEXT);
+        countLabel.setTextSize(14);
+        countCol.addView(countLabel);
+        summaryTop.addView(countCol);
+        summary.addView(summaryTop);
+
+        TextView summaryDesc = new TextView(this);
+        summaryDesc.setText("白名单内的应用不会被拦截、冻结或终结");
+        summaryDesc.setTextColor(COLOR_SUB);
+        summaryDesc.setTextSize(12);
+        summaryDesc.setPadding(0, dp(9), 0, 0);
+        summary.addView(summaryDesc);
+        content.addView(summary);
+
+        // 搜索框
+        searchInput = new EditText(this);
+        searchInput.setHint("搜索已加入的应用名称或包名");
+        searchInput.setHintTextColor(0xFFA8B0C2);
+        searchInput.setTextColor(COLOR_TEXT);
+        searchInput.setTextSize(14);
+        searchInput.setSingleLine(true);
+        searchInput.setPadding(dp(16), dp(12), dp(16), dp(12));
+        searchInput.setBackground(roundRect(Color.WHITE, 14, COLOR_LINE, 1));
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                query = s == null ? "" : s.toString().trim();
+                refreshWhitelistUI();
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        searchLp.topMargin = dp(14);
+        searchInput.setLayoutParams(searchLp);
+        content.addView(searchInput);
+
+        // 列表区标题
+        LinearLayout sectionHeader = new LinearLayout(this);
+        sectionHeader.setOrientation(LinearLayout.HORIZONTAL);
+        sectionHeader.setGravity(Gravity.CENTER_VERTICAL);
+        sectionHeader.setPadding(dp(2), dp(20), dp(2), dp(8));
+
+        sectionTitle = new TextView(this);
+        sectionTitle.setText("已加入白名单");
+        sectionTitle.setTextColor(COLOR_TEXT);
+        sectionTitle.setTextSize(15);
+        sectionTitle.setTypeface(null, Typeface.BOLD);
+        sectionTitle.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        sectionHeader.addView(sectionTitle);
+
+        TextView tip = new TextView(this);
+        tip.setText("点击右侧可移除");
+        tip.setTextColor(COLOR_SUB);
+        tip.setTextSize(11);
+        sectionHeader.addView(tip);
+        content.addView(sectionHeader);
+
+        // 空状态
+        emptyHint = new LinearLayout(this);
+        emptyHint.setOrientation(LinearLayout.VERTICAL);
+        emptyHint.setGravity(Gravity.CENTER);
+        emptyHint.setPadding(dp(20), dp(44), dp(20), dp(44));
+        emptyHint.setBackground(roundRect(Color.WHITE, 18, COLOR_LINE, 1));
+
+        TextView emptyIcon = new TextView(this);
+        emptyIcon.setText("—");
+        emptyIcon.setTextColor(COLOR_SUB);
+        emptyIcon.setTextSize(22);
+        emptyIcon.setGravity(Gravity.CENTER);
+        emptyHint.addView(emptyIcon);
+
+        emptyTitle = new TextView(this);
+        emptyTitle.setText("还没有加入白名单应用");
+        emptyTitle.setTextColor(COLOR_TEXT);
+        emptyTitle.setTextSize(15);
+        emptyTitle.setTypeface(null, Typeface.BOLD);
+        emptyTitle.setGravity(Gravity.CENTER);
+        emptyTitle.setPadding(0, dp(10), 0, 0);
+        emptyHint.addView(emptyTitle);
+
+        emptySub = new TextView(this);
+        emptySub.setText("点击右上角「添加」，可搜索并多选应用");
+        emptySub.setTextColor(COLOR_SUB);
+        emptySub.setTextSize(12);
+        emptySub.setGravity(Gravity.CENTER);
+        emptySub.setPadding(0, dp(6), 0, 0);
+        emptyHint.addView(emptySub);
+        content.addView(emptyHint);
+
+        // 白名单列表
+        whitelistContainer = new LinearLayout(this);
+        whitelistContainer.setOrientation(LinearLayout.VERTICAL);
+        content.addView(whitelistContainer);
+
+        scroll.addView(content);
+        return scroll;
+    }
+
     private int getStatusBarHeight() {
         int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
         return id > 0 ? getResources().getDimensionPixelSize(id) : 0;
     }
 
-    private int dp(int px) {
-        float d = getResources().getDisplayMetrics().density;
-        return (int) (px * d + 0.5f);
+    private int dp(int v) {
+        return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
     }
 
+    private GradientDrawable roundRect(int color, int radiusDp, int strokeColor, int strokeDp) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.RECTANGLE);
+        d.setCornerRadius(dp(radiusDp));
+        d.setColor(color);
+        if (strokeDp > 0) d.setStroke(dp(strokeDp), strokeColor);
+        return d;
+    }
+
+    // ============================================================
+    // 数据
+    // ============================================================
     private void loadWhitelist() {
         currentWhitelist.clear();
-        
-        currentWhitelist.addAll(DEFAULT_TRUSTED_PKGS);
-        
+        // 2026-10-30：不再加入任何内置/自动信任应用。
         String raw = prefs.getString("whitelist_pkgs", "");
         if (!raw.isEmpty()) {
             for (String p : raw.split(",")) {
@@ -226,17 +353,58 @@ public class WhitelistActivity extends Activity {
     private void saveWhitelist() {
         StringBuilder sb = new StringBuilder();
         for (String p : currentWhitelist) {
-            
-            if (DEFAULT_TRUSTED_PKGS.contains(p)) continue;
             if (sb.length() > 0) sb.append(",");
             sb.append(p);
         }
         prefs.edit().putString("whitelist_pkgs", sb.toString()).apply();
+        syncToStellarAsync(this);
     }
 
-    private static class AppItem {
-        String packageName;
-        String label;
+    /**
+     * 把白名单同步到内置特权「指令拦截白名单」。
+     * 2026-10-30：不再加入任何内置信任应用。
+     */
+    public static void syncToStellarAsync(Context context) {
+        if (context == null) return;
+        final Context app = context.getApplicationContext();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    syncToStellar(app);
+                } catch (Throwable tr) {
+                    android.util.Log.w("Whitelist", "同步指令白名单失败", tr);
+                }
+            }
+        }, "Whitelist-Sync").start();
+    }
+
+    /** 同步到服务端；必须在后台线程调用。 */
+    public static boolean syncToStellar(Context context) {
+        SharedPreferences p = context.getSharedPreferences("shield_prefs", MODE_PRIVATE);
+        Set<String> all = new java.util.LinkedHashSet<>();
+        String raw = p.getString("whitelist_pkgs", "");
+        if (raw != null && !raw.isEmpty()) {
+            for (String s : raw.split(",")) {
+                String t = s.trim();
+                if (!t.isEmpty()) all.add(t);
+            }
+        }
+
+        StringBuilder body = new StringBuilder();
+        for (String pkg : all) {
+            if (!pkg.matches("^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+$")) continue;
+            if (body.length() > 0) body.append('\n');
+            body.append(pkg);
+        }
+        String content = body.toString();
+
+        context.getSharedPreferences("stellar_command_whitelist", MODE_PRIVATE)
+                .edit()
+                .putString("pkgs", content.replace('\n', ','))
+                .apply();
+
+        return StellarUtils.writeCommandWhitelist(content);
     }
 
     private void loadApps() {
@@ -244,9 +412,18 @@ public class WhitelistActivity extends Activity {
         allApps.clear();
         for (ApplicationInfo app : installed) {
             if (app.packageName.equals(getPackageName())) continue;
+            if ((app.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                    && (app.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) == 0) {
+                continue;
+            }
             AppItem item = new AppItem();
             item.packageName = app.packageName;
             item.label = app.loadLabel(pm).toString();
+            try {
+                item.icon = app.loadIcon(pm);
+            } catch (Throwable ignored) {
+                item.icon = null;
+            }
             allApps.add(item);
         }
         Collections.sort(allApps, new Comparator<AppItem>() {
@@ -257,58 +434,14 @@ public class WhitelistActivity extends Activity {
         });
     }
 
-    private void showAppPicker() {
-        final List<AppItem> candidates = new ArrayList<>();
-        for (AppItem a : allApps) {
-            if (!currentWhitelist.contains(a.packageName)) {
-                candidates.add(a);
-            }
-        }
-
-        if (candidates.isEmpty()) {
-            new AlertDialog.Builder(this)
-                    .setTitle("\u63D0\u793A")
-                    .setMessage("\u6240\u6709\u5DF2\u5B89\u88C5\u5E94\u7528\u90FD\u5DF2\u5728\u767D\u540D\u5355\u4E2D")
-                    .setPositiveButton("\u786E\u5B9A", null)
-                    .show();
-            return;
-        }
-
-        final String[] names = new String[candidates.size()];
-        final boolean[] checked = new boolean[candidates.size()];
-        for (int i = 0; i < candidates.size(); i++) {
-            names[i] = candidates.get(i).label + "\n" + candidates.get(i).packageName;
-            checked[i] = false;
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("\u9009\u62E9\u8981\u52A0\u5165\u767D\u540D\u5355\u7684\u5E94\u7528\uFF08\u53EF\u591A\u9009\uFF09")
-                .setMultiChoiceItems(names, checked, new DialogInterface.OnMultiChoiceClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                        checked[which] = isChecked;
-                    }
-                })
-                .setPositiveButton("\u786E\u5B9A\u52A0\u5165", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        for (int i = 0; i < candidates.size(); i++) {
-                            if (checked[i]) {
-                                currentWhitelist.add(candidates.get(i).packageName);
-                            }
-                        }
-                        saveWhitelist();
-                        refreshWhitelistUI();
-                    }
-                })
-                .setNegativeButton("\u53D6\u6D88", null)
-                .show();
-    }
-
+    // ============================================================
+    // 已加入列表
+    // ============================================================
     private void refreshWhitelistUI() {
+        View focused = getCurrentFocus();
         whitelistContainer.removeAllViews();
 
-        List<AppItem> whitelisted = new ArrayList<>();
+        List<AppItem> all = new ArrayList<>();
         for (String pkg : currentWhitelist) {
             AppItem found = null;
             for (AppItem a : allApps) {
@@ -319,144 +452,148 @@ public class WhitelistActivity extends Activity {
                 found.packageName = pkg;
                 found.label = pkg;
             }
-            whitelisted.add(found);
+            all.add(found);
         }
-        Collections.sort(whitelisted, new Comparator<AppItem>() {
+        Collections.sort(all, new Comparator<AppItem>() {
             @Override
             public int compare(AppItem a, AppItem b) {
                 return a.label.compareToIgnoreCase(b.label);
             }
         });
 
-        if (whitelisted.isEmpty()) {
-            emptyHint.setVisibility(View.VISIBLE);
-            whitelistContainer.setVisibility(View.GONE);
-            return;
+        List<AppItem> visible = new ArrayList<>();
+        String q = query.toLowerCase(Locale.getDefault());
+        for (AppItem a : all) {
+            if (q.isEmpty()
+                    || a.label.toLowerCase(Locale.getDefault()).contains(q)
+                    || a.packageName.toLowerCase(Locale.getDefault()).contains(q)) {
+                visible.add(a);
+            }
         }
 
-        emptyHint.setVisibility(View.GONE);
-        whitelistContainer.setVisibility(View.VISIBLE);
+        countText.setText(String.valueOf(currentWhitelist.size()));
+        sectionTitle.setText("已加入白名单 (" + currentWhitelist.size() + ")");
 
-        TextView listTitle = new TextView(this);
-        listTitle.setText("\u5DF2\u52A0\u5165\u767D\u540D\u5355 (" + whitelisted.size() + ")");
-        listTitle.setTextColor(0xFF333333);
-        listTitle.setTextSize(14);
-        listTitle.setTypeface(null, Typeface.BOLD);
-        listTitle.setPadding(0, 0, 0, dp(8));
-        whitelistContainer.addView(listTitle);
+        if (visible.isEmpty()) {
+            emptyHint.setVisibility(View.VISIBLE);
+            whitelistContainer.setVisibility(View.GONE);
+            if (currentWhitelist.isEmpty()) {
+                emptyTitle.setText("还没有加入白名单应用");
+                emptySub.setText("点击右上角「添加」，可搜索并多选应用");
+            } else {
+                emptyTitle.setText("没有匹配的应用");
+                emptySub.setText("换个关键词试试");
+            }
+        } else {
+            emptyHint.setVisibility(View.GONE);
+            whitelistContainer.setVisibility(View.VISIBLE);
+            for (AppItem item : visible) {
+                whitelistContainer.addView(buildWhitelistRow(item));
+            }
+        }
 
-        for (final AppItem item : whitelisted) {
-            whitelistContainer.addView(buildWhitelistRow(item));
+        if (focused == searchInput) {
+            searchInput.requestFocus();
         }
     }
 
     private View buildWhitelistRow(final AppItem item) {
-        final boolean isDefault = DEFAULT_TRUSTED_PKGS.contains(item.packageName);
-
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(14), dp(12), dp(14), dp(12));
-        row.setBackgroundColor(Color.WHITE);
-        GradientDrawable rowBg = new GradientDrawable();
-        rowBg.setShape(GradientDrawable.RECTANGLE);
-        rowBg.setCornerRadius(dp(12));
-        rowBg.setColor(Color.WHITE);
-        if (isDefault) {
-            rowBg.setStroke(dp(1), 0xFF42A5F5);
-        }
-        row.setBackground(rowBg);
+        row.setBackground(roundRect(Color.WHITE, 16, COLOR_LINE, 1));
+        row.setElevation(dp(1));
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rp.bottomMargin = dp(9);
+        row.setLayoutParams(rp);
 
-        TextView avatar = new TextView(this);
-        String letter = item.label.isEmpty() ? "?" : item.label.substring(0, 1).toUpperCase();
-        avatar.setText(letter);
-        avatar.setTextColor(Color.WHITE);
-        avatar.setTextSize(15);
-        avatar.setTypeface(null, Typeface.BOLD);
-        avatar.setGravity(Gravity.CENTER);
-        GradientDrawable avatarBg = new GradientDrawable();
-        avatarBg.setShape(GradientDrawable.OVAL);
-        int c = isDefault ? 0xFF42A5F5 : avatarColor(Math.abs(item.packageName.hashCode()) % 8);
-        avatarBg.setColor(c);
-        int size = dp(38);
-        avatar.setBackground(avatarBg);
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(size, size);
-        ap.rightMargin = dp(12);
-        avatar.setLayoutParams(ap);
-        row.addView(avatar);
+        View iconView;
+        if (item.icon != null) {
+            ImageView iv = new ImageView(this);
+            iv.setImageDrawable(item.icon);
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            int s = dp(42);
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(s, s);
+            ip.rightMargin = dp(12);
+            iv.setLayoutParams(ip);
+            iconView = iv;
+        } else {
+            TextView avatar = new TextView(this);
+            String letter = item.label == null || item.label.isEmpty()
+                    ? "?" : item.label.substring(0, 1).toUpperCase(Locale.getDefault());
+            avatar.setText(letter);
+            avatar.setTextColor(Color.WHITE);
+            avatar.setTextSize(16);
+            avatar.setTypeface(null, Typeface.BOLD);
+            avatar.setGravity(Gravity.CENTER);
+            GradientDrawable avatarBg = new GradientDrawable();
+            avatarBg.setShape(GradientDrawable.OVAL);
+            avatarBg.setColor(avatarColor(Math.abs(item.packageName.hashCode()) % 8));
+            avatar.setBackground(avatarBg);
+            int s = dp(42);
+            LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(s, s);
+            ip.rightMargin = dp(12);
+            avatar.setLayoutParams(ip);
+            iconView = avatar;
+        }
+        row.addView(iconView);
 
         LinearLayout textCol = new LinearLayout(this);
         textCol.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        textCol.setLayoutParams(tp);
+        textCol.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        TextView nameTv = new TextView(this);
-        nameTv.setText(item.label);
-        nameTv.setTextColor(0xFF222222);
-        nameTv.setTextSize(14);
-        nameTv.setSingleLine(true);
-        textCol.addView(nameTv);
+        TextView name = new TextView(this);
+        name.setText(item.label);
+        name.setTextColor(COLOR_TEXT);
+        name.setTextSize(15);
+        name.setTypeface(null, Typeface.BOLD);
+        name.setSingleLine(true);
+        textCol.addView(name);
 
-        TextView pkgTv = new TextView(this);
-        pkgTv.setText(item.packageName);
-        pkgTv.setTextColor(0xFFAAAAAA);
-        pkgTv.setTextSize(11);
-        pkgTv.setSingleLine(true);
-        textCol.addView(pkgTv);
-
-        
-        if (isDefault) {
-            TextView badgeTv = new TextView(this);
-            badgeTv.setText("\u7CFB\u7EDF\u4FE1\u4EFB");
-            badgeTv.setTextColor(0xFF42A5F5);
-            badgeTv.setTextSize(10);
-            badgeTv.setTypeface(null, Typeface.BOLD);
-            GradientDrawable badgeBg = new GradientDrawable();
-            badgeBg.setShape(GradientDrawable.RECTANGLE);
-            badgeBg.setCornerRadius(dp(8));
-            badgeBg.setColor(0xFFE3F2FD);
-            badgeTv.setBackground(badgeBg);
-            badgeTv.setPadding(dp(6), dp(2), dp(6), dp(2));
-            LinearLayout.LayoutParams badgeLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            badgeLp.topMargin = dp(3);
-            badgeTv.setLayoutParams(badgeLp);
-            textCol.addView(badgeTv);
-        }
-
+        TextView pkg = new TextView(this);
+        pkg.setText(item.packageName);
+        pkg.setTextColor(COLOR_SUB);
+        pkg.setTextSize(11);
+        pkg.setSingleLine(true);
+        pkg.setPadding(0, dp(2), 0, 0);
+        textCol.addView(pkg);
         row.addView(textCol);
 
-        
-        if (!isDefault) {
-            Button removeBtn = new Button(this);
-            removeBtn.setText("\u79FB\u9664");
-            removeBtn.setTextColor(0xFFE53935);
-            removeBtn.setTextSize(13);
-            GradientDrawable rbBg = new GradientDrawable();
-            rbBg.setShape(GradientDrawable.RECTANGLE);
-            rbBg.setCornerRadius(dp(16));
-            rbBg.setColor(0xFFFFEBEE);
-            removeBtn.setBackground(rbBg);
-            removeBtn.setPadding(dp(14), dp(6), dp(14), dp(6));
-            removeBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    currentWhitelist.remove(item.packageName);
-                    saveWhitelist();
-                    refreshWhitelistUI();
-                }
-            });
-            row.addView(removeBtn);
-        }
-
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rp.bottomMargin = dp(8);
-        row.setLayoutParams(rp);
+        TextView remove = new TextView(this);
+        remove.setText("移除");
+        remove.setTextColor(0xFFE53935);
+        remove.setTextSize(12);
+        remove.setTypeface(null, Typeface.BOLD);
+        remove.setGravity(Gravity.CENTER);
+        remove.setPadding(dp(14), dp(8), dp(14), dp(8));
+        GradientDrawable removeBg = new GradientDrawable();
+        removeBg.setShape(GradientDrawable.RECTANGLE);
+        removeBg.setCornerRadius(dp(18));
+        removeBg.setColor(0xFFFFEBEE);
+        remove.setBackground(removeBg);
+        remove.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                currentWhitelist.remove(item.packageName);
+                saveWhitelist();
+                refreshWhitelistUI();
+            }
+        });
+        row.addView(remove);
 
         return row;
     }
+
+    // ============================================================
+    // 应用选择器：搜索 + 全选
+    // ============================================================
+    /** 2026-10-30：改为全屏选择页，不再使用难看的弹窗。 */
+    private void showAppPicker() {
+        startActivity(new android.content.Intent(this, WhitelistPickerActivity.class));
+    }
+
 
     private int avatarColor(int idx) {
         int[] colors = {

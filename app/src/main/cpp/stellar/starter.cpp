@@ -1,15 +1,15 @@
 // ==========================================================================
-
-
+// 本文件来自 https://github.com/roro2239/Stellar 的 manager/src/main/jni/starter.cpp
+// （MPL-2.0；其中源自 Shizuku 的上游部分为 Apache-2.0）
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条 / Apache-2.0 第 4(b) 条标注
+//   改动：把 PACKAGE_NAME 由上游的 "roro.stellar.manager" 改为 "com.youlong.hd"。
+//   原因：上游 manager 是独立 APK（applicationId = roro.stellar.manager），
+//         而本工程把管理器内置进「游龙安全护盾」，应用自身的包名是
+//         com.youlong.hd。PACKAGE_NAME 只用于 `pm path <包名>` 这条回退路径
+//         （见文件末尾 main()：从 argv 的 --apk= 拿不到路径时才会用到），
+//         包名写错不会造成误启动，但写对才能让该回退路径真正生效。
+//   除这一处常量外，本文件其余内容与上游逐字一致。
 // ==========================================================================
 
 #include <cstdio>
@@ -49,8 +49,8 @@
 #define EXIT_FATAL_KILL 9
 #define EXIT_FATAL_BINDER_BLOCKED_BY_SELINUX 10
 
-
-
+// ⚠️ 本工程改动（原值 "roro.stellar.manager"）：本应用包名为 com.youlong.hd。
+//    详见文件头部的修改声明。
 #define PACKAGE_NAME "com.youlong.hd"
 #define SERVER_NAME "stellar_server"
 #define SERVER_CLASS_PATH "roro.stellar.server.StellarService"

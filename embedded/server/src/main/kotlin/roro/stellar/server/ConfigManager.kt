@@ -303,22 +303,43 @@ class ConfigManager {
     }
 
     fun isShizukuCompatEnabled(): Boolean {
-        synchronized(this) {
-            return config.shizukuCompatEnabled
-        }
+        // 2026-11-01（用户需求）：Shizuku 兼容层恒开，设置页已隐藏开关。
+        return true
     }
 
     fun setShizukuCompatEnabled(enabled: Boolean) {
         synchronized(this) {
-            if (config.shizukuCompatEnabled != enabled) {
-                config.shizukuCompatEnabled = enabled
-                LOGGER.i("Shizuku 兼容层状态已更改: %s", if (enabled) "启用" else "禁用")
+            // 恒开：忽略关闭请求，只做一次持久化修正。
+            if (!enabled) {
+                LOGGER.i("Shizuku 兼容层已固定为开启，忽略禁用请求")
+            }
+            if (!config.shizukuCompatEnabled) {
+                config.shizukuCompatEnabled = true
+                LOGGER.i("Shizuku 兼容层状态已固定为: 启用")
                 scheduleWriteLocked()
             }
         }
     }
 
-    
+    /**
+     * 是否启用「无障碍自启」。
+     *
+     * ⚠️ 本工程改动（2026-10-01）：**恒定返回 false**。
+     *
+     * 原因：上游用这个开关驱动 ManagerGrantHelper.grantAccessibilityService()，
+     * 把 manager 自己的 StellarAccessibilityService 写进
+     * Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES，作为「开机自启的无障碍跳板」。
+     *
+     * 但本工程已把该无障碍服务从清单里**删除**（见
+     * embedded/manager/src/main/AndroidManifest.xml 内的修改声明）。原因是
+     * 它在系统「无障碍」列表里会和宿主自己的 AdSkipService 一样显示为
+     * 「游龙安全护盾」，实测出现两个同名条目，用户无法分辨该开哪个；
+     * 而宿主的开机自启本来就由自己的 com.youlong.hd.BootReceiver 负责，
+     * 不需要这个跳板。
+     *
+     * 组件已不存在，再往 ENABLED_ACCESSIBILITY_SERVICES 里写它毫无意义，
+     * 只会留下无效条目，因此这里直接短路为 false。
+     */
     fun isAccessibilityAutoStartEnabled(): Boolean {
         return false
     }

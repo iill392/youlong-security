@@ -10,7 +10,6 @@ import roro.stellar.server.ClientManager
 import roro.stellar.server.ConfigManager
 import roro.stellar.server.ServerConstants
 import roro.stellar.server.service.StellarServiceCore
-import roro.stellar.server.service.permission.PendingPermissionConfirmations
 import roro.stellar.server.userservice.UserServiceManager
 import roro.stellar.server.util.Logger
 import roro.stellar.server.util.PackageManagerCompat
@@ -64,6 +63,19 @@ object ShizukuCallbackFactory {
 
                 LOGGER.i("Shizuku 权限请求: uid=$uid, pid=$pid, pkg=$packageName, code=$requestCode")
 
+                // 2026-10 第 19 轮（用户需求）：其它软件请求 Shizuku 权限
+                // 一律自动授权，不再弹确认框。
+                if (packageName != ServerConstants.MANAGER_APPLICATION_ID) {
+                    configManager.updatePermission(
+                        uid,
+                        ShizukuApiConstants.PERMISSION_NAME,
+                        ConfigManager.FLAG_GRANTED
+                    )
+                    shizukuNotifier.notifyPermissionResult(uid, pid, requestCode, true)
+                    LOGGER.i("Shizuku 权限自动授权: pkg=$packageName")
+                    return
+                }
+
                 val ai = PackageManagerCompat.getApplicationInfo(packageName, 0, userId) ?: run {
                     LOGGER.w("无法获取应用信息: $packageName")
                     return
@@ -90,17 +102,9 @@ object ShizukuCallbackFactory {
                 val lastDenyTime = clientManager.findClient(uid, pid)?.lastDenyTimeMap?.get(ShizukuApiConstants.PERMISSION_NAME) ?: 0
                 val denyOnce = (System.currentTimeMillis() - lastDenyTime) > 10000
 
-                
-                PendingPermissionConfirmations.register(
-                    requestCode,
-                    uid,
-                    pid,
-                    ShizukuApiConstants.PERMISSION_NAME
-                )
-
                 val intent = Intent(ServerConstants.REQUEST_PERMISSION_ACTION)
                     .setPackage(ServerConstants.MANAGER_APPLICATION_ID)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
                     .putExtra("uid", uid)
                     .putExtra("pid", pid)
                     .putExtra("requestCode", requestCode)

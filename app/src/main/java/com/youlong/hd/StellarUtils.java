@@ -2,115 +2,88 @@ package com.youlong.hd;
 
 import android.util.Log;
 
+import roro.stellar.Stellar;
 
+/**
+ * Stellar 工具类 — 提供静态方法用于执行特权命令。
+ * 供 ProtectService、MainActivity、ShieldWarnActivity 等各处复用。
+ *
+ * <p>历史：本类原名 {@code ShizukuUtils}，内部走的是内置的上游 Shizuku
+ * （{@code rikka.shizuku.Shizuku}）。2026 年内置特权内核整体替换为
+ * <a href="https://github.com/roro2239/Stellar">Stellar</a>
+ * （Shizuku 的分支，MPL-2.0 + Apache-2.0），本类随之改为
+ * {@code roro.stellar.Stellar}，并改名为 {@code StellarUtils}。
+ *
+ * <p><b>与 Shizuku 版的关键差别</b>（新 API 更简单，旧的兼容绕行已删除）：
+ * <ul>
+ *   <li>{@code checkSelfPermission()} 返回 {@code boolean}，不再返回
+ *       {@code PackageManager.PERMISSION_*}</li>
+ *   <li>Stellar 没有 {@code isPreV11()}（服务端 API 版本恒定），删去该判断</li>
+ *   <li>{@code Stellar.newProcess(...)} 是 **public** 方法 —— 上游 Shizuku 13.6
+ *       把它改成了 private，本类原先只能用反射调用；Stellar 已重新开放该 API，
+ *       因此直接调用即可（原先的反射 + R8 keep 规则一并删除）</li>
+ * </ul>
+ */
 public class StellarUtils {
 
-    private static final String TAG = "YlPrivUtils";
+    private static final String TAG = "StellarUtils";
 
-    
-    public static boolean isPrivilegeBinderAlive() {
-        try {
-            return PrivRouter.isBinderAlive(YouLongApp.instance());
-        } catch (Throwable t) {
-            return false;
-        }
-    }
-
-    
-    private static boolean onMainThread() {
-        try {
-            return android.os.Looper.myLooper() == android.os.Looper.getMainLooper();
-        } catch (Throwable t) {
-            return false;
-        }
-    }
-
-    
-    public static void requestReconnect(android.content.Context ctx) {
-        try {
-            if (ctx == null) return;
-            PrivRouter.requestReconnect(ctx);
-            Log.i(TAG, "已请求服务端重新投递 Binder");
-        } catch (Throwable t) {
-            Log.w(TAG, "请求重投 Binder 失败", t);
-        }
-    }
-
-    
+    /**
+     * 检查 Stellar 服务是否可用
+     */
     public static boolean isStellarAvailable() {
         try {
-            if (isPrivilegeBinderAlive()) return true;
-            if (onMainThread()) {
-                
-                YouLongApp app = YouLongApp.instance();
-                requestReconnect(app);
-                Log.i(TAG, "主线程探活：当前未连接（已异步请求重投，不阻塞界面）");
-                return false;
-            }
-            
-            long deadline = System.currentTimeMillis() + 8000L;
-            while (System.currentTimeMillis() < deadline) {
-                if (isPrivilegeBinderAlive()) return true;
-                Thread.sleep(200L);
-            }
-            return false;
-        } catch (Throwable t) {
-            Log.w(TAG, "特权服务不可用", t);
+            return Stellar.INSTANCE.pingBinder();
+        } catch (Exception e) {
             return false;
         }
     }
 
-    
-    public static String activeSourceName() {
-        try {
-            return PrivRouter.activeName(YouLongApp.instance());
-        } catch (Throwable t) {
-            return "未知";
-        }
-    }
-
-    
+    /**
+     * 检查是否已获得 Stellar 权限
+     */
     public static boolean hasStellarPermission() {
         try {
-            if (!isPrivilegeBinderAlive()) {
-                if (onMainThread()) {
-                    requestReconnect(YouLongApp.instance());
-                    return false;
-                }
-                if (!isStellarAvailable()) return false;
-            }
-            return PrivRouter.hasPermission(YouLongApp.instance());
-        } catch (Throwable t) {
-            Log.w(TAG, "权限查询失败", t);
+            return Stellar.INSTANCE.checkSelfPermission("stellar");
+        } catch (Exception e) {
             return false;
         }
     }
 
-    
+    /**
+     * 通过 Stellar 创建特权进程。
+     *
+     * <p>历史对照：上游 Shizuku 13.6 起把 {@code Shizuku.newProcess} 改成了
+     * private（仅内部使用），本类原先只能用反射调用它并依赖一条 R8 keep 规则。
+     * Stellar 重新把 {@code Stellar.newProcess} 开放为 public API，
+     * 因此这里直接调用，不再需要反射与 keep 规则。
+     */
     public static Process newPrivilegedProcess(String[] cmd, String[] env, String dir) {
         try {
-            Process p = PrivRouter.newProcess(YouLongApp.instance(), cmd, env, dir);
-            if (p == null) throw new IllegalStateException("内核未返回进程（可能未授权）");
-            return p;
-        } catch (Throwable t) {
-            throw new RuntimeException("特权进程创建失败: " + t, t);
+            return Stellar.INSTANCE.newProcess(cmd, env, dir);
+        } catch (Exception e) {
+            throw new RuntimeException("Stellar.newProcess 不可用", e);
         }
     }
 
-    
+    /**
+     * 通过 Stellar 执行命令（静态方法，可在任何地方调用）。
+     * 用 {@code sh} + stdin 传命令以支持管道/重定向，轮询 exitValue 避免 waitFor 死锁。
+     *
+     * @param command   要执行的 shell 命令
+     * @param timeoutMs 超时毫秒，&lt;=0 不设超时
+     * @return 命令执行的标准输出，失败则返回 "ERROR:xxx"
+     */
+    /** 兼容公开版/旧代码的存活检查，与 isStellarAvailable 等价。 */
+    public static boolean isPrivilegeBinderAlive() {
+        return isStellarAvailable();
+    }
     public static String runCommand(final String command, long timeoutMs) {
-        if (onMainThread()) {
-            
-            if (!isPrivilegeBinderAlive() || !hasStellarPermission()) {
-                requestReconnect(YouLongApp.instance());
-                return "ERROR:特权服务不可用（主线程不做等待，已请求重连）";
-            }
-        } else {
-            if (!isStellarAvailable()) return "ERROR:特权服务未启动";
-            if (!hasStellarPermission()) {
-                requestReconnect(YouLongApp.instance());
-                return "ERROR:特权服务未授权";
-            }
+        if (!isStellarAvailable()) {
+            return "ERROR:Stellar服务未启动";
+        }
+        if (!hasStellarPermission()) {
+            return "ERROR:Stellar未授权";
         }
 
         final StringBuilder stdout = new StringBuilder();
@@ -121,7 +94,8 @@ public class StellarUtils {
             String cleanCmd = command.trim();
             Log.d(TAG, "Exec: " + cleanCmd);
 
-            process = newPrivilegedProcess(new String[]{"sh"}, null, null);
+            // 启动 sh，通过 stdin 传命令，避免 Binder 传参分裂
+            process = Stellar.INSTANCE.newProcess(new String[]{"sh"}, null, null);
             final Process p = process;
 
             java.io.OutputStream stdin = p.getOutputStream();
@@ -154,14 +128,14 @@ public class StellarUtils {
             outReader.start();
             errReader.start();
 
+            // 等待进程结束
             long deadline = System.currentTimeMillis() + timeoutMs;
             boolean done = false;
             while (!done) {
                 long remaining = deadline - System.currentTimeMillis();
                 if (remaining <= 0) break;
                 try {
-                    done = p.waitFor(Math.min(remaining, 200L),
-                            java.util.concurrent.TimeUnit.MILLISECONDS);
+                    done = p.waitFor(Math.min(remaining, 200L), java.util.concurrent.TimeUnit.MILLISECONDS);
                 } catch (Exception e) {
                     Log.w(TAG, "waitFor err: " + e.getMessage());
                     done = true;
@@ -194,8 +168,7 @@ public class StellarUtils {
             String out = stdout.toString().trim();
             String err = stderr.toString().trim();
 
-            Log.d(TAG, "exitOk=" + exitOk + " exitCode=" + exitCode
-                    + " outLen=" + out.length() + " errLen=" + err.length());
+            Log.d(TAG, "exitOk=" + exitOk + " exitCode=" + exitCode + " outLen=" + out.length() + " errLen=" + err.length());
 
             if (out.length() > 0) return out;
             if (!exitOk) {
@@ -216,5 +189,62 @@ public class StellarUtils {
         }
 
         return "OK";
+    }
+
+    // ======================================================================
+    // 2026-10-24：病毒特征库快照写入（管理器认证的 Binder 通道）
+    // ----------------------------------------------------------------------
+    // 历史实现用 `sh` + stdin 把 base64 写进 /data/local/tmp/stellar_guard/，
+    // 但该目录与服务端 fork 出来的 sh 是同一 uid —— 任何拿到 shell 的应用都能
+    // 用 cp/rm 改写策略文件（审查 C1）。
+    // 现在改为 IStellarService.writePolicyFile：服务端用 enforceManager 校验
+    // 调用方就是本应用，再以「临时文件 + rename」原子落盘。
+    // ======================================================================
+
+    /**
+     * 写入病毒特征库快照（仅管理器可用）。
+     *
+     * @param json 快照 JSON（schema 必须是 youlong/virus-db/snapshot/1）
+     * @return true = 服务端已原子落盘
+     */
+    public static boolean writeVirusSnapshot(String json) {
+        if (json == null || json.length() <= 2) return false;
+        if (!isStellarAvailable()) {
+            Log.w(TAG, "内置特权未启动，暂不推送特征库快照");
+            return false;
+        }
+        if (!hasStellarPermission()) {
+            Log.w(TAG, "内置特权未授权，暂不推送特征库快照");
+            return false;
+        }
+        try {
+            return Stellar.INSTANCE.writePolicyFile("virus_db.json", json);
+        } catch (Throwable tr) {
+            Log.w(TAG, "推送特征库快照失败", tr);
+            return false;
+        }
+    }
+
+    /**
+     * 2026-10-25：把「外面的白名单」同步到内置特权的「指令拦截白名单」。
+     *
+     * <p>内容为每行一个包名；服务端 PolicyStore 校验后原子写入
+     * /data/local/tmp/stellar_guard/command_whitelist.txt，CommandWhitelist
+     * 1 秒内生效。白名单应用不再被自动拦截，改为弹窗询问是否执行。
+     *
+     * @param packageList 每行一个包名
+     */
+    public static boolean writeCommandWhitelist(String packageList) {
+        if (packageList == null) return false;
+        if (!isStellarAvailable() || !hasStellarPermission()) {
+            Log.w(TAG, "内置特权未连接，暂不同步指令白名单");
+            return false;
+        }
+        try {
+            return Stellar.INSTANCE.writePolicyFile("command_whitelist.txt", packageList);
+        } catch (Throwable tr) {
+            Log.w(TAG, "同步指令白名单失败", tr);
+            return false;
+        }
     }
 }

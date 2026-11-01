@@ -20,7 +20,12 @@ import android.view.WindowManager;
 
 import androidx.core.app.NotificationCompat;
 
-
+/**
+ * 屏幕滤镜前台服务
+ *
+ * 使用自定义 View + setLayerType(HARDWARE, filterPaint)
+ * 硬件加速 ColorMatrixColorFilter，GPU 原生渲染不糊。
+ */
 public class ScreenFilterService extends Service {
 
     private static final String CHANNEL_ID = "screen_filter_channel";
@@ -38,10 +43,10 @@ public class ScreenFilterService extends Service {
     private static volatile float sTemperature  = 50f;
 
     // ============================================================
-    
+    // 两套预设色彩矩阵
     // ============================================================
 
-    
+    /** 标准清晰款（日常零糊感） */
     private static final float[] MATRIX_STANDARD = {
             1.05f, 0f,    0f,    0f, 8f,   // R
             0f,    1.05f, 0f,    0f, 8f,   // G
@@ -49,7 +54,7 @@ public class ScreenFilterService extends Service {
             0f,    0f,    0f,    1f, 0f    // A
     };
 
-    
+    /** 冷色高清款（视频/游戏，更锐利） */
     private static final float[] MATRIX_GAME = {
             1.06f, 0f,    0f,    0f, 5f,   // R
             0f,    1.05f, 0f,    0f, 5f,   // G
@@ -58,14 +63,14 @@ public class ScreenFilterService extends Service {
     };
 
     // ============================================================
-    
+    // 自定义悬浮层 View — 硬件层 ColorMatrixColorFilter
     // ============================================================
 
     private static class OverlayView extends View {
         private final ColorMatrix mColorMatrix = new ColorMatrix();
         private final Paint mFilterPaint = new Paint();
         private float mAlpha = 0f;     // 0~255
-        private int mPreset = 0;       
+        private int mPreset = 0;       // 0=标准清晰  1=冷色高清
 
         OverlayView(Context context) {
             super(context);
@@ -73,7 +78,7 @@ public class ScreenFilterService extends Service {
             setFocusableInTouchMode(false);
             setClickable(false);
             setEnabled(false);
-            
+            // 硬件加速层 + ColorMatrixColorFilter → GPU 原生渲染
             mFilterPaint.setColorFilter(new ColorMatrixColorFilter(mColorMatrix));
             setLayerType(LAYER_TYPE_HARDWARE, mFilterPaint);
         }
@@ -83,13 +88,13 @@ public class ScreenFilterService extends Service {
             if (mAlpha < 2f) return;
             int a = Math.round(mAlpha);
             a = Math.max(0, Math.min(255, a));
-            
-            
+            // 使用极淡的灰白基底，alpha 极低（5-15），主要靠 ColorMatrix 偏移
+            // 这样叠加层本身几乎不可见，但色彩矩阵仍能轻微改变整体色调
             int baseColor = Color.argb(a, 245, 245, 245);
             canvas.drawColor(baseColor);
         }
 
-        
+        /** 更新 ColorMatrix 并重绘 */
         void rebuildFilter(int preset, float[] presetMatrix,
                            float brightness, float contrast,
                            float saturation, float temperature) {
@@ -98,33 +103,33 @@ public class ScreenFilterService extends Service {
             float sa = (saturation - 100f) / 100f;
             float te = (temperature - 50f) / 50f;
 
-            
+            // 保存预设索引，onDraw 时使用对应基色
             mPreset = preset;
 
-            
+            // 克隆预设矩阵，用滑块做微量偏移（不叠加多组矩阵）
             float[] m = presetMatrix.clone();
 
-            
+            // 亮度偏移（矩阵第 5/10/15 列 = 加性偏移）
             m[4]  += br * 10f;
             m[9]  += br * 10f;
             m[14] += br * 8f;
 
-            
+            // 冷暖色 — 直接改 R/B 加性偏移
             m[4]  += te * 16f;
             m[14] -= te * 16f;
 
-            
-            
+            // 对比度 & 饱和度 通过 presetMatrix 本身已包含，不再额外叠加
+            // 避免多层矩阵后乘导致糊
 
             mColorMatrix.set(m);
             mFilterPaint.setColorFilter(new ColorMatrixColorFilter(mColorMatrix));
             setLayerType(LAYER_TYPE_HARDWARE, mFilterPaint);
 
-            
-            
+            // alpha 极低（5-15），叠加层本身几乎不可见
+            // 主要靠 ColorMatrix 偏移改变色调，不是靠叠加层颜色
             float dev = Math.abs(br) * 0.5f + Math.abs(co) * 0.25f
                       + Math.abs(sa) * 0.25f + Math.abs(te) * 0.5f;
-            mAlpha = 6f + dev * 10f;    
+            mAlpha = 6f + dev * 10f;    // 基础 6，最大 6+10=16（极淡）
             mAlpha = Math.max(0, Math.min(20, mAlpha));
 
             invalidate();
@@ -132,7 +137,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // 获取预设矩阵
     // ============================================================
 
     private static float[] getPresetMatrix() {
@@ -140,7 +145,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // 应用滤镜（汇总所有参数到 OverlayView）
     // ============================================================
 
     private static void applyFilter() {
@@ -153,7 +158,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // 生命周期
     // ============================================================
 
     @Override
@@ -197,7 +202,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // 公开 API
     // ============================================================
 
     public static void setPreset(int p) {
@@ -237,7 +242,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // Service 生命周期
     // ============================================================
 
     @Override
@@ -265,14 +270,14 @@ public class ScreenFilterService extends Service {
     public IBinder onBind(Intent intent) { return null; }
 
     // ============================================================
-    
+    // 内部工具
     // ============================================================
 
     private static void postUpdate() {
         OverlayView v = overlayView;
         if (v != null) {
             v.post(() -> {
-                
+                // FIX Bug 9: 再次检查，防止 onDestroy 后 execute
                 if (overlayView != null) {
                     applyFilter();
                 }
@@ -285,7 +290,7 @@ public class ScreenFilterService extends Service {
     }
 
     // ============================================================
-    
+    // 通知
     // ============================================================
 
     private void createNotificationChannel() {

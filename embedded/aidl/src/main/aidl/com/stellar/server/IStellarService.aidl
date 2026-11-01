@@ -81,4 +81,11 @@ interface IStellarService {
 
     IBinder getSystemService(String name) = 404;
 
+    /**
+     * 2026-10-24：由管理器写入内置特权的策略快照（病毒特征库）。
+     * 服务端校验调用方 uid 必须是管理器，再以「临时文件 + rename」原子落盘，
+     * 避免第三方应用经由 shell 直接改写 /data/local/tmp/stellar_guard/ 下的策略文件。
+     */
+    boolean writePolicyFile(String name, String content) = 113;
+
 }

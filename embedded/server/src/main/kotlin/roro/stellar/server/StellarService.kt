@@ -18,12 +18,16 @@ import roro.stellar.server.communication.CallerContext
 import roro.stellar.server.communication.PermissionEnforcer
 import roro.stellar.server.communication.StellarCommunicationBridge
 import roro.stellar.server.bootstrap.ServerBootstrap
+import roro.stellar.server.bootstrap.ServerFullLog
 import roro.stellar.server.ext.FollowStellarStartupExt
 import roro.stellar.server.grant.ManagerGrantHelper
 import roro.stellar.server.ktx.mainHandler
 import roro.stellar.server.monitor.PackageMonitor
 import roro.stellar.server.query.ApplicationQueryHelper
 import roro.stellar.server.service.StellarServiceCore
+import roro.stellar.server.service.process.policy.CallerResolver
+import roro.stellar.server.service.process.policy.PolicyEngine
+import roro.stellar.server.service.process.policy.PolicyStore
 import roro.stellar.server.shizuku.ShizukuApiConstants
 import roro.stellar.server.shizuku.ShizukuCallbackFactory
 import roro.stellar.server.shizuku.ShizukuServiceIntercept
@@ -54,6 +58,7 @@ class StellarService : IStellarService.Stub() {
 
     init {
         try {
+            ServerFullLog.log("INIT", "StellarService init start")
             LOGGER.i("正在启动 Stellar 服务...")
 
             LOGGER.i("等待系统服务...")
@@ -61,6 +66,7 @@ class StellarService : IStellarService.Stub() {
             ServerBootstrap.waitSystemService(Context.ACTIVITY_SERVICE)
             ServerBootstrap.waitSystemService(Context.USER_SERVICE)
             ServerBootstrap.waitSystemService(Context.APP_OPS_SERVICE)
+            ServerFullLog.log("INIT", "system services ready")
 
             LOGGER.i("获取管理器应用信息...")
             val ai = ServerBootstrap.managerApplicationInfo
@@ -71,6 +77,7 @@ class StellarService : IStellarService.Stub() {
 
             managerAppId = ai.uid
             LOGGER.i("管理器应用 UID: $managerAppId")
+            ServerFullLog.log("INIT", "manager uid=$managerAppId")
 
             Logger.initProvider()
 
@@ -111,11 +118,14 @@ class StellarService : IStellarService.Stub() {
 
             LOGGER.i("注册 Binder...")
             register(this)
+            ServerFullLog.log("INIT", "BinderSender registered")
 
             LOGGER.i("发送 Binder 到客户端...")
             mainHandler.post {
                 try {
+                    ServerFullLog.log("BINDER", "sending binder to manager")
                     BinderDistributor.sendBinderToManager(this)
+                    ServerFullLog.log("BINDER", "manager binder send returned")
                     BinderSender.sendBinderToAuthorizedRunningClients(configManager)
                     ManagerGrantHelper.grantWriteSecureSettings(managerAppId)
                     if (configManager.isAccessibilityAutoStartEnabled()) {
@@ -196,24 +206,8 @@ class StellarService : IStellarService.Stub() {
             StellarApiConstants.PERMISSION_STELLAR
         )
         if (permission == ShizukuApiConstants.PERMISSION_NAME) {
-            
-            
-            val caller = CallerContext.fromBinder()
-            permissionEnforcer.enforceManager(caller, "dispatchPermissionConfirmationResult")
-
             val allowed = data.getBoolean(StellarApiConstants.REQUEST_PERMISSION_REPLY_ALLOWED, false)
             val onetime = data.getBoolean(StellarApiConstants.REQUEST_PERMISSION_REPLY_IS_ONETIME, false)
-
-            if (!serviceCore.permissionManager.consumePendingConfirmation(
-                    requestCode, requestUid, requestPid, ShizukuApiConstants.PERMISSION_NAME
-                )
-            ) {
-                LOGGER.w(
-                    "Shizuku 权限结果无匹配的待确认请求，已忽略 " +
-                            "(uid=$requestUid, pid=$requestPid, code=$requestCode)"
-                )
-                return
-            }
 
             LOGGER.i("Shizuku 权限结果: uid=$requestUid, pid=$requestPid, code=$requestCode, allowed=$allowed, onetime=$onetime")
 
@@ -252,28 +246,24 @@ class StellarService : IStellarService.Stub() {
     }
 
     override fun getFlagForUid(uid: Int, permission: String): Int {
-        val caller = CallerContext.fromBinder()
         if (permission == ShizukuApiConstants.PERMISSION_NAME) {
-            
-            permissionEnforcer.enforceManager(caller, "getFlagForUid")
             val stellarFlag = configManager.getPermissionFlag(uid, ShizukuApiConstants.PERMISSION_NAME)
             return ShizukuApiConstants.stellarToShizukuFlag(stellarFlag)
         }
 
+        val caller = CallerContext.fromBinder()
         return bridge.handleGetFlagForUid(caller, uid, permission)
     }
 
     override fun updateFlagForUid(uid: Int, permission: String, flag: Int) {
-        val caller = CallerContext.fromBinder()
         if (permission == ShizukuApiConstants.PERMISSION_NAME) {
-            
-            permissionEnforcer.enforceManager(caller, "updateFlagForUid")
             val stellarFlag = ShizukuApiConstants.shizukuToStellarFlag(flag)
             configManager.updatePermission(uid, ShizukuApiConstants.PERMISSION_NAME, stellarFlag)
             clientManager.findClients(uid).forEach { it.onetimeMap.remove(ShizukuApiConstants.PERMISSION_NAME) }
             return
         }
 
+        val caller = CallerContext.fromBinder()
         bridge.handleUpdateFlagForUid(caller, uid, permission, flag)
     }
 
@@ -379,11 +369,30 @@ class StellarService : IStellarService.Stub() {
         val caller = CallerContext.fromBinder()
         permissionEnforcer.enforcePermission(caller, "getSystemService")
 
+        // 2026-10-25：黑名单应用不能借 getSystemService 绕过 shell 拦截
+        val identity = CallerResolver.resolve(caller.uid, clientManager)
+        PolicyEngine.blacklistReason(identity)?.let { reason ->
+            LOGGER.w("拦截黑名单应用的 getSystemService: %s → %s", identity.displayName, reason)
+            throw SecurityException("命令已被「游龙安全护盾」拦截：$reason")
+        }
+
         if (name == null) return null
 
         return Class.forName("android.os.ServiceManager")
             .getMethod("getService", String::class.java)
             .invoke(null, name) as? IBinder
+    }
+
+    /**
+     * 2026-10-24：管理器写入策略快照（病毒特征库）。
+     *
+     * 只允许管理器调用；内容校验与原子落盘见 PolicyStore。
+     * 这样第三方应用即使拿到 shell，也不能再通过「让管理器写」的同一通道改策略。
+     */
+    override fun writePolicyFile(name: String?, content: String?): Boolean {
+        val caller = CallerContext.fromBinder()
+        permissionEnforcer.enforceManager(caller, "writePolicyFile")
+        return PolicyStore.writeSnapshot(name, content)
     }
 
     private fun stopDaemon() {
@@ -497,6 +506,13 @@ class StellarService : IStellarService.Stub() {
     override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
         if (code == ServerConstants.BINDER_TRANSACTION_getApplications) {
             data.enforceInterface(StellarApiConstants.BINDER_DESCRIPTOR)
+            // 2026-10-25：黑名单应用不能借 getApplications 枚举应用
+            val caller = CallerContext.fromBinder()
+            val identity = CallerResolver.resolve(caller.uid, clientManager)
+            PolicyEngine.blacklistReason(identity)?.let { reason ->
+                LOGGER.w("拦截黑名单应用的 getApplications: %s → %s", identity.displayName, reason)
+                throw SecurityException("命令已被「游龙安全护盾」拦截：$reason")
+            }
             val userId = data.readInt()
             val result = ApplicationQueryHelper.getApplications(userId, configManager)
             reply?.let {
@@ -515,6 +531,13 @@ class StellarService : IStellarService.Stub() {
     private fun transactRemote(data: Parcel, reply: Parcel?, flags: Int) {
         val caller = CallerContext.fromBinder()
         permissionEnforcer.enforcePermission(caller, "transactRemote")
+
+        // 2026-10-25：黑名单应用不能借 transactRemote 直接调系统服务绕过 shell 拦截
+        val identity = CallerResolver.resolve(caller.uid, clientManager)
+        PolicyEngine.blacklistReason(identity)?.let { reason ->
+            LOGGER.w("拦截黑名单应用的 transactRemote: %s → %s", identity.displayName, reason)
+            throw SecurityException("命令已被「游龙安全护盾」拦截：$reason")
+        }
 
         val targetBinder = data.readStrongBinder()
         val targetCode = data.readInt()

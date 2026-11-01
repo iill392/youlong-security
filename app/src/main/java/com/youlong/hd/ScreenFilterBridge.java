@@ -209,8 +209,8 @@ public class ScreenFilterBridge {
                     String myPackage = app.getPackageName();
                     int killed = 0;
                     for (ActivityManager.RunningAppProcessInfo process : processes) {
-                        
-                        
+                        // 保护所有前台/可见进程（100=FOREGROUND, 125=FOREGROUND_SERVICE,
+                        // 150=TOP_SLEEPING, 200=VISIBLE），确保用户正在用的应用不会被杀
                         if (process.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE
                                 || process.processName.startsWith("com.android")
                                 || process.processName.startsWith("android")
@@ -262,7 +262,7 @@ public class ScreenFilterBridge {
     }
 
     // ============================================================
-    
+    // 色彩模式：鲜艳 / 标准（通过系统设置）
     // ============================================================
 
     @JavascriptInterface
@@ -285,7 +285,7 @@ public class ScreenFilterBridge {
     }
 
     // ============================================================
-    
+    // FPS 帧率监测
     // ============================================================
 
     @JavascriptInterface

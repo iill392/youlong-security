@@ -15,16 +15,16 @@ class StellarManagerProvider : StellarProvider() {
         val db = AppDatabase.get(context!!)
         when (method) {
             METHOD_GET_SHIZUKU_COMPAT -> {
-                
-                val value = db.configDao().get(KEY_SHIZUKU_COMPAT) ?: "false"
-                return Bundle().apply { putBoolean(KEY_SHIZUKU_COMPAT, value.toBoolean()) }
+                // 2026-11-01（用户需求）：兼容层恒开。
+                return Bundle().apply { putBoolean(KEY_SHIZUKU_COMPAT, true) }
             }
             METHOD_LOAD_CONFIG -> {
                 val entries = db.configDao().getAll()
                 val config = StellarConfig()
+                config.shizukuCompatEnabled = true
                 entries.forEach { e ->
                     when (e.key) {
-                        KEY_SHIZUKU_COMPAT -> config.shizukuCompatEnabled = e.value.toBoolean()
+                        KEY_SHIZUKU_COMPAT -> config.shizukuCompatEnabled = true
                         KEY_ACCESSIBILITY_AUTO_START -> config.accessibilityAutoStart = e.value.toBoolean()
                         KEY_DAEMON_ENABLED -> config.daemonEnabled = e.value.toBoolean()
                         KEY_PACKAGES_JSON -> config.packages = GSON.fromJson(e.value,
@@ -36,8 +36,9 @@ class StellarManagerProvider : StellarProvider() {
             METHOD_SAVE_CONFIG -> {
                 val json = extras?.getString(KEY_CONFIG_JSON) ?: return null
                 val config = GSON.fromJson(json, StellarConfig::class.java) ?: return null
+                config.shizukuCompatEnabled = true
                 db.configDao().setAll(listOf(
-                    ConfigEntity(KEY_SHIZUKU_COMPAT, config.shizukuCompatEnabled.toString()),
+                    ConfigEntity(KEY_SHIZUKU_COMPAT, "true"),
                     ConfigEntity(KEY_ACCESSIBILITY_AUTO_START, config.accessibilityAutoStart.toString()),
                     ConfigEntity(KEY_DAEMON_ENABLED, config.daemonEnabled.toString()),
                     ConfigEntity(KEY_PACKAGES_JSON, GSON.toJson(config.packages))

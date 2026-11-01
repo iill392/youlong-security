@@ -1,15 +1,15 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）
 //   server/src/main/kotlin/roro/stellar/server/userservice/UserServiceStarter.kt
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：EXTRA_BINDER / EXTRA_CLIENT_BINDER 由
+//         "roro.stellar.manager.intent.extra.*" 改为
+//         "com.youlong.hd.intent.extra.*"。
+//   原因：管理器被内置进「游龙安全护盾」，应用包名是 com.youlong.hd。
+//         这两个 key 必须与客户端 StellarProvider、服务端 BinderDistributor
+//         里的同名常量逐字一致，三处已同步改写。
+//   除这两处字符串外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.server.userservice
@@ -142,9 +142,9 @@ object UserServiceStarter {
                 mInitialApplication.set(activityThread, application)
                 Log.i(TAG, "Application 创建成功: ${application.javaClass.name}")
             } catch (e: Exception) {
-                
-                
-                
+                // Application 初始化失败时回退到旧的 Context 方案
+                // 主要用于解决部分联发科设备上的兼容性问题
+                // 参见 RikkaApps/Shizuku Issue #1171 和 RikkaApps/Shizuku-API PR #299
                 Log.w(TAG, "无法初始化 Application，已回退到 Context", e)
                 application = null
             }
@@ -189,11 +189,11 @@ object UserServiceStarter {
         val userId = 0
         var provider: IContentProvider? = null
         
-        
+        // 创建一个专属的 Binder Token 作为连接标识
         val connectionToken = android.os.Binder()
 
         return try {
-            
+            // 传入 connectionToken，让系统精确记录这次连接
             provider = ActivityManagerApis.getContentProviderExternal(
                 providerName, userId, connectionToken, providerName
             )
@@ -256,7 +256,7 @@ object UserServiceStarter {
         } finally {
             provider?.let {
                 try {
-                    
+                    // 使用与获取时完全相同的 connectionToken 注销，彻底切断系统底层的关联牵连
                     ActivityManagerApis.removeContentProviderExternal(providerName, connectionToken)
                 } catch (e: Exception) {
                     Log.w(TAG, "removeContentProviderExternal 失败", e)

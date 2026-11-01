@@ -1,11 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar" />
+    <!--
+      2026-10-18（用户需求）：内置特权界面统一白色。
+      AppTheme 的 windowBackground / splash 底色都改成纯白，避免冷启动或
+      页面切换时先闪一下深色底。
+    -->
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+
+    <!-- 2026-11-01：管理器专用主题。名字必须全局唯一，
+         否则会被宿主 app 模块同名的 AppTheme（带 DarkActionBar）覆盖。 -->
+    <style name="StellarManagerTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F8FAFD</item>
+        <item name="android:colorPrimary">@color/colMain</item>
+        <item name="android:colorAccent">@color/colMain</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+    <style name="StellarManagerSplash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F8FAFD</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="postSplashScreenTheme">@style/StellarManagerTheme</item>
+    </style>
     <style name="GrantPermissions" parent="Theme.Material3.DayNight.Dialog" />
     <style name="ShortcutExecutor" parent="android:style/Theme.NoDisplay" />
 
     <style name="AppTheme.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FEF7FF</item>
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>

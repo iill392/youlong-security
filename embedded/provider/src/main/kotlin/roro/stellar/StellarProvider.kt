@@ -1,17 +1,17 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar-API （MPL-2.0 + Apache-2.0）
 //   provider/src/main/kotlin/roro/stellar/StellarProvider.kt
 //
-
-
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：把三处硬编码的 "roro.stellar.manager" 前缀改为 "com.youlong.hd"：
+//           EXTRA_BINDER / EXTRA_CLIENT_BINDER  —— 与特权服务端
+//             roro.stellar.server.BinderDistributor、UserServiceStarter
+//             里对应的 extra key **必须逐字相同**（Binder 就是靠这套 key
+//             跨进程投递的），服务端的同名常量已一并改写；
+//           MANAGER_APPLICATION_ID             —— 用于识别「管理器自己」。
+//   原因：管理器被内置进「游龙安全护盾」，应用包名是 com.youlong.hd，
+//         本机不存在 roro.stellar.manager 这个包。
+//   除这三处字符串外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar
@@ -76,15 +76,15 @@ open class StellarProvider : ContentProvider() {
 
     private fun handleSendBinder(extras: Bundle) {
         // ==================================================================
-        
+        // 2026-10 安全加固（用户需求）：只接受**内置特权服务端**投递的 Binder。
         // ------------------------------------------------------------------
-        
-        
-        
+        // 本 provider 是 exported 的，任何应用都能调 sendBinder。若不校验，
+        // 外部 Stellar / Shizuku 应用就能把我们的 binder 换成它自己的 binder，
+        // 表现为"外部软件也能授权"。
         //
-        
-        
-        
+        // 我们的服务端用 getContentProviderExternal + IContentProvider.call
+        // 投递，在这里表现为服务端进程的 uid（root=0 / system=1000 / shell=2000）；
+        // 普通第三方应用是 10xxx，一律拒绝。
         // ==================================================================
         if (!isTrustedBinderSender()) {
             val badUid = android.os.Binder.getCallingUid()
@@ -99,11 +99,11 @@ open class StellarProvider : ContentProvider() {
         Log.i(TAG, "收到 Stellar Binder：current=${Stellar.binder}, alive=${pingBinder()}")
 
         // ==================================================================
-        
+        // 2026-10 修正：已有 binder 时不能无条件"忽略重复发送"。
         // ------------------------------------------------------------------
-        
-        
-        
+        // 若当前 binder 是**外部应用抢先注入的冒充者**，必须允许自家服务端
+        // 把它换掉，否则功能会瘫（界面显示"内置特权服务未启动"）。
+        // 只有确认当前 binder **就是自家服务端**时才忽略重复。
         // ==================================================================
         if (pingBinder()) {
             if (isOwnServiceBinder(Stellar.binder)) {
@@ -195,8 +195,21 @@ open class StellarProvider : ContentProvider() {
         selectionArgs: Array<String?>?
     ): Int = 0
 
-    
-    
+    /**
+     * 2026-10 新增：Binder 注入来源校验。
+     *
+     * <p>只允许内置特权服务端（root=0 / system=1000 / shell=2000）投递 Binder。
+     * 普通应用（uid 10xxx）一律拒绝 —— 防止外部 Stellar / Shizuku 应用通过
+     * exported 的 provider 把我们的 binder 换成它自己的，从而"看起来授权成功"。
+     */
+    /**
+     * 2026-10 新增：判断一个 Binder 是不是**自家服务端**（IStellarService）。
+     *
+     * <p>依据是 Binder 的 interface descriptor —— 它由远端 Binder 自己声明，
+     * 外部应用无法伪造成我们 AIDL 的 descriptor。用来把「外部应用抢先注入的
+     * 冒充者」与「自家服务端」区分开：冒充者必须允许被自家服务端替换，
+     * 否则功能会瘫（界面显示「内置特权服务未启动」）。
+     */
     private fun isOwnServiceBinder(binder: android.os.IBinder?): Boolean {
         if (binder == null) return false
         return try {
@@ -219,7 +232,12 @@ open class StellarProvider : ContentProvider() {
     companion object {
         private const val TAG = "StellarProvider"
 
-        
+        /**
+         * 2026-10 新增：被拒绝的 Binder 注入记录（排错/实证用）。
+         *
+         * <p>release 构建里 android.util.Log 会被 R8 裁掉，光靠 logcat 看不到
+         * "拒绝外部注入"这件事，所以在这里留一份可读记录。
+         */
         @JvmStatic
         val rejectedInjectionInfo: String
             get() = rejectedInfo

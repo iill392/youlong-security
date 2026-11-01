@@ -1,17 +1,17 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar 的
 //   manager/src/main/kotlin/roro/stellar/manager/adb/AdbPairingService.kt
-
+// （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
 //
-
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：本文件内 9 处通知的 setSmallIcon(...) 由上游的
+//         R.drawable.ic_stellar 改为 R.drawable.ic_notification_shield
+//         （本工程新增的纯白盾牌轮廓矢量图，见该文件内的说明）。
+//   原因：本产品按需求去除 Stellar 的图标；通知小图标是「alpha 遮罩」，
+//         必须是单色透明底图形，所以新画了一个等同尺寸的盾牌矢量图，
+//         而不是直接复用彩色启动图标（那样在状态栏里会渲染成一个白块）。
+//   除这 9 处图标资源引用外，本文件其余内容与上游一致
+//   （配对流程、通知渠道、前台服务声明均未改动）。
 // ==========================================================================
 
 package roro.stellar.manager.adb
@@ -41,8 +41,10 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import roro.stellar.manager.R
 import roro.stellar.manager.StellarSettings
+import roro.stellar.manager.diagnostics.FullDiagnostics
 import kotlin.getValue
 import androidx.core.content.edit
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @RequiresApi(Build.VERSION_CODES.R)
 class AdbPairingService : Service() {
@@ -70,6 +72,22 @@ class AdbPairingService : Service() {
         @Volatile
         private var isRunning = false
 
+        /**
+         * 2026-10-18：当前可输入配对码的端口；-1 表示不在等待输入。
+         * 部分用户关闭了通知/通知渠道，收不到带 RemoteInput 的配对通知，
+         * StarterScreen 用这个状态弹「手动输入配对码」对话框兜底。
+         */
+        val pairingPort = MutableStateFlow(-1)
+
+        /** 从应用内对话框直接提交配对码（不依赖通知 RemoteInput）。 */
+        fun submitCode(context: Context, port: Int, code: String) {
+            val intent = Intent(context, AdbPairingService::class.java)
+                .setAction(replyAction)
+                .putExtra(portKey, port)
+                .putExtra("pairing_code_text", code)
+            context.startService(intent)
+        }
+
         fun startIntent(context: Context): Intent =
             Intent(context, AdbPairingService::class.java).setAction(startAction)
 
@@ -88,12 +106,14 @@ class AdbPairingService : Service() {
     private var discoveredPort: Int = -1
 
     private val observer = Observer<Int> { port ->
+        FullDiagnostics.log("PAIR", "pairing mDNS port=$port")
         Log.i(tag, "配对服务端口: $port")
         if (port <= 0) {
             return@Observer
         }
 
         discoveredPort = port
+        pairingPort.value = port
 
         val notification = createInputNotification(port)
         try {
@@ -154,7 +174,14 @@ class AdbPairingService : Service() {
                 onStart()
             }
             replyAction -> {
-                val code = RemoteInput.getResultsFromIntent(intent)?.getCharSequence(remoteInputResultKey) ?: ""
+                // 通知 RemoteInput 或应用内对话框直传（无通知权限时走后者）
+                val direct = intent.getStringExtra("pairing_code_text") ?: ""
+                val code = if (direct.isNotEmpty()) {
+                    direct
+                } else {
+                    RemoteInput.getResultsFromIntent(intent)
+                        ?.getCharSequence(remoteInputResultKey) ?: ""
+                }
                 val port = intent.getIntExtra(portKey, -1)
                 if (port != -1) {
                     onInput(code.toString(), port)
@@ -193,6 +220,7 @@ class AdbPairingService : Service() {
     private fun startSearch() {
         if (started) return
         started = true
+        FullDiagnostics.log("PAIR", "startSearch TLS_PAIRING")
         adbMdns = AdbMdns(
             this,
             AdbMdns.TLS_PAIRING,
@@ -214,6 +242,7 @@ class AdbPairingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        pairingPort.value = -1
         retryHandler.removeCallbacksAndMessages(null)
         stopSearch()
         adbMdns?.destroy()
@@ -228,12 +257,14 @@ class AdbPairingService : Service() {
             return searchingNotification
         }
         isRunning = true
+        pairingPort.value = -1
         startSearch()
         return searchingNotification
     }
 
     private fun onStopSearch(): Notification {
         stopSearch()
+        if (discoveredPort > 0) pairingPort.value = discoveredPort
         return createManualInputNotification(discoveredPort)
     }
 
@@ -263,6 +294,7 @@ class AdbPairingService : Service() {
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun onInput(code: String, port: Int): Notification {
+        FullDiagnostics.log("PAIR", "onInput port=$port codeLength=${code.length}")
         if (port == -1) {
             return createManualInputNotification(-1)
         }
@@ -271,17 +303,20 @@ class AdbPairingService : Service() {
             val host = "127.0.0.1"
 
             val key = try {
-                AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "Stellar")
+                AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "youlong")
             } catch (e: Throwable) {
                 e.printStackTrace()
                 return@launch
             }
 
             AdbPairingClient(host, port, code, key).runCatching {
+                FullDiagnostics.log("PAIR", "pairing client start host=$host port=$port")
                 start()
             }.onFailure {
+                FullDiagnostics.log("PAIR", "pairing failed: ${it.javaClass.name}: ${it.message}")
                 handleResult(false)
             }.onSuccess {
+                FullDiagnostics.log("PAIR", "pairing result=$it")
                 handleResult(it)
             }
         }
@@ -292,9 +327,11 @@ class AdbPairingService : Service() {
     private var connectMdns: AdbMdns? = null
 
     private fun handleResult(success: Boolean) {
+        FullDiagnostics.log("PAIR", "handleResult success=$success")
         retryHandler.post {
             if (success) {
                 Log.i(tag, "配对成功，开始搜索连接服务")
+                pairingPort.value = -1
                 stopSearch()
 
                 val successNotification = Notification.Builder(this, notificationChannel)
@@ -380,6 +417,7 @@ class AdbPairingService : Service() {
     }
 
     private fun onConnectServiceFound(port: Int) {
+        FullDiagnostics.log("PAIR", "connect service found port=$port")
         retryHandler.post {
             Log.i(tag, "找到连接服务端口: $port")
 
@@ -402,7 +440,7 @@ class AdbPairingService : Service() {
     private fun grantSecureSettingsPermission(port: Int) {
         GlobalScope.launch(Dispatchers.IO) {
             try {
-                val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "stellar")
+                val key = AdbKey(PreferenceAdbKeyStore(StellarSettings.getPreferences()), "youlong")
 
                 val maxWait = 5000L
                 val interval = 200L
@@ -436,6 +474,7 @@ class AdbPairingService : Service() {
     }
 
     private fun navigateToStarter(port: Int) {
+        FullDiagnostics.log("PAIR", "navigateToStarter port=$port")
         val intent = roro.stellar.manager.ui.features.manager.ManagerActivity.createStarterIntent(
             this,
             isRoot = false,

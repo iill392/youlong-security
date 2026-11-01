@@ -22,6 +22,23 @@ object PackageManagerCompat {
         ActivityThread.systemMain().systemContext.packageManager
     }
 
+    /**
+     * V19：newProcess 可能从 Binder 线程进入，而 ActivityThread.systemMain()
+     * 内部会创建 Handler，Binder 线程没有 Looper 会直接抛
+     * “Can't create handler inside thread ... that has not called Looper.prepare()”。
+     *
+     * 在 stellar_server 的主线程（已经 prepareMainLooper）先把它初始化好，
+     * 之后 Binder 线程只会读取已初始化的值。
+     */
+    fun preload() {
+        try {
+            systemPackageManager
+            LOGGER.i("systemPackageManager 预加载完成")
+        } catch (t: Throwable) {
+            LOGGER.w(t, "systemPackageManager 预加载失败")
+        }
+    }
+
     private val packageManagerService by lazy(LazyThreadSafetyMode.NONE) {
         runCatching { obtainPackageManagerService() }.getOrNull()
     }
@@ -39,6 +56,20 @@ object PackageManagerCompat {
             PackageManagerApis.getApplicationInfoNoThrow(packageName, flags, userId)
         } catch (_: Throwable) {
             tryReflectApplicationInfo(packageName, flags, userId)
+        }
+    }
+
+    /**
+     * 2026-10-25：取应用显示名称（用于「名称库」黑名单匹配）。
+     * 拿不到返回 null，不影响其它判定。
+     */
+    fun getApplicationLabel(packageName: String, userId: Int): String? {
+        return try {
+            val ai = getApplicationInfo(packageName, 0, userId) ?: return null
+            ai.loadLabel(systemPackageManager)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (t: Throwable) {
+            LOGGER.w(t, "读取应用名称失败: %s", packageName)
+            null
         }
     }
 

@@ -29,6 +29,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.NavHost
@@ -48,6 +50,7 @@ import roro.stellar.manager.ui.features.home.HomeScreen
 import roro.stellar.manager.ui.features.home.HomeViewModel
 import roro.stellar.manager.ui.features.manager.ManagerActivity
 import roro.stellar.manager.ui.features.settings.SettingsScreen
+import roro.stellar.manager.ui.features.virusdb.VirusDbScreen
 import roro.stellar.manager.ui.navigation.components.LocalNavigationState
 import roro.stellar.manager.ui.navigation.components.LocalTopAppBarState
 import roro.stellar.manager.ui.navigation.components.NavigationState
@@ -60,7 +63,7 @@ import roro.stellar.manager.ui.theme.StellarTheme
 import roro.stellar.manager.ui.theme.ThemePreferences
 import roro.stellar.manager.ui.theme.StartPage
 import roro.stellar.manager.util.BackgroundVisibilityUtils
-
+// ⚠️ 本工程新增导入：selfGrantPermission() 的失败日志。
 import roro.stellar.manager.util.Logger.Companion.LOGGER
 
 class MainActivity : ComponentActivity() {
@@ -96,10 +99,11 @@ class MainActivity : ComponentActivity() {
 
         pendingSourcePackage = savedInstanceState?.getString(STATE_SOURCE_PACKAGE)
         rememberSourceApp()
-        BackgroundVisibilityUtils.setHidden(
-            this,
-            StellarSettings.getPreferences().getBoolean(StellarSettings.HIDE_BACKGROUND, false)
-        )
+        // 2026-11-01（用户需求）：隐藏后台改为自动生效，不再提供用户开关。
+        StellarSettings.getPreferences().edit()
+            .putBoolean(StellarSettings.HIDE_BACKGROUND, true)
+            .apply()
+        BackgroundVisibilityUtils.setHidden(this, true)
         
         enableEdgeToEdge()
         
@@ -152,24 +156,24 @@ class MainActivity : ComponentActivity() {
     }
 
     // ======================================================================
-    
+    // 自身免询问授权（2026-10 新增，用户需求）
     // ----------------------------------------------------------------------
-    
+    // 需求：「只要激活了内置特权就自动授权 com.youlong.hd，无需询问」。
     //
-    
-    
-    
-    
+    // 服务端本来就把本应用当作**管理器**（ServerConstants.MANAGER_APPLICATION_ID
+    // == 本应用包名），PermissionEnforcer 对管理器的判定是
+    //     if (isSelf(caller) || isManager(caller)) return      // 直接放行
+    // 所以功能上从来不会被拦。
     //
-    
-    
-    
-    
+    // 之所以还要显式写一次配置，是因为**授权状态是持久化在配置里的**：
+    // 如果历史上这条 uid 的记录被写成 FLAG_DENIED（比如早前版本包名不同、
+    // 或用户误点过「拒绝」），「授权应用」列表里就会显示成「拒绝」，
+    // 既误导用户，也可能让别处基于 flag 的判断出错。
     //
-    
-    
-    
-    
+    // 这里在每次 Binder 连上时把自身的 stellar 权限强制写为 GRANTED：
+    //   · 幂等，重复执行无副作用；
+    //   · 服务端对管理器的调用是放行的，所以这个写入一定成功；
+    //   · 失败只记日志，绝不影响界面。
     // ======================================================================
     private fun selfGrantPermission() {
         try {
@@ -250,9 +254,9 @@ private fun MainScreenContent(
     val topAppBarState = LocalTopAppBarState.current!!
     val navController = rememberNavController()
 
-    
-    
-    
+    // ⚠️ 本工程改动：StartPage.TERMINAL 已删除，启动页分支只剩 首页 / 授权应用。
+    //    老用户如果之前把「命令」设为默认启动页，ThemePreferences 会回落到首页
+    //    （见 ThemePreferences.StartPage.fromValue 的默认值）。
     val startPage = remember { ThemePreferences.startPage.value }
     val initialIndex = when (startPage) {
         StartPage.HOME -> 0
@@ -340,16 +344,23 @@ private fun MainScreenContent(
                 }
             }
 
+            // 2026-10-24 新增：底部导航「病毒库」独立页面
+            navigation(
+                startDestination = "virusdb",
+                route = MainScreen.VirusDb.route
+            ) {
+                composable("virusdb") {
+                    VirusDbScreen(topAppBarState = topAppBarState)
+                }
+            }
+
             navigation(
                 startDestination = "settings",
                 route = MainScreen.Settings.route
             ) {
                 composable("settings") {
                     SettingsScreen(
-                        topAppBarState = topAppBarState,
-                        onNavigateToLogs = {
-                            context.startActivity(ManagerActivity.createLogsIntent(context))
-                        }
+                        topAppBarState = topAppBarState
                     )
                 }
             }
@@ -358,10 +369,20 @@ private fun MainScreenContent(
 
     CompositionLocalProvider(LocalNavigationState provides navigationState) {
         AdaptiveLayoutProvider {
+            // 2026-10-17 第 18 轮：整页统一深色渐变底。
+            // 各页面 Scaffold 已改为透明，让这层渐变透出来，不再是一块块纯色背景。
+            val backdrop = Brush.verticalGradient(
+                listOf(
+                    MaterialTheme.colorScheme.surfaceContainerLow,
+                    MaterialTheme.colorScheme.background,
+                    MaterialTheme.colorScheme.surfaceContainerLowest
+                )
+            )
+
             if (isLandscape) {
                 Row(modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(backdrop)
                 ) {
                     StandardNavigationRail(
                         selectedIndex = selectedIndex,
@@ -370,12 +391,17 @@ private fun MainScreenContent(
                     navHostContent(Modifier
                         .weight(1f)
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface)
                     )
                 }
             } else {
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .background(backdrop)
+                ) {
                     Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onBackground,
                         bottomBar = {
                             StandardBottomNavigation(
                                 selectedIndex = selectedIndex,

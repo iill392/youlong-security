@@ -6,7 +6,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -21,12 +27,6 @@ class ManagerActivity : ComponentActivity() {
         private const val EXTRA_HOST = "host"
         private const val EXTRA_PORT = "port"
         private const val EXTRA_HAS_SECURE_SETTINGS = "has_secure_settings"
-
-        fun createLogsIntent(context: Context): Intent {
-            return Intent(context, ManagerActivity::class.java).apply {
-                putExtra(EXTRA_ROUTE, ManagerRoute.Logs.route)
-            }
-        }
 
         fun createStarterIntent(
             context: Context,
@@ -49,23 +49,40 @@ class ManagerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val route = intent.getStringExtra(EXTRA_ROUTE) ?: ManagerRoute.Logs.route
+        val route = intent.getStringExtra(EXTRA_ROUTE) ?: ManagerRoute.Starter.route
         val isRoot = intent.getBooleanExtra(EXTRA_IS_ROOT, true)
         val host = intent.getStringExtra(EXTRA_HOST)
         val port = intent.getIntExtra(EXTRA_PORT, 0)
         val hasSecureSettings = intent.getBooleanExtra(EXTRA_HAS_SECURE_SETTINGS, false)
 
+        // 2026-10-30：记录“进入内置特权界面”，由宿主 RuntimeEventReceiver 写入统一日志。
+        try {
+            sendBroadcast(
+                Intent("com.youlong.hd.action.RUNTIME_EVENT")
+                    .setPackage(packageName)
+                    .putExtra("event", "进入内置特权界面")
+                    .putExtra("detail", "route=$route")
+            )
+        } catch (_: Throwable) {
+        }
+
         setContent {
             val themeMode = ThemePreferences.themeMode.value
             StellarTheme(themeMode = themeMode) {
-                ManagerNavHost(
-                    startRoute = route,
-                    isRoot = isRoot,
-                    host = host,
-                    port = port,
-                    hasSecureSettings = hasSecureSettings,
-                    onClose = { finish() }
-                )
+                // 2026-11-01：原生背景，不再使用控制台渐变。
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    ManagerNavHost(
+                        startRoute = route,
+                        isRoot = isRoot,
+                        host = host,
+                        port = port,
+                        hasSecureSettings = hasSecureSettings,
+                        onClose = { finish() }
+                    )
+                }
             }
         }
     }
@@ -86,12 +103,6 @@ private fun ManagerNavHost(
         navController = navController,
         startDestination = startRoute
     ) {
-        composable(ManagerRoute.Logs.route) {
-            LogsScreen(
-                onBackClick = onClose
-            )
-        }
-
         composable(ManagerRoute.Starter.route) {
             StarterScreen(
                 isRoot = isRoot,

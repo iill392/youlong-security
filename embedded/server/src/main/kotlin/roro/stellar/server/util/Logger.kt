@@ -1,14 +1,14 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）
 //   server/src/main/kotlin/roro/stellar/server/util/Logger.kt
 //
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：PROVIDER 由 "roro.stellar.manager.stellar" 改为
+//         "com.youlong.hd.stellar"。
+//   原因：日志要写回管理器进程的 ContentProvider，authority 必须与本应用
+//         清单里 StellarProvider 的 "${applicationId}.stellar" 一致，
+//         而 applicationId 是 com.youlong.hd。
+//   除这一处字符串外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.server.util

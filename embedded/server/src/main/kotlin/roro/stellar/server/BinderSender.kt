@@ -14,6 +14,7 @@ import roro.stellar.StellarApiConstants.PERMISSION_KEY
 import roro.stellar.StellarApiConstants.PERMISSION_STELLAR
 import roro.stellar.server.ServerConstants.MANAGER_APPLICATION_ID
 import roro.stellar.server.binder.BinderDistributor
+import roro.stellar.server.bootstrap.ServerFullLog
 import roro.stellar.server.ktx.mainHandler
 import roro.stellar.server.shizuku.ShizukuApiConstants
 import roro.stellar.server.util.Logger
@@ -60,7 +61,9 @@ object BinderSender {
 
                 if (pi.packageName == MANAGER_APPLICATION_ID) {
                     LOGGER.i("sendBinder：向管理器发送 Binder：%s", packageName)
+                    ServerFullLog.log("BINDER", "sendBinderToManager package=$packageName uid=$uid pid=$pid")
                     BinderDistributor.sendBinderToManager(stellarService, userId)
+                    ServerFullLog.log("BINDER", "sendBinderToManager returned package=$packageName")
                     return
                 }
 
@@ -201,6 +204,45 @@ object BinderSender {
                 LOGGER.w(tr, "启动补发 Binder：uid=%d 发送失败", uid)
             }
         }
+    }
+
+    /**
+     * 2026-10-30（用户需求）：接管 Shizuku 兼容层。
+     *
+     * Shizuku 客户端在进程启动后，由 shell/root 服务端通过其 `${packageName}.shizuku`
+     * Provider 投递 Binder。只要原 Shizuku 服务还活着，客户端 ShizukuProvider 会
+     * 以 `Shizuku.pingBinder()` 为真而忽略我们的投递；因此我们的服务启动并结束
+     * shizuku_server 后，必须主动给所有声明了 `.shizuku` Provider 的应用补投一次
+     * 自己的兼容 Binder，让这些应用改走本产品。
+     */
+    fun sendShizukuBinderToAllInstalled() {
+        val service = stellarService?.shizukuServiceIntercept ?: run {
+            LOGGER.w("Shizuku 接管：Shizuku 兼容服务尚未就绪，跳过补投")
+            return
+        }
+        val flags = (PackageManager.GET_PROVIDERS or PackageManager.GET_PERMISSIONS).toLong()
+        val packages = PackageManagerCompat.getInstalledPackagesNoThrow(flags, 0)
+        var total = 0
+        var sent = 0
+        for (pi in packages) {
+            if (pi == null) continue
+            val packageName = pi.packageName ?: continue
+            if (packageName == MANAGER_APPLICATION_ID) continue
+            if (pi.requestedPermissions?.contains(SHIZUKU_MANAGER_PERMISSION) == true) {
+                // Shizuku 管理器自身不能接管
+                continue
+            }
+            if (!ProviderDiscovery.hasShizukuProvider(pi)) continue
+            total++
+            try {
+                if (BinderDistributor.sendShizukuBinderToUserApp(service, packageName, 0)) {
+                    sent++
+                }
+            } catch (tr: Throwable) {
+                LOGGER.w(tr, "Shizuku 接管：向 %s 补投失败", packageName)
+            }
+        }
+        LOGGER.i("Shizuku 接管：补投完成，目标=%d，成功=%d", total, sent)
     }
 
     @Suppress("UNCHECKED_CAST")

@@ -1,16 +1,16 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar 的
 //   manager/src/main/kotlin/roro/stellar/manager/startup/service/SelfStarterService.kt
-
+// （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：前台服务通知里引用的字符串资源 ID 由上游的
+//         R.string.starting_stellar_service 改为
+//         R.string.starting_adb_shield_service。
+//   原因：本工程把界面品牌名由 "Stellar / ADB护盾版" 改为
+//         "游龙安全ADB / YouLong SafeADB"，资源 ID 一并改名以免
+//         继续出现上游项目名；文案内容同步改名（见各语言 strings.xml 的声明）。
+//   除该资源 ID 外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.manager.startup.service

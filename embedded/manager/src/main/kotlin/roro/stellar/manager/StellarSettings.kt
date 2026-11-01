@@ -6,14 +6,14 @@ import android.content.SharedPreferences
 import roro.stellar.manager.util.EmptySharedPreferencesImpl
 import roro.stellar.manager.util.PortBlacklistUtils
 
-
-
-
-
-
-
-
-
+// ⚠️ 本工程修改声明（MPL-2.0 第 3.4 条）：
+//   本文件来自 https://github.com/roro2239/Stellar 的
+//   manager/src/main/kotlin/roro/stellar/manager/StellarSettings.kt。
+//   改动：新增常量 COLOR_MODE —— 记录内置管理器的配色来源偏好
+//         （brand = 护盾品牌配色 / dynamic = 跟随壁纸）。
+//   原因：本工程把内置管理器的默认配色改为护盾品牌配色，同时保留上游的
+//         动态取色能力，需要在设置里二选一并持久化。
+//   除这一行新增外，本文件其余内容与上游一致。
 object StellarSettings {
     const val NAME = "settings"
     const val BOOT_MODE = "boot_mode"
@@ -21,7 +21,7 @@ object StellarSettings {
     const val TCPIP_PORT_ENABLED = "tcpip_port_enabled"
     const val BOOT_BROADCAST_ACCESSIBILITY_ENABLED = "boot_broadcast_accessibility_enabled"
     const val THEME_MODE = "theme_mode"
-    
+    // ⚠️ 本工程新增（上游没有）：配色来源偏好。
     const val COLOR_MODE = "color_mode"
     const val START_PAGE = "start_page"
     const val DROP_PRIVILEGES = "drop_privileges"

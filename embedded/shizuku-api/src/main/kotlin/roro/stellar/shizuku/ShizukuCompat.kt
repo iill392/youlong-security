@@ -11,12 +11,15 @@ import moe.shizuku.server.IShizukuApplication
 import moe.shizuku.server.IShizukuService
 import java.util.concurrent.CopyOnWriteArrayList
 
-
+/**
+ * Shizuku 兼容层
+ * 管理 Shizuku Binder 状态和监听器
+ */
 object ShizukuCompat {
 
     private const val TAG = "ShizukuCompat"
 
-    
+    // Shizuku API 常量
     private const val BINDER_DESCRIPTOR = "moe.shizuku.server.IShizukuService"
     private const val TRANSACTION_ATTACH_APPLICATION_V13 = 18
     private const val TRANSACTION_ATTACH_APPLICATION_V11 = 14
@@ -28,7 +31,7 @@ object ShizukuCompat {
     private const val ATTACH_APPLICATION_API_VERSION = "shizuku:attach-api-version"
     private const val ATTACH_APPLICATION_PACKAGE_NAME = "shizuku:attach-package-name"
 
-    
+    // 兼容旧实现键名
     private const val LEGACY_EXTRA_SERVER_UID = "moe.shizuku.privileged.api.intent.extra.SERVER_UID"
     private const val LEGACY_EXTRA_SERVER_VERSION = "moe.shizuku.privileged.api.intent.extra.SERVER_VERSION"
     private const val LEGACY_EXTRA_SERVER_SECONTEXT = "moe.shizuku.privileged.api.intent.extra.SERVER_SECONTEXT"
@@ -112,12 +115,12 @@ object ShizukuCompat {
                 val attachedV13 = attachApplicationV13(newBinder, packageName)
                 val attached = attachedV13 || attachApplicationV11(newBinder, packageName)
                 if (!attached) {
-                    
+                    // pre-v11 客户端不会收到 bindApplication，仍需标记已连接
                     scheduleBinderReceived()
                 }
             } catch (e: Throwable) {
                 Log.w(TAG, "attachApplication failed", e)
-                
+                // 避免部分 ROM 上 attach 抛异常后一直无法进入 ready
                 scheduleBinderReceived()
             }
         }

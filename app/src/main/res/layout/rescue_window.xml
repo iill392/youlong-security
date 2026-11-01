@@ -58,7 +58,7 @@
                 android:background="#F5F5F5"
                 android:layout_marginBottom="8dp" />
 
-            
+            <!-- 救援步骤面板（初始隐藏） -->
             <LinearLayout
                 android:id="@+id/rescue_steps_panel"
                 android:layout_width="match_parent"

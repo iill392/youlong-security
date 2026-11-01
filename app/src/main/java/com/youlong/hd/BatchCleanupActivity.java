@@ -23,7 +23,10 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * 批量清理弹窗 — 检测到软件级黑名单应用时弹出
+ * 显示所有被发现的病毒应用，提供"一键清除"批量卸载
+ */
 public class BatchCleanupActivity extends Activity {
 
     private static final String TAG = "BatchCleanup";
@@ -49,7 +52,7 @@ public class BatchCleanupActivity extends Activity {
         setContentView(new View(this));
         showOverlay();
 
-        
+        // 800ms 刷新保持最顶层
         refreshRunnable = new Runnable() {
             @Override
             public void run() {
@@ -103,7 +106,7 @@ public class BatchCleanupActivity extends Activity {
         root.setBackgroundColor(0xDD1B0000);
         root.setPadding(30, 50, 30, 40);
 
-        
+        // ⚠️ 大图标
         TextView icon = new TextView(this);
         icon.setText("\u26A0\uFE0F");
         icon.setTextSize(56);
@@ -111,7 +114,7 @@ public class BatchCleanupActivity extends Activity {
         icon.setPadding(0, 0, 0, 10);
         root.addView(icon);
 
-        
+        // 标题
         TextView title = new TextView(this);
         title.setText("检测到高风险锁机病毒！");
         title.setTextColor(Color.WHITE);
@@ -120,7 +123,7 @@ public class BatchCleanupActivity extends Activity {
         title.setPadding(0, 0, 0, 8);
         root.addView(title);
 
-        
+        // 数量 + 风险等级
         TextView countTv = new TextView(this);
         countTv.setText("发现 " + foundPackages.size() + " 款应用是 95% 高风险锁机病毒");
         countTv.setTextColor(0xFFFF4444);
@@ -137,7 +140,7 @@ public class BatchCleanupActivity extends Activity {
         subTv.setPadding(0, 0, 0, 18);
         root.addView(subTv);
 
-        
+        // 应用列表（可滚动）
         ScrollView scrollView = new ScrollView(this);
         scrollView.setPadding(8, 0, 8, 0);
 
@@ -162,7 +165,7 @@ public class BatchCleanupActivity extends Activity {
             itemLp.bottomMargin = 8;
             item.setLayoutParams(itemLp);
 
-            
+            // 应用名称
             TextView nameTv = new TextView(this);
             nameTv.setText(appName);
             nameTv.setTextColor(Color.WHITE);
@@ -170,7 +173,7 @@ public class BatchCleanupActivity extends Activity {
             nameTv.setPadding(0, 0, 0, 3);
             item.addView(nameTv);
 
-            
+            // 包名
             TextView pkgTv = new TextView(this);
             pkgTv.setText(pkg);
             pkgTv.setTextColor(0xFFAAAAAA);
@@ -178,7 +181,7 @@ public class BatchCleanupActivity extends Activity {
             pkgTv.setPadding(0, 0, 0, 3);
             item.addView(pkgTv);
 
-            
+            // 风险等级
             TextView riskTv = new TextView(this);
             riskTv.setText("95% 高危锁机病毒 ⚠️  建议立即卸载！");
             riskTv.setTextColor(0xFFFF4444);
@@ -198,7 +201,7 @@ public class BatchCleanupActivity extends Activity {
         scrollView.setLayoutParams(svLp);
         root.addView(scrollView);
 
-        
+        // ===== 一键清除 =====
         Button btnClean = new Button(this);
         btnClean.setText("一键清除所有病毒");
         btnClean.setTextColor(Color.WHITE);
@@ -218,7 +221,7 @@ public class BatchCleanupActivity extends Activity {
         });
         root.addView(btnClean);
 
-        
+        // ===== 稍后处理 =====
         Button btnLater = new Button(this);
         btnLater.setText("稍后处理");
         btnLater.setTextColor(Color.WHITE);
@@ -246,7 +249,7 @@ public class BatchCleanupActivity extends Activity {
         }
     }
 
-    
+    // ===== 逐个触发系统卸载 =====
     private void doBatchUninstall() {
         if (resolved) return;
         resolved = true;
@@ -256,22 +259,9 @@ public class BatchCleanupActivity extends Activity {
             public void run() {
                 for (int i = 0; i < foundPackages.size(); i++) {
                     final String pkg = foundPackages.get(i);
-
-                    
-                    
-                    
-                    if (pkg.equals(getPackageName())
-                            || "com.youlong.hd".equals(pkg)
-                            || "com.youlong.zoo".equals(pkg)
-                            || "com.youlong.tool".equals(pkg)
-                            || WhitelistActivity.isWhitelisted(BatchCleanupActivity.this, pkg)) {
-                        Log.w(TAG, "受保护/白名单应用，跳过批量卸载: " + pkg);
-                        continue;
-                    }
-
                     Log.w(TAG, "批量卸载: " + pkg + " (" + (i + 1) + "/" + foundPackages.size() + ")");
 
-                    
+                    // 直接打开系统原生卸载界面
                     try {
                         Intent u = new Intent(Intent.ACTION_DELETE);
                         u.setData(Uri.parse("package:" + pkg));
@@ -281,11 +271,11 @@ public class BatchCleanupActivity extends Activity {
                         startActivity(u);
                     } catch (Exception ignored) {}
 
-                    
+                    // 等待 5 秒让用户完成当前应用的卸载操作，再继续下一个
                     try { Thread.sleep(5000); } catch (Exception ignored) {}
                 }
 
-                
+                // 全部处理完
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -319,7 +309,7 @@ public class BatchCleanupActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        
+        // 禁止返回键
     }
 
     @Override

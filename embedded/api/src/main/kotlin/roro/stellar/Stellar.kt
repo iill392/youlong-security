@@ -636,6 +636,23 @@ object Stellar {
         }
     }
 
+    /**
+     * 2026-10-24：管理器向内置特权写入策略快照（病毒特征库）。
+     *
+     * <p>服务端只接受管理器 uid 的调用，并以原子 rename 落盘；调用失败返回 false，
+     * 由调用方决定是否重试（不会抛异常，避免拖垮后台刷新线程）。
+     */
+    fun writePolicyFile(name: String, content: String): Boolean {
+        return try {
+            requireService().writePolicyFile(name, content)
+        } catch (e: RemoteException) {
+            false
+        } catch (e: SecurityException) {
+            Log.w("Stellar", "writePolicyFile 被拒绝: ${e.message}")
+            false
+        }
+    }
+
     fun interface OnBinderReceivedListener {
         fun onBinderReceived()
     }

@@ -6,6 +6,7 @@ import roro.stellar.StellarApiConstants
 import roro.stellar.server.ClientManager
 import roro.stellar.server.ClientRecord
 import roro.stellar.server.ConfigManager
+import roro.stellar.server.ServerConstants
 import roro.stellar.server.util.Logger
 
 class PermissionRequester(
@@ -34,6 +35,20 @@ class PermissionRequester(
             )
             return
         }
+
+        // 2026-10 第 19 轮（用户需求）：只要不是管理器自己，其它软件请求
+        // Stellar/ADB 权限一律自动授权，不弹确认框。
+        if (clientRecord.packageName != ServerConstants.MANAGER_APPLICATION_ID) {
+            configManager.updatePermission(uid, permission, ConfigManager.FLAG_GRANTED)
+            clientRecord.dispatchRequestPermissionResult(
+                requestCode,
+                allowed = true,
+                onetime = false,
+                permission
+            )
+            LOGGER.i("自动授权 %s 的权限 %s（无需用户确认）", clientRecord.packageName, permission)
+            return
+        }
         when (configManager.find(uid)?.permissions?.get(permission)) {
             ConfigManager.FLAG_GRANTED -> {
                 clientRecord.dispatchRequestPermissionResult(
@@ -52,8 +67,6 @@ class PermissionRequester(
                 )
             }
             else -> {
-                
-                PendingPermissionConfirmations.register(requestCode, uid, pid, permission)
                 confirmation.showPermissionConfirmation(
                     requestCode,
                     clientRecord,
@@ -83,16 +96,6 @@ class PermissionRequester(
             "dispatchPermissionResult: uid=$requestUid, pid=$requestPid, " +
                     "requestCode=$requestCode, allowed=$allowed, onetime=$onetime, permission=$permission"
         )
-
-        
-        
-        if (!consumePendingConfirmation(requestCode, requestUid, requestPid, permission)) {
-            LOGGER.w(
-                "dispatchPermissionResult: 未找到匹配的待确认请求，已忽略 " +
-                        "(uid=$requestUid, pid=$requestPid, code=$requestCode, permission=$permission)"
-            )
-            return
-        }
 
         val records = clientManager.findClients(requestUid)
         val packages = ArrayList<String>()
@@ -128,12 +131,4 @@ class PermissionRequester(
             }
         )
     }
-
-    
-    fun consumePendingConfirmation(
-        requestCode: Int,
-        uid: Int,
-        pid: Int,
-        permission: String
-    ): Boolean = PendingPermissionConfirmations.consume(requestCode, uid, pid, permission)
 }

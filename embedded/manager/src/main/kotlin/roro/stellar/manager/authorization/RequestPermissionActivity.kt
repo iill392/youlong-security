@@ -4,19 +4,22 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-
+// ⚠️ 本工程新增导入（第六轮）：权限确认弹窗用 Material 图标替代 Stellar 图标。
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -66,7 +71,7 @@ class RequestPermissionActivity : ComponentActivity() {
             packageInfo: PackageInfo,
             permission: String
         ): Intent = Intent(context, RequestPermissionActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
             putExtra("uid", packageInfo.applicationInfo?.uid ?: -1)
             putExtra("pid", -1)
             putExtra("denyOnce", true)
@@ -96,6 +101,22 @@ class RequestPermissionActivity : ComponentActivity() {
         }
     }
 
+    /** 读取本应用（游龙安全护盾）的启动图标；失败返回 null，由弹窗退回盾牌占位。 */
+    private fun loadSelfIcon(): ImageBitmap? {
+        return try {
+            val drawable = applicationInfo?.loadIcon(packageManager) ?: return null
+            val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 96
+            val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 96
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            bmp.asImageBitmap()
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     private fun waitForBinder(): Boolean {
         val countDownLatch = CountDownLatch(1)
 
@@ -118,11 +139,20 @@ class RequestPermissionActivity : ComponentActivity() {
         }
     }
 
+    /** 关闭权限弹窗：独立任务时移除空任务，避免关闭后露出安全护盾主页。 */
+    private fun closeSelf() {
+        if (isTaskRoot) {
+            finishAndRemoveTask()
+        } else {
+            finish()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         if (!waitForBinder()) {
-            finish()
+            closeSelf()
             return
         }
 
@@ -137,7 +167,7 @@ class RequestPermissionActivity : ComponentActivity() {
         @Suppress("DEPRECATION")
         val ai = intent.getParcelableExtra<ApplicationInfo>("applicationInfo")
         if (uid == -1 || ai == null || (pid == -1 && sourcePackage == null)) {
-            finish()
+            closeSelf()
             return
         }
 
@@ -146,15 +176,19 @@ class RequestPermissionActivity : ComponentActivity() {
         } catch (_: Exception) {
             ai.packageName
         }
+        // 2026-10 第 19 轮（用户澄清）：弹窗顶部固定使用本应用（游龙安全护盾）图标，
+        // 不是申请权限的第三方应用图标；第三方信息只用文字展示。
+        val appIcon = loadSelfIcon()
 
         setContent {
             StellarTheme {
                 PermissionRequestDialog(
                     appName = label,
+                    appIcon = appIcon,
                     denyOnce = denyOnce,
                     onResult = { allowed, onetime ->
                         setResult(uid, pid, requestCode, allowed = allowed, onetime = onetime, permission)
-                        finish()
+                        closeSelf()
                         if (allowed && sourcePackage != null) {
                             val launchIntent = packageManager.getLaunchIntentForPackage(sourcePackage)
                             if (launchIntent != null) {
@@ -199,7 +233,8 @@ fun PermissionRequestDialog(
     permission: String = StellarApiConstants.PERMISSION_STELLAR,
     alwaysAllowText: String? = null,
     showAllowOnce: Boolean = true,
-    allowOnceText: String? = null
+    allowOnceText: String? = null,
+    appIcon: ImageBitmap? = null
 ) {
     Dialog(
         onDismissRequest = {
@@ -214,7 +249,7 @@ fun PermissionRequestDialog(
                 .fillMaxWidth(0.85f)
                 .wrapContentHeight(),
             shape = AppShape.shapes.cardMedium24,
-            color = MaterialTheme.colorScheme.surfaceContainer
+            color = MaterialTheme.colorScheme.surfaceContainerLowest
         ) {
             Column(
                 modifier = Modifier
@@ -231,17 +266,23 @@ fun PermissionRequestDialog(
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    
-                    
-                    
-                    
-                    
-                    Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(36.dp)
-                    )
+                    // 2026-10 第 19 轮（用户需求）：顶部改为申请权限的软件封面。
+                    if (appIcon != null) {
+                        Image(
+                            bitmap = appIcon,
+                            contentDescription = appName,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(AppShape.shapes.iconMedium18)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
                 }
 
                 Column(
