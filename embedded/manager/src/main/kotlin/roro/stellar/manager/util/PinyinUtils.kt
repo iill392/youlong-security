@@ -6,7 +6,7 @@ object PinyinUtils {
         if (query.isEmpty()) return true
         val q = query.lowercase()
         if (text.lowercase().contains(q)) return true
-        
+        // 拼音首字母匹配
         val initials = text.map { if (it in '\u4e00'..'\u9fff') getInitial(it) else it.lowercaseChar() }
             .joinToString("")
         return initials.contains(q)

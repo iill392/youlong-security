@@ -1,16 +1,16 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）
 //   manager/src/main/kotlin/roro/stellar/manager/ui/features/home/HomeViewModel.kt
 //
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：第 39 行的自检命令由
 //             cmd package list packages roro.stellar.manager
-
+//         改为
 //             cmd package list packages com.youlong.hd
-
-
-
-
+//   原因：这条命令用于「验证特权 shell 能执行命令」，它列出的是管理器自己的包。
+//         管理器被内置进「游龙安全护盾」，应用包名是 com.youlong.hd。
+//   注意：本文件的 package 声明与 import 仍然保持 roro.stellar.manager.*，
+//         因为管理器源码的包名整体未变（见 embedded/manager/build.gradle 的说明）。
 // ==========================================================================
 
 package roro.stellar.manager.ui.features.home

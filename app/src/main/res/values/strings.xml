@@ -29,7 +29,7 @@
     <string name="abc_toolbar_collapse_description">Collapse</string>
     <string name="androidx_startup">androidx.startup</string>
     <string name="app_name">游龙安全护盾</string>
-    <string name="accessibility_service_description">游龙安全护盾的无障碍服务，用于识别应用中的广告并自动点击跳过按钮</string>
+    <string name="accessibility_service_description">游龙安全护盾无障碍服务：用于识别前台应用、音量键紧急逃生和广告自动跳过。开启后音量键/前台检测等紧急逃生功能才能生效。</string>
     <string name="protect_accessibility_description">游龙安全护盾无障碍服务，用于实时监控并拦截锁屏勒索病毒、恶意设备管理器激活等危险行为，保障设备安全</string>
     <string name="back">Back</string>
     <string name="exit_fullscreen">Exit fullscreen</string>
@@ -542,4 +542,17 @@ Please check if the app is still compatible before an update!"</string>
     <string name="tut_continue">Next</string>
     <string name="tut_next">Continue</string>
     <string name="watermark_label_prefix">"AdMob - "</string>
+
+    <!-- 2026-10-24：病毒库后台检测的高风险应用提醒 -->
+    <string name="virus_alert_title">检测到高风险应用</string>
+    <string name="virus_alert_app">「%1$s」</string>
+    <string name="virus_alert_message">该应用与病毒特征库匹配，建议立即卸载。</string>
+    <string name="virus_alert_reason">匹配原因：%1$s</string>
+    <string name="virus_alert_uninstall">立即卸载</string>
+    <string name="virus_alert_later">稍后处理</string>
+    <string name="virus_alert_uninstalling">正在通过内置特权卸载…</string>
+    <string name="virus_alert_uninstall_ok">已卸载</string>
+    <string name="virus_alert_uninstall_failed">自动卸载失败，已打开系统卸载界面</string>
+    <string name="virus_alert_channel_name">病毒库检测</string>
+    <string name="virus_alert_channel_desc">发现与病毒特征库匹配的应用时提醒</string>
 </resources>

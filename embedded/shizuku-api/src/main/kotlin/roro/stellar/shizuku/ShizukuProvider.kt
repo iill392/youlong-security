@@ -9,7 +9,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 
-
+/**
+ * Shizuku 兼容 Provider
+ * 用于接收来自 Stellar 服务的 Shizuku 兼容 Binder
+ */
 open class ShizukuProvider : ContentProvider() {
 
     override fun attachInfo(context: Context?, info: ProviderInfo) {
@@ -39,15 +42,15 @@ open class ShizukuProvider : ContentProvider() {
 
     private fun handleSendBinder(extras: Bundle) {
         // ==================================================================
-        
+        // 2026-10 安全加固（用户需求）：只接受**内置特权服务端**投递的 Binder。
         // ------------------------------------------------------------------
-        
-        
-        
+        // 本 provider 是 exported 的，任何应用都能调 sendBinder。若不校验，
+        // 外部 Stellar / Shizuku 应用就能把我们的 binder 换成它自己的 binder，
+        // 表现为"外部软件也能授权"。
         //
-        
-        
-        
+        // 我们的服务端用 getContentProviderExternal + IContentProvider.call
+        // 投递，在这里表现为服务端进程的 uid（root=0 / system=1000 / shell=2000）；
+        // 普通第三方应用是 10xxx，一律拒绝。
         // ==================================================================
         if (!isTrustedBinderSender()) {
             val badUid = android.os.Binder.getCallingUid()
@@ -86,8 +89,20 @@ open class ShizukuProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String?>?): Int = 0
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String?>?): Int = 0
 
-    
-    
+    /**
+     * 2026-10 新增：Binder 注入来源校验。
+     *
+     * <p>只允许内置特权服务端（root=0 / system=1000 / shell=2000）投递 Binder。
+     * 普通应用（uid 10xxx）一律拒绝 —— 防止外部 Stellar / Shizuku 应用通过
+     * exported 的 provider 把我们的 binder 换成它自己的，从而"看起来授权成功"。
+     */
+    /**
+     * 2026-10 新增：判断一个 Binder 是不是**自家服务端**（IStellarService）。
+     *
+     * <p>依据是 Binder 的 interface descriptor —— 它由远端 Binder 自己声明，
+     * 外部应用无法伪造成我们 AIDL 的 descriptor（那需要真的实现同一接口）。
+     * 用来把"外部应用抢先注入的冒充者"和"自家服务端"区分开。
+     */
     private fun isOwnServiceBinder(binder: android.os.IBinder?): Boolean {
         if (binder == null) return false
         return try {
@@ -110,7 +125,12 @@ open class ShizukuProvider : ContentProvider() {
     companion object {
         private const val TAG = "ShizukuProvider"
 
-        
+        /**
+         * 2026-10 新增：被拒绝的 Binder 注入记录（排错/实证用）。
+         *
+         * <p>release 构建里 android.util.Log 会被 R8 裁掉，光靠 logcat 看不到
+         * "拒绝外部注入"这件事，所以在这里留一份可读记录。
+         */
         @JvmStatic
         val rejectedInjectionInfo: String
             get() = rejectedInfo

@@ -1,20 +1,20 @@
 // ==========================================================================
-
+// 游龙安全护盾 —— 根构建脚本
 // --------------------------------------------------------------------------
-
-
+// 本工程内置 Stellar（https://github.com/roro2239/Stellar，MPL-2.0 +
+// Apache-2.0）作为特权内核，替代原先内置的上游 Shizuku。
 //
-
+// ⚠️ 工具链按上游 Stellar 的要求整体升级（2026 年迁移）：
 //      AGP        8.2.2  → 8.13.2
 //      Kotlin     2.0.0  → 2.2.0
-
-
-
-
+//      compileSdk 34     → 37      （Stellar 用到 API 37 的
+//                                   ACCESS_LOCAL_NETWORK / USE_LOOPBACK_INTERFACE）
+//      Java       11     → 21      （Stellar 全模块 jvmToolchain(21)）
+//      Gradle     8.4    → 8.14    （见 gradle/wrapper/gradle-wrapper.properties）
 //
-
-
-
+// 上游 Stellar 的 manager / server 是 application + library 两个独立 App；
+// 本工程把它们内置成 library 模块并编入自己的 APK，从而保持
+// 「本应用即管理器、不依赖任何外部 Stellar / Shizuku 应用」的架构。
 // ==========================================================================
 
 plugins {
@@ -23,36 +23,36 @@ plugins {
     id 'org.jetbrains.kotlin.android' version '2.2.0' apply false
     id 'org.jetbrains.kotlin.plugin.compose' version '2.1.21' apply false
 
-    
+    // Stellar manager 用 Room 存授权/命令记录，需要 KSP。
     id 'com.google.devtools.ksp' version '2.2.0-2.0.2' apply false
 
-    
-    
-    
-    
+    // ---- 上游 Stellar manager 所需的上游插件 ----
+    // refine：@RefineAs / @Implementation 之类把对 @hide 类的直接引用改成
+    //         反射调用（Stellar server 用它访问隐藏 API）。
+    // materialthemebuilder：按主题色生成 Stellar 那套 Material3 配色资源。
     //
-    
-    
-    
-    
-    
+    // ⚠️ 上游还用了 dev.rikka.tools.autoresconfig（按 res/values-*\ 生成语言
+    //    列表类 StellarLocales）。本工程已移除该插件：它要求 Android
+    //    **application** 扩展，而 manager 在本工程里是 library 模块，应用它会报
+    //    "Android application extension not found"；且它生成的 StellarLocales
+    //    在本工程与上游全部源码中均无任何引用（见 embedded/manager/build.gradle）。
     id 'dev.rikka.tools.refine' version '4.4.0' apply false
     id 'dev.rikka.tools.materialthemebuilder' version '1.5.1' apply false
 }
 
 // ==========================================================================
-
+// 构建输出目录统一到工程内的 build_out/
 // --------------------------------------------------------------------------
-
-
-
+// 目的：绕开 Windows Defender 对工程树里产物文件的锁定
+//      （:app 原本就有 buildDir = new File(rootDir, 'build-out') 这条规避，
+//        现在推广到全部子模块，避免各模块产物散落在 embedded/*/build/）。
 //
-
-
+// ⚠️ 必须是**同一磁盘上的相对路径**，不能指向别的盘符：
+//    KSP（:manager 用 Room）在生成代码时会校验
 //        "this and base files have different roots"
-
+//    —— 生成文件在 D: 而源码在 E: 时直接报
 //        java.lang.IllegalArgumentException: this and base files have different roots
-
+//    因此这里用相对路径解析到工程所在盘，与源码同根。
 // ==========================================================================
 gradle.beforeProject { project ->
     if (project == rootProject) {
@@ -63,11 +63,11 @@ gradle.beforeProject { project ->
 }
 
 // ==========================================================================
-
+// Stellar-API 的版本常量
 // --------------------------------------------------------------------------
-
-
-
+// 上游 api/manifest.gradle 把 API 版本注入 shared 模块的 BuildConfig
+// （BuildConfig.SERVER_API_VERSION / SERVER_API_VERSION_NAME）。
+// 数值与上游 Stellar-API 的 manifest.gradle 完全一致（1.0.3）。
 // ==========================================================================
 ext {
     api_version_major = 1
@@ -76,26 +76,26 @@ ext {
     api_version_name = "${api_version_major}.${api_version_minor}.${api_version_patch}"
     api_version_code = api_version_major * 100 + api_version_minor * 10 + api_version_patch
 
-    
-    
-    
-    versionCode = 1234567904
-    versionName = "9.1.1"
+    // 本应用的版本号。
+    // 上游 Stellar manager 的 defaultConfig 读 rootProject.ext.versionCode /
+    // versionName；这里沿用本应用的版本号，使 embedded/ 下的源码保持零改动。
+    versionCode = 1234567990
+    versionName = "9.9.41"
 }
 
 // ==========================================================================
-
+// 内置 Stellar 源码模块（embedded/*）公共配置
 // --------------------------------------------------------------------------
-
+// 上游 Stellar 根 build.gradle 把这些值写在自己的 subprojects 块里：
 //     subprojects { plugins.withId("com.android.base") { android { ... } } }
-
-
+// 源码移植到本工程后必须在这里补齐，否则 embedded/* 模块会因缺少
+// compileSdk / defaultConfig 而编译失败。
 //
-
-
-
-
-
+// ⚠️ 必须用 com.android.base 而不是 com.android.library：
+//    上游的 embedded/manager 虽然在本工程里被改成了 library 模块，
+//    但 server / shizuku-* / api 系列模块 apply 的插件各不相同，
+//    用 com.android.base 才能一次覆盖全部。
+//    本工程的 :app 有自己的完整 android {} 配置，所以要排除掉。
 // ==========================================================================
 subprojects { sub ->
     if (sub.name == 'app') {
@@ -111,10 +111,10 @@ subprojects { sub ->
             compileOptions {
                 sourceCompatibility JavaVersion.VERSION_21
                 targetCompatibility JavaVersion.VERSION_21
-                
-                
-                
-                
+                // ⚠️ 必须显式声明：本工程的 Gradle 守护进程默认字符集被设成 GBK
+                //    （为了迁就 aidl.exe 写出的依赖文件，见 gradle.properties），
+                //    而全部源码都是 UTF-8。这里把源码编码钉死在 UTF-8，
+                //    避免中文字符串/注释在中转时被按 GBK 误读。
                 encoding 'UTF-8'
             }
             lint {
@@ -124,11 +124,11 @@ subprojects { sub ->
         }
 
         // ------------------------------------------------------------------
-        
+        // Kotlin 的 jvmTarget 必须与上面的 Java 21 对齐
         // ------------------------------------------------------------------
-        
-        
-        
+        // Stellar 全模块用 jvmToolchain(21)。本机 JAVA_HOME 就是 Temurin 21，
+        // 这里显式压到 21，避免 Kotlin 插件跟随别的 JDK 产生
+        // "Inconsistent JVM-target compatibility" 配置失败。
         sub.plugins.withId('org.jetbrains.kotlin.android') {
             sub.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
                 it.kotlinOptions.jvmTarget = '21'

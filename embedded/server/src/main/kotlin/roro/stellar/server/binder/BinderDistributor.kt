@@ -1,15 +1,15 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）
 //   server/src/main/kotlin/roro/stellar/server/binder/BinderDistributor.kt
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：三处 extraKey 由 "roro.stellar.manager.intent.extra.BINDER"
+//         改为 "com.youlong.hd.intent.extra.BINDER"。
+//   原因：管理器被内置进「游龙安全护盾」，应用包名是 com.youlong.hd。
+//         该 key 必须与客户端 StellarProvider.EXTRA_BINDER、
+//         UserServiceStarter.EXTRA_BINDER 逐字一致（Binder 靠它跨进程投递），
+//         三处已同步改写。
+//   除这三处字符串外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.server.binder

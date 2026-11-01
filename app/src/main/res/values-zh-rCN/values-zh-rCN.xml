@@ -157,7 +157,7 @@
   <string name="search_menu_title">搜索</string>
   <string name="searchview_clear_text_content_description">清除文字</string>
   <string name="searchview_navigation_content_description">返回</string>
-  
+  <!-- DynamicSpot 中文翻译 -->
   <string name="app_name">游龙安全护盾</string>
   <string name="app_name_new">灵动岛</string>
   <string name="app_select">请选择：</string>

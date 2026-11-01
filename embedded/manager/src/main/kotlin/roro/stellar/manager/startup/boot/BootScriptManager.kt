@@ -1,15 +1,15 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）
 //   manager/src/main/kotlin/roro/stellar/manager/startup/boot/BootScriptManager.kt
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：开机自启脚本里的 `pm path roro.stellar.manager` 改为
+//          `pm path com.youlong.hd`。
+//   原因：该脚本写入 /data/adb/service.d/stellar.sh，开机后需要按包名定位
+//         APK 并直接执行其中的 libstellar.so。管理器被内置进「游龙安全护盾」，
+//         应用包名是 com.youlong.hd；写成上游包名会定位不到 APK，开机自启失效。
+//   除这一处字符串外，本文件其余内容与上游一致（package 声明保持上游的
+//   roro.stellar.manager.*，因为管理器源码的包名整体未变）。
 // ==========================================================================
 
 package roro.stellar.manager.startup.boot

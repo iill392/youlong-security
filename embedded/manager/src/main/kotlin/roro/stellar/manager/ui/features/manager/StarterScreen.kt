@@ -1,16 +1,16 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar 的
 //   manager/src/main/kotlin/roro/stellar/manager/ui/features/manager/StarterScreen.kt
-
+// （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
 //
-
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：把界面上的品牌名由上游的 "Stellar" 改为本产品名。
+//         · 启动日志的标题文案 → "游龙安全ADB"
+//         · 复制日志时写进剪贴板的主键名 → "游龙安全ADB Log"
+//   原因：本产品把 Stellar 管理器内置为自己的子界面，界面上的品牌名应当是
+//         本产品名而不是上游项目名；这两处是用户可见文案/剪贴板标签，
+//         与逻辑无关（日志内容解析、服务端输出匹配等字符串一律未动）。
+//   除上述文案外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.manager.ui.features.manager
@@ -40,11 +40,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -80,6 +82,7 @@ import roro.stellar.manager.adb.AdbPairingService
 import roro.stellar.manager.adb.AdbWirelessHelper
 import roro.stellar.manager.AppConstants
 import roro.stellar.manager.compat.LocalNetwork
+import roro.stellar.manager.diagnostics.FullDiagnostics
 import roro.stellar.manager.startup.command.Starter
 import roro.stellar.manager.StellarSettings
 import roro.stellar.manager.ui.navigation.components.FixedTopAppBar
@@ -135,6 +138,18 @@ internal fun StarterScreen(
 
     val hasLocalNetworkPermission by viewModel.hasLocalNetworkPermission.collectAsState()
 
+    // 2026-10-18：通知被关闭/渠道被屏蔽时，配对通知不会出现。
+    // 用应用内对话框兜底，端口由 AdbPairingService.pairingPort 同步。
+    val pairingPort by AdbPairingService.pairingPort.collectAsState()
+    var showPairingCodeDialog by remember { mutableStateOf(false) }
+    var pairingCodeInput by remember { mutableStateOf("") }
+    LaunchedEffect(pairingPort) {
+        if (pairingPort > 0) {
+            pairingCodeInput = ""
+            showPairingCodeDialog = true
+        }
+    }
+
     // Android 17 (API 37) blocks local network access - and therefore all mDNS
     // discovery used for wireless ADB - until ACCESS_LOCAL_NETWORK is granted.
     // Request it once up front so the retry loops below have a chance to work.
@@ -157,15 +172,7 @@ internal fun StarterScreen(
         }
     }
 
-    LaunchedEffect(currentStepIndex, steps) {
-        if (currentStepIndex > 0) {
-            val targetScroll = (currentStepIndex * 140).coerceAtMost(scrollState.maxValue)
-            scrollState.animateScrollTo(
-                targetScroll,
-                animationSpec = tween(durationMillis = 500, easing = androidx.compose.animation.core.FastOutSlowInEasing)
-            )
-        }
-    }
+    // 2026-11-01：原生页面不再按步骤强制滚动，避免把顶部状态卡滚出屏幕。
 
     LaunchedEffect(isCompleted, steps) {
         if (isCompleted && steps.none { it.status == StepStatus.ERROR } && errorMessage == null) {
@@ -174,8 +181,48 @@ internal fun StarterScreen(
         }
     }
 
+    if (showPairingCodeDialog && pairingPort > 0) {
+        AlertDialog(
+            onDismissRequest = { showPairingCodeDialog = false },
+            title = { Text("输入配对码") },
+            text = {
+                Column {
+                    Text("通知栏没有出现配对通知时，可在这里手动输入无线调试页面显示的 6 位配对码。")
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = pairingCodeInput,
+                        onValueChange = { v ->
+                            pairingCodeInput = v.filter { it.isDigit() }.take(6)
+                        },
+                        singleLine = true,
+                        label = { Text("配对码") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = pairingCodeInput.length == 6,
+                    onClick = {
+                        AdbPairingService.submitCode(context, pairingPort, pairingCodeInput)
+                        showPairingCodeDialog = false
+                    }
+                ) {
+                    Text("确认")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPairingCodeDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0),
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             FixedTopAppBar(
                 title = if (isRoot) stringResource(R.string.root_start_title) else stringResource(R.string.wireless_debugging_start),
@@ -185,6 +232,15 @@ internal fun StarterScreen(
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            if (pairingPort > 0) {
+                ExtendedFloatingActionButton(
+                    onClick = { showPairingCodeDialog = true },
+                    icon = { Icon(Icons.Filled.VpnKey, contentDescription = null) },
+                    text = { Text("输入配对码") }
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -198,8 +254,17 @@ internal fun StarterScreen(
                 )
                 .padding(bottom = AppSpacing.screenBottomPadding)
         ) {
+            // 2026-11-01：原生状态总览卡；下方步骤改为 Material 卡片。
+            NativeStartupHeader(
+                steps = steps,
+                currentStepIndex = currentStepIndex,
+                isCompleted = isCompleted,
+                errorMessage = errorMessage
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
             steps.forEachIndexed { index, step ->
-                
+                // 跳过不需要的可选步骤
                 if (step.isOptional && step.status == StepStatus.PENDING && index < currentStepIndex) {
                     return@forEachIndexed
                 }
@@ -309,6 +374,104 @@ internal fun StarterScreen(
                         isSuccess = true
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NativeStartupHeader(
+    steps: List<StepData>,
+    currentStepIndex: Int,
+    isCompleted: Boolean,
+    errorMessage: String?
+) {
+    val total = steps.size.coerceAtLeast(1)
+    val completed = steps.count { it.status == StepStatus.COMPLETED }
+    val progress = completed.toFloat() / total.toFloat()
+    val currentTitle = steps.getOrNull(currentStepIndex)?.title.orEmpty()
+    val statusText = when {
+        errorMessage != null -> "启动遇到问题"
+        isCompleted -> "服务已就绪"
+        currentTitle.isNotEmpty() -> currentTitle
+        else -> "正在准备"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            RoundedCornerShape(16.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "内置特权服务",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (isCompleted) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                } else if (errorMessage == null) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "启动进度",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "$completed / ${steps.size}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -515,164 +678,115 @@ private fun TimelineStep(
     description: String,
     action: (@Composable ColumnScope.() -> Unit)? = null
 ) {
-    val isCompleted = status == StepStatus.COMPLETED
-    val isRunning = status == StepStatus.RUNNING
     val isPending = status == StepStatus.PENDING
     val isError = status == StepStatus.ERROR
     val isWarning = status == StepStatus.WARNING
+    val container = when {
+        isError -> MaterialTheme.colorScheme.errorContainer
+        isWarning -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val onContainer = when {
+        isError -> MaterialTheme.colorScheme.onErrorContainer
+        isWarning -> MaterialTheme.colorScheme.onTertiaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val iconContainer = when {
+        isError -> MaterialTheme.colorScheme.error
+        isWarning -> MaterialTheme.colorScheme.tertiary
+        isPending -> MaterialTheme.colorScheme.surfaceContainerHighest
+        else -> MaterialTheme.colorScheme.primaryContainer
+    }
+    val iconTint = when {
+        isError -> MaterialTheme.colorScheme.onError
+        isWarning -> MaterialTheme.colorScheme.onTertiary
+        isPending -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.primary
+    }
 
-    Row(
+    // 2026-11-01：原生设置风格卡片，去掉竖向时间轴和彩色连线。
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(bottom = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(36.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(
-                        when {
-                            isCompleted -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            isError -> MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                            isWarning -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f)
-                            isRunning -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.1f)
-                        },
-                        CircleShape
-                    )
-                    .padding(6.dp)
-                    .background(
-                        when {
-                            isCompleted -> MaterialTheme.colorScheme.primary
-                            isError -> MaterialTheme.colorScheme.error
-                            isWarning -> MaterialTheme.colorScheme.tertiary
-                            isRunning -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        },
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                when {
-                    isCompleted -> Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    isError -> Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onError,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    isWarning -> Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    isRunning -> CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-            if (!isLast) {
-                Box(
-                    Modifier
-                        .width(2.dp)
-                        .weight(1f)
-                        .background(
-                            when {
-                                isCompleted -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                isError -> MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-                                else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                            }
-                        )
-                )
-            }
-        }
-
-        Surface(
-            modifier = Modifier
-                .weight(1f)
-                .padding(bottom = 12.dp),
-            shape = AppShape.shapes.cardLarge,
-            color = when {
-                isCompleted -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                isError -> MaterialTheme.colorScheme.errorContainer
-                isWarning -> MaterialTheme.colorScheme.tertiaryContainer
-                isRunning -> MaterialTheme.colorScheme.surfaceContainer
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            }
-        ) {
-            Column(
+        Column {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(20.dp)
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(iconContainer, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                when {
-                                    isCompleted -> MaterialTheme.colorScheme.primaryContainer
-                                    isError -> MaterialTheme.colorScheme.errorContainer
-                                    isWarning -> MaterialTheme.colorScheme.tertiaryContainer
-                                    isRunning -> MaterialTheme.colorScheme.primaryContainer
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                },
-                                AppShape.shapes.iconSmall
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = when {
-                                isCompleted -> MaterialTheme.colorScheme.primary
-                                isError -> MaterialTheme.colorScheme.error
-                                isWarning -> MaterialTheme.colorScheme.tertiary
-                                isRunning -> MaterialTheme.colorScheme.primary
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                            },
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = when {
-                            isPending -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            isError -> MaterialTheme.colorScheme.onErrorContainer
-                            isWarning -> MaterialTheme.colorScheme.onTertiaryContainer
-                            else -> MaterialTheme.colorScheme.onSurface
+                        color = if (isPending) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            onContainer
                         }
                     )
-                }
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = when {
-                        isPending -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        isError -> MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
-                        isWarning -> MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    if (description.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isPending) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                onContainer.copy(alpha = 0.78f)
+                            }
+                        )
                     }
-                )
-                action?.invoke(this)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                when (status) {
+                    StepStatus.COMPLETED -> Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    StepStatus.ERROR -> Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    StepStatus.WARNING -> Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary
+                    )
+                    StepStatus.RUNNING -> CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    StepStatus.PENDING -> Unit
+                }
+            }
+            if (action != null) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    action.invoke(this)
+                }
             }
         }
     }
@@ -991,6 +1105,14 @@ internal class StarterViewModel(
     private var adbMdns: AdbMdns? = null
     private var detectedPort: Int = 0
 
+    // 2026-10-31：先启动再切端口。此前先 tcpip 切端口，部分 ROM 上
+    // 新端口 adbd 尚未完成授权/重连就发启动命令，导致 Binder 永远不出现。
+    private var pendingTcpipPort: Int = -1
+    private var adbStartAttempts: Int = 0
+    private var lastAdbHost: String = "127.0.0.1"
+    private var lastAdbPort: Int = 0
+    private var waitingForBinder: Boolean = false
+
     private enum class PairingPhase { NONE, ENABLE_WIRELESS, PAIRING }
     private var pairingPhase = PairingPhase.NONE
 
@@ -1055,6 +1177,7 @@ internal class StarterViewModel(
     }
 
     private fun updateStep(index: Int, status: StepStatus, description: String, needsUserAction: Boolean = false) {
+        FullDiagnostics.log("STEP", "index=$index status=$status desc=$description needsUserAction=$needsUserAction")
         viewModelScope.launch {
             if (status == StepStatus.RUNNING || status == StepStatus.COMPLETED) {
                 delay(300.milliseconds)
@@ -1083,6 +1206,7 @@ internal class StarterViewModel(
     }
 
     private fun addOutputLine(line: String) {
+        FullDiagnostics.log("OUT", line)
         viewModelScope.launch { _outputLines.value += line }
     }
 
@@ -1203,6 +1327,8 @@ internal class StarterViewModel(
 
     @SuppressLint("StringFormatInvalid")
     private fun setSuccess() {
+        FullDiagnostics.log("SUCCESS", "Binder ready, launch method=" + if (isRoot) "ROOT" else "ADB")
+        waitingForBinder = false
         viewModelScope.launch {
             StellarSettings.setLastLaunchMethod(
                 if (isRoot) StellarSettings.LaunchMethod.ROOT
@@ -1217,9 +1343,47 @@ internal class StarterViewModel(
             }
             _isCompleted.value = true
         }
+        switchPendingPortAfterSuccess()
+    }
+
+    /**
+     * 2026-10-31：服务已经启动后再切换自定义 TCP 端口。
+     * 切换失败只记录日志，不影响已经启动的 Stellar。
+     */
+    private fun switchPendingPortAfterSuccess() {
+        val newPort = pendingTcpipPort
+        if (isRoot || newPort <= 0 || newPort == lastAdbPort) {
+            pendingTcpipPort = -1
+            return
+        }
+        pendingTcpipPort = -1
+        val oldPort = lastAdbPort
+        val targetHost = lastAdbHost
+        viewModelScope.launch {
+            delay(1200.milliseconds)
+            addOutputLine("服务已启动，切换 ADB 端口 $oldPort -> $newPort...")
+            adbWirelessHelper.changeTcpipPortAfterStart(
+                host = targetHost,
+                port = oldPort,
+                newPort = newPort,
+                coroutineScope = viewModelScope,
+                onOutput = { output -> addOutputLine(output) },
+                onError = { error ->
+                    Log.w(AppConstants.TAG, "服务已启动，但端口切换失败", error)
+                    addOutputLine("端口切换失败（服务已启动，不影响使用）: ${error.message}")
+                },
+                onSuccess = {
+                    detectedPort = newPort
+                    addOutputLine("端口已切换到 $newPort（服务保持运行）")
+                    Log.i(AppConstants.TAG, "端口已在服务启动后切换到 $newPort")
+                }
+            )
+        }
     }
 
     private fun setError(error: Throwable, stepIndex: Int) {
+        FullDiagnostics.log("ERROR", "step=$stepIndex error=${error.javaClass.name}: ${error.message}")
+        waitingForBinder = false
         viewModelScope.launch {
             updateStep(stepIndex, StepStatus.ERROR, error.message ?: context.getString(R.string.execution_failed))
             _errorMessage.value = error.message ?: context.getString(R.string.unknown_error)
@@ -1228,6 +1392,7 @@ internal class StarterViewModel(
 
     @SuppressLint("StringFormatInvalid")
     private fun startDetection() {
+        FullDiagnostics.log("DETECT", "startDetection isRoot=$isRoot host=$host port=$port")
         viewModelScope.launch(Dispatchers.IO) {
             launch(Dispatchers.Main) {
                 updateStep(0, StepStatus.RUNNING, context.getString(R.string.detecting_adb_port))
@@ -1351,32 +1516,37 @@ internal class StarterViewModel(
         pairingPhase = PairingPhase.PAIRING
         val hasPermission = _hasNotificationPermission.value
 
+        // 2026-10-18：通知权限不再是配对的阻塞条件。
+        // 没有通知权限时仍启动配对服务，端口发现后由 StarterScreen 的应用内
+        // 对话框兜底输入配对码；通知步骤只作为“建议开启”的提示。
         insertStep(1, StepData(
             title = context.getString(R.string.grant_notification_permission),
             icon = Icons.Filled.Notifications,
-            status = if (hasPermission) StepStatus.COMPLETED else StepStatus.RUNNING,
+            status = if (hasPermission) StepStatus.COMPLETED else StepStatus.WARNING,
             description = if (hasPermission) context.getString(R.string.notification_permission_granted) else context.getString(R.string.notification_permission_required),
-            needsUserAction = !hasPermission
+            needsUserAction = !hasPermission,
+            isOptional = true
         ))
 
         insertStep(2, StepData(
             title = context.getString(R.string.wireless_debugging_pairing),
             icon = Icons.Filled.QrCode,
-            status = if (hasPermission) StepStatus.RUNNING else StepStatus.PENDING,
+            status = StepStatus.RUNNING,
             description = context.getString(R.string.pairing_instruction),
-            needsUserAction = hasPermission
+            needsUserAction = true
         ))
 
-        _currentStepIndex.value = if (hasPermission) 2 else 1
+        _currentStepIndex.value = 2
 
         // The pairing service also relies on mDNS, so it needs the local
         // network grant as well.
-        if (hasPermission && atLeast30 && !needsLocalNetworkPermission()) {
+        if (atLeast30 && !needsLocalNetworkPermission()) {
             startPairingService()
         }
     }
 
     private fun startAdbSteps() {
+        FullDiagnostics.log("ADB", "startAdbSteps detectedPort=$detectedPort")
         val connectIndex = _steps.value.indexOfFirst { it.title == context.getString(R.string.connect_adb_service) }
         if (connectIndex >= 0) {
             updateStep(connectIndex, StepStatus.RUNNING, context.getString(R.string.connecting_ellipsis))
@@ -1384,31 +1554,22 @@ internal class StarterViewModel(
 
         val targetHost = host ?: "127.0.0.1"
         val (shouldChange, newPort) = adbWirelessHelper.shouldChangePort(detectedPort)
-        if (!isRoot && shouldChange && newPort > 0) {
-            addOutputLine(context.getString(R.string.switching_port, newPort))
-            adbWirelessHelper.changeTcpipPortAfterStart(
-                host = targetHost,
-                port = detectedPort,
-                newPort = newPort,
-                coroutineScope = viewModelScope,
-                onOutput = { output -> addOutputLine(output) },
-                onError = { error ->
-                    Log.w(AppConstants.TAG, "端口切换失败，使用原端口启动", error)
-                    startAdbConnection(targetHost, detectedPort)
-                },
-                onSuccess = {
-                    addOutputLine(context.getString(R.string.port_switched_to, newPort))
-                    Log.i(AppConstants.TAG, "端口已切换到 $newPort")
-                    detectedPort = newPort
-                    startAdbConnection(targetHost, newPort)
-                }
-            )
-        } else {
-            startAdbConnection(targetHost, detectedPort)
+        // 2026-10-31 修复：先用当前已授权的端口把服务启动起来；
+        // 端口切换放到 Binder 就绪之后。否则部分 ROM 在 tcpip 重启 adbd 后
+        // 新端口连接/授权未就绪，启动命令发不进去，表现为“等待服务启动超时”。
+        pendingTcpipPort = if (!isRoot && shouldChange && newPort > 0) newPort else -1
+        if (pendingTcpipPort > 0) {
+            addOutputLine("先用当前端口 ${detectedPort} 启动服务，Binder 就绪后再切换到 ${pendingTcpipPort}...")
         }
+        adbStartAttempts = 0
+        startAdbConnection(targetHost, detectedPort)
     }
 
     private fun startAdbConnection(host: String, port: Int) {
+        lastAdbHost = host
+        lastAdbPort = port
+        adbStartAttempts++
+        FullDiagnostics.log("ADB", "startAdbConnection attempt=$adbStartAttempts host=$host port=$port")
         addOutputLine("Connecting to $host:$port...")
         adbWirelessHelper.startStellarViaAdb(
             host = host, port = port, coroutineScope = viewModelScope,
@@ -1439,7 +1600,7 @@ internal class StarterViewModel(
                         output.contains("启动服务进程") -> {
                             if (checkIndex >= 0) updateStep(checkIndex, StepStatus.COMPLETED, context.getString(R.string.completed))
                             if (startIndex >= 0) updateStep(startIndex, StepStatus.RUNNING, context.getString(R.string.starting_ellipsis))
-                            
+                            // 启动超时检查，2秒后如果还没开始等待 Binder，就自动开始
                             launch {
                                 delay(2000.milliseconds)
                                 val currentSteps = _steps.value
@@ -1454,7 +1615,7 @@ internal class StarterViewModel(
                                 }
                             }
                         }
-                        
+                        // 服务进程已 fork，开始等待 Binder
                         output.contains("stellar_server 进程号为") || output.contains("stellar_starter 正常退出") -> {
                             if (startIndex >= 0) updateStep(startIndex, StepStatus.COMPLETED, context.getString(R.string.completed))
                             if (binderIndex >= 0 && steps[binderIndex].status != StepStatus.RUNNING &&
@@ -1482,12 +1643,12 @@ internal class StarterViewModel(
                         error is SocketTimeoutException ||
                         error is EOFException
                     if (needsPairing) {
-                        
+                        // 配对失败，回到配对步骤
                         val pairingStepIndex = _steps.value.indexOfFirst { it.title == context.getString(R.string.wireless_debugging_pairing) }
                         if (pairingStepIndex >= 0) {
                             pairingPhase = PairingPhase.PAIRING
                             updateStep(pairingStepIndex, StepStatus.ERROR, context.getString(R.string.pairing_failed_retry), needsUserAction = true)
-                            _errorMessage.value = null 
+                            _errorMessage.value = null // 不显示错误卡片，让用户重试配对
                         } else {
                             val connectIndex = _steps.value.indexOfFirst { it.title == context.getString(R.string.connect_adb_service) }
                             setError(Exception(context.getString(R.string.need_pairing_to_connect)), if (connectIndex >= 0) connectIndex else _currentStepIndex.value)
@@ -1597,6 +1758,8 @@ internal class StarterViewModel(
     }
 
     private fun waitForService() {
+        if (waitingForBinder) return
+        waitingForBinder = true
         viewModelScope.launch {
             var binderReceived = false
             val listener = object : Stellar.OnBinderReceivedListener {
@@ -1617,7 +1780,7 @@ internal class StarterViewModel(
                 return@launch
             }
 
-            val maxWaitTime = 15000L
+            val maxWaitTime = 25000L
             val checkInterval = 300L
             var elapsed = 0L
 
@@ -1632,6 +1795,10 @@ internal class StarterViewModel(
                     return@launch
                 }
 
+                if (elapsed % 1200L == 0L || elapsed >= maxWaitTime) {
+                    FullDiagnostics.log("WAIT", "elapsed=${elapsed}ms/25000ms pingBinder=${Stellar.pingBinder()}")
+                }
+
                 if (hasErrorInOutput()) {
                     Stellar.removeBinderReceivedListener(listener)
                     setError(Exception(getLastErrorMessage()), if (isRoot) 3 else 6)
@@ -1640,8 +1807,17 @@ internal class StarterViewModel(
             }
 
             if (!binderReceived) {
+                FullDiagnostics.log("WAIT", "TIMEOUT after ${maxWaitTime}ms; adbStartAttempts=$adbStartAttempts")
                 Stellar.removeBinderReceivedListener(listener)
-                setError(Exception(context.getString(R.string.error_wait_service_timeout)), if (isRoot) 3 else 6)
+                // 2026-10-31：等待超时后自动用当前端口重试启动，最多 3 次。
+                // ROM 刚切完端口/adbd 短暂未就绪时，单次启动很容易失败。
+                if (!isRoot && !_isCompleted.value && adbStartAttempts < 3) {
+                    addOutputLine("等待 Binder 超时，重试启动服务端（第 ${adbStartAttempts + 1}/3 次）...")
+                    waitingForBinder = false
+                    startAdbConnection(lastAdbHost, lastAdbPort)
+                } else {
+                    setError(Exception(context.getString(R.string.error_wait_service_timeout)), if (isRoot) 3 else 6)
+                }
             }
         }
     }

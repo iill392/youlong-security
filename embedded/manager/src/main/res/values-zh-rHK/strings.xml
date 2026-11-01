@@ -1,5 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  本文件来自 https://github.com/roro2239/Stellar 的 manager/src/main/res/ 对应语言目录
+  （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
 
+  【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+    改动 1：删除上游的 app_name 条目（它会把宿主应用的显示名顶掉）。
+    改动 2：界面品牌名由 "ADB Shield / ADB护盾版 / ADB 護盾版" 改为
+            "YouLong SafeADB / 游龙安全ADB / 遊龍安全ADB"。
+    改动 3：三个品牌相关资源 ID 改名：
+              stellar_apps                -> adb_shield_apps
+              permission_use_stellar      -> permission_use_adb_shield
+              starting_stellar_service    -> starting_adb_shield_service
+            （调用方 SelfStarterService.kt / AppsScreen.kt /
+              RequestPermissionActivity.kt 已同步修改，见各自文件的声明）
+    改动 4：新增本工程自己的字符串（配色来源、命令安全拦截、开源许可等）。
+    未改动：开机脚本路径 /data/adb/service.d/stellar.sh 保持上游原名
+            （它不是品牌名，改名会导致脚本路径不一致）。
+
+  本语言文件：values-zh-rHK
+  ==========================================================================
+-->
 
 <resources>
     <!-- ADB Restricted -->

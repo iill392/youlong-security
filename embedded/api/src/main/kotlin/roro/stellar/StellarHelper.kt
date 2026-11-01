@@ -1,14 +1,14 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar-API （MPL-2.0 + Apache-2.0）
 //   api/src/main/kotlin/roro/stellar/StellarHelper.kt
 //
-
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：STELLAR_MANAGER_PACKAGE_NAME 由上游的 "roro.stellar.manager"
+//         改为 "com.youlong.hd"。
+//   原因：管理器已被内置进「游龙安全护盾」，本机并不存在 roro.stellar.manager
+//         这个包；写成上游包名会让 isManagerInstalled() 恒为 false、
+//         openManager() 永远打不开界面。
+//   除这一处常量的取值外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar

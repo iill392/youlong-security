@@ -169,8 +169,8 @@
     <string name="service_logs_subtitle">查看 游龙安全ADB运行日志</string>
     <string name="already_latest_version">已是最新版本</string>
     <string name="check_update_failed">检查更新失败</string>
-    <string name="project_declaration">项目声明</string>
-    <string name="project_declaration_content">本产品内置了开源项目 Shizuku（Apache License 2.0，版权归 RikkaApps）及其分支 Stellar（Mozilla Public License 2.0，版权归 roro2239 / RoRo Studio），它们提供了通过 ADB 或 Root 调用系统 API 的能力。\n\n对应的源代码、Apache-2.0 与 MPL-2.0 许可证全文，以及本产品对每一个被修改文件的改动说明，均随本产品以源码形式分发（见 LICENSES/ 与 NOTICE），并可在应用内「开源许可」中查看。</string>
+    <string name="project_declaration">项目声明与版权</string>
+    <string name="project_declaration_content">「游龙安全护盾」是独立维护的修改版，内置特权框架基于 Stellar（Mozilla Public License 2.0，Copyright roro2239 / RoRo Studio）修改而来，并包含 Stellar 内保留的 Shizuku 代码（Apache License 2.0，Copyright RikkaApps）。本产品不是 Stellar 或 Shizuku 的官方产品，与上述作者/组织不存在隶属、合作、代理或背书关系；“Stellar”“Shizuku”等名称、标识、商标归各自权利人所有，仅用于说明代码来源与兼容性。游龙自有代码、界面与文档：Copyright (C) 2026 游龙，Apache License 2.0。与本 APK 对应的源代码、Apache-2.0 / MPL-2.0 全文、COPYRIGHT.md、NOTICE 均随产品分发，可在应用内「开源许可」查看。早期版本曾结束第三方 Shizuku 服务进程，该行为自 V63 起已彻底移除；当前不再结束、冻结或强制停止第三方 Shizuku 服务。</string>
     <string name="cannot_open_browser">无法打开浏览器</string>
     <string name="check_update">检查更新</string>
     <string name="current_version">当前版本: %s</string>
@@ -375,26 +375,90 @@
     <string name="downloading">下载中</string>
     <string name="download_failed">下载失败: %s</string>
 
-    
+    <!-- ==================================================================
+         配色来源（本工程新增）—— 设置页「个性化」里的二选一。
+         ================================================================== -->
     <string name="color_source">配色来源</string>
     <string name="color_mode_brand">护盾品牌色</string>
     <string name="color_mode_dynamic">跟随壁纸</string>
 
-    
+    <!-- ==================================================================
+         命令安全拦截 —— 本工程新增，上游没有这些字符串。
+         用于 CommandGuardActivity：告知用户某应用的危险命令已被拦截，
+         或就不安全命令征求用户确认。
+         ================================================================== -->
     <string name="command_guard_blocked_title">命令已被拦截</string>
     <string name="command_guard_blocked_body">%1$s 尝试 %2$s，已被拦截。</string>
-    <string name="command_guard_confirm_title">危险操作</string>
-    <string name="command_guard_confirm_body">%1$s 尝试 %2$s，是否允许？</string>
+    <string name="command_guard_confirm_title">命令执行确认</string>
+    <string name="command_guard_confirm_body">%1$s 请求%2$s，是否允许？</string>
     <string name="command_guard_reason_label">拦截原因</string>
     <string name="command_guard_command_label">命令内容</string>
     <string name="command_guard_ok">好的</string>
     <string name="command_guard_allow_once">允许一次</string>
+    <!-- 2026-10-23（用户需求）：只记住「这个应用 + 这条指令」，换指令仍会询问 -->
+    <string name="command_guard_allow_always">始终允许（此应用执行这条指令不再询问）</string>
     <string name="command_guard_deny">拒绝</string>
     <string name="command_guard_unknown_app">未知应用</string>
 
-    
+    <!-- ==================================================================
+         2026-10-24 新增：内置特权「脚本级审批」弹窗（kind=policy）。
+         服务端 stdin 脚本代理网关分析整段脚本后，若触及受保护能力则拉起
+         CommandGuardActivity 征求授权：拒绝 / 允许一次 / 始终允许该能力。
+         ================================================================== -->
+    <string name="command_guard_policy_title">内置特权安全拦截</string>
+    <!-- 「appLabel」请求使用【scopeLabel】能力 -->
+    <string name="command_guard_policy_request">「%1$s」请求使用【%2$s】能力</string>
+    <string name="command_guard_policy_score">行为链评分：%1$d</string>
+    <string name="command_guard_policy_script_label">脚本预览</string>
+    <string name="command_guard_policy_allow_always">始终允许该能力</string>
+    <string name="command_guard_policy_allow_once">允许一次</string>
+    <string name="command_guard_policy_deny">拒绝</string>
+
+    <!-- ==================================================================
+         开源许可 —— 本工程新增。
+         合规依据：Apache-2.0 第 4(a) 条要求向接收者提供许可证副本、
+         第 4(b) 条要求保留 NOTICE；MPL-2.0 第 3.1/3.2 条要求以
+         Source Code Form 提供被覆盖的源码。
+         ================================================================== -->
     <string name="open_source_licenses">开源许可</string>
-    <string name="open_source_licenses_subtitle">Apache-2.0 与 MPL-2.0 许可证全文及第三方声明</string>
-    <string name="open_source_licenses_card_subtitle">查看 Apache-2.0 / MPL-2.0 全文与已修改文件清单</string>
-    <string name="licenses_read_failed">读取许可证文本失败。完整文本也随本产品以 LICENSES/ 与 NOTICE 形式分发。</string>
+    <string name="open_source_licenses_subtitle">Apache-2.0 与 MPL-2.0 许可证全文、版权声明及第三方声明</string>
+    <string name="open_source_licenses_card_subtitle">查看 Apache-2.0 / MPL-2.0 全文、版权声明与已修改文件清单</string>
+    <string name="licenses_read_failed">读取许可证文本失败。完整文本也随本产品以 LICENSES/、NOTICE 与 COPYRIGHT.md 形式分发。</string>
+
+    <!-- ==================================================================
+         2026-10-24 新增：设置 → 病毒库同步（宿主 App 的 virus-db 特征库）
+         ================================================================== -->
+    <string name="virus_db_sync_title">病毒库同步</string>
+    <string name="virus_db_sync_subtitle">版本 %1$s · 上次同步 %2$s</string>
+    <string name="virus_db_sync_not_synced">尚未同步</string>
+    <string name="virus_db_sync_unavailable">内置特权未连接</string>
+    <string name="virus_db_sync_version">版本</string>
+    <string name="virus_db_sync_last">上次同步</string>
+    <string name="virus_db_sync_never">从未同步</string>
+    <string name="virus_db_sync_auto">自动同步</string>
+    <string name="virus_db_sync_auto_value">每 3 分钟</string>
+    <string name="virus_db_sync_manual">立即同步</string>
+    <string name="virus_db_sync_syncing">同步中…</string>
+    <string name="virus_db_sync_error">上次失败：%1$s</string>
+    <string name="virus_db_sync_started">已开始同步</string>
+    <string name="virus_db_sync_busy">正在同步中…</string>
+
+    <!-- 2026-10-24 新增：底部导航「病毒库」独立页面 -->
+    <string name="nav_virus_db">病毒库</string>
+    <string name="virus_db_page_title">病毒库</string>
+    <string name="virus_db_page_desc">手动检查病毒特征库更新，并查看最近一次同步时间。</string>
+    <string name="virus_db_status">状态</string>
+    <string name="virus_db_last_attempt">上次检查</string>
+    <string name="virus_db_state_ready">已就绪</string>
+    <string name="virus_db_state_not_ready">尚未同步</string>
+    <string name="virus_db_state_syncing">同步中…</string>
+    <string name="virus_db_state_failed">上次同步失败</string>
+    <string name="virus_db_state_unavailable">内置特权未连接</string>
+    <string name="virus_db_hint">手动同步会立即拉取最新特征库，并把特征库快照同步给内置特权服务。</string>
+    <string name="virus_db_check_now">立即检查更新</string>
+    <string name="virus_db_blacklist_count">黑名单应用</string>
+    <string name="virus_db_rule_count">黑名单名称</string>
+    <string name="virus_db_snapshot">内置特权快照</string>
+    <string name="virus_db_snapshot_pushed">已推送</string>
+    <string name="virus_db_snapshot_not_pushed">未推送（重启内置特权服务后重试）</string>
 </resources>

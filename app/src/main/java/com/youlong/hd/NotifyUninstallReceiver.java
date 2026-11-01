@@ -4,12 +4,15 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.widget.Toast;
 
-
+/**
+ * 通知栏"卸载软件"按钮的广播接收器。
+ * 点击后：先启动原生卸载 → 5秒后尝试打开应用设置页（供手动卸载）。
+ */
 public class NotifyUninstallReceiver extends BroadcastReceiver {
 
     @Override
@@ -17,22 +20,7 @@ public class NotifyUninstallReceiver extends BroadcastReceiver {
         final String pkg = intent.getStringExtra("target_pkg");
         if (pkg == null || pkg.isEmpty()) return;
 
-        
-        final Context appCtx = context.getApplicationContext() != null
-                ? context.getApplicationContext() : context;
-        if (pkg.equals(appCtx.getPackageName())
-                || "com.youlong.hd".equals(pkg)
-                || "com.youlong.zoo".equals(pkg)
-                || "com.youlong.tool".equals(pkg)
-                || WhitelistActivity.isWhitelisted(appCtx, pkg)) {
-            android.util.Log.w("NotifyUninstall", "受保护/白名单应用，拒绝卸载: " + pkg);
-            try {
-                Toast.makeText(appCtx, "该应用在白名单中，已跳过卸载", Toast.LENGTH_LONG).show();
-            } catch (Exception ignored) {}
-            return;
-        }
-
-        
+        // 第一步：启动原生系统卸载界面
         try {
             Intent u = new Intent(Intent.ACTION_UNINSTALL_PACKAGE);
             u.setData(Uri.parse("package:" + pkg));
@@ -41,7 +29,7 @@ public class NotifyUninstallReceiver extends BroadcastReceiver {
             context.startActivity(u);
         } catch (Exception ignored) {}
 
-        
+        // 第二步：5秒后尝试打开应用设置页面（卸载若失败，用户可在此手动卸载）
         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
             @Override
             public void run() {

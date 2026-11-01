@@ -4,7 +4,9 @@ import android.os.IBinder
 import android.os.Parcel
 import android.os.Parcelable
 
-
+/**
+ * Shizuku 兼容的 Binder 容器
+ */
 class BinderContainer(val binder: IBinder?) : Parcelable {
 
     constructor(parcel: Parcel) : this(parcel.readStrongBinder())

@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  2026-10 修复（用户反馈：开启守护后调音量延迟、按一下跳一大截）：
+  这里**不能**默认声明 flagRequestFilterKeyEvents。
+  一旦声明，系统会把所有按键先交给本无障碍服务、等 onKeyEvent 返回后才继续处理；
+  主线程稍有负载，音量键就会被拖慢，按住时间变长后系统触发连发 → 音量跳一大截。
+
+  现在的策略：
+    · 默认不声明按键过滤（音量键完全不经过本应用，零延迟）；
+    · 只有用户启用「音量按键触发」时，AdSkipService.setKeyFilterEnabled(true)
+      才会在运行时把 FLAG_REQUEST_FILTER_KEY_EVENTS 加回去；
+    · 即使启用，onKeyEvent 也只做异步投递后立刻返回。
+  canRequestFilterKeyEvents 必须保留为 true，否则运行时无法再加该 flag。
+-->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews|flagRequestFilterKeyEvents"
+    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"
     android:canRequestFilterKeyEvents="true"

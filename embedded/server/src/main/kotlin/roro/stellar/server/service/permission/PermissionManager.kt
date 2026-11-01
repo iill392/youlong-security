@@ -40,14 +40,6 @@ class PermissionManager(
         data: Bundle
     ) = requester.dispatchPermissionResult(requestUid, requestPid, requestCode, data)
 
-    
-    fun consumePendingConfirmation(
-        requestCode: Int,
-        uid: Int,
-        pid: Int,
-        permission: String
-    ): Boolean = requester.consumePendingConfirmation(requestCode, uid, pid, permission)
-
     fun getFlagForUid(uid: Int, permission: String): Int =
         configManager.find(uid)?.permissions?.get(permission) ?: ConfigManager.FLAG_ASK
 

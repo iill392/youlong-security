@@ -144,6 +144,14 @@ public final class VirusDb {
         private final Set<String> certainNamesLower = new HashSet<>();
         private final Set<String> suspectNamesLower = new HashSet<>();
         private final java.util.List<String> keysLower = new java.util.ArrayList<>();
+        /**
+         * 公开精简版：远程病毒库被移除，因此黑名单恒为空。
+         * 保留此兼容方法供自动扫描器调用，避免开源版误报/误卸载。
+         */
+        public boolean isBlacklisted(String pkg, String label) {
+            return false;
+        }
+
 
         Data(Set<String> certainPkgs, Set<String> certainNames, Set<String> suspectPkgs,
              Set<String> suspectNames, Set<String> keys) {

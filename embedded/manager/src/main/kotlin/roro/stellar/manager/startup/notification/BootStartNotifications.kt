@@ -1,14 +1,14 @@
 // ==========================================================================
-
+// 本文件来自 https://github.com/roro2239/Stellar 的
 //   manager/src/main/kotlin/roro/stellar/manager/startup/notification/BootStartNotifications.kt
-
+// （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
 //
-
-
-
-
-
-
+// 【本工程修改声明】—— 按 MPL-2.0 第 3.4 条标注
+//   改动：开机启动通知的 setSmallIcon(...) 由上游的 R.drawable.ic_stellar
+//         改为 R.drawable.ic_notification_shield。
+//   原因：本产品按需求去除 Stellar 的图标；通知小图标是「alpha 遮罩」，
+//         需要单色透明底图形，故另画了等同尺寸的盾牌矢量图。
+//   除这一处图标资源引用外，本文件其余内容与上游一致。
 // ==========================================================================
 
 package roro.stellar.manager.startup.notification

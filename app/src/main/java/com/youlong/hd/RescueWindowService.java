@@ -29,7 +29,10 @@ import androidx.core.app.NotificationCompat;
 import java.util.HashMap;
 import java.util.Map;
 
-
+/**
+ * 紧急救援全屏覆盖窗口。
+ * 提供：自动倒计时救援、手动救援按钮、详细脱困步骤。
+ */
 public class RescueWindowService extends Service {
 
     private static final String TAG = "RescueService";
@@ -94,7 +97,7 @@ public class RescueWindowService extends Service {
         box.setGravity(Gravity.CENTER);
         box.setPadding(40, 60, 40, 60);
 
-        
+        // 标题
         TextView title = new TextView(this);
         title.setText("🛡️ 紧急救援模式");
         title.setTextColor(Color.WHITE);
@@ -103,7 +106,7 @@ public class RescueWindowService extends Service {
         title.setPadding(0, 0, 0, 16);
         box.addView(title);
 
-        
+        // 恶意应用信息
         TextView info = new TextView(this);
         info.setText(malPkg.isEmpty()
                 ? "已检测到锁机软件正在运行！"
@@ -114,7 +117,7 @@ public class RescueWindowService extends Service {
         info.setPadding(0, 0, 0, 24);
         box.addView(info);
 
-        
+        // 救援按钮
         Button btnDo = new Button(this);
         btnDo.setText("🔧 立即救援（卸载 + 强制停止）");
         btnDo.setTextColor(Color.WHITE);
@@ -132,7 +135,7 @@ public class RescueWindowService extends Service {
         });
         box.addView(btnDo);
 
-        
+        // 跳过
         Button btnSkip = new Button(this);
         btnSkip.setText("我没事，关闭");
         btnSkip.setTextColor(0xFF888888);
@@ -150,7 +153,7 @@ public class RescueWindowService extends Service {
         });
         box.addView(btnSkip);
 
-        
+        // 倒计时
         final TextView cd = new TextView(this);
         cd.setText("10 秒后自动救援");
         cd.setTextColor(0xFFFFCC00);
@@ -159,7 +162,7 @@ public class RescueWindowService extends Service {
         cd.setPadding(0, 0, 0, 20);
         box.addView(cd);
 
-        
+        // 步骤面板（初始隐藏）
         final ScrollView scroll = new ScrollView(this);
         scroll.setVisibility(View.GONE);
         scroll.setPadding(0, 10, 0, 0);
@@ -170,7 +173,7 @@ public class RescueWindowService extends Service {
         scroll.addView(stepsTv);
         box.addView(scroll);
 
-        
+        // 脱险关闭按钮（初始隐藏）
         final Button btnDone = new Button(this);
         btnDone.setText("✅ 我已脱险，关闭窗口");
         btnDone.setTextColor(Color.WHITE);
@@ -192,10 +195,10 @@ public class RescueWindowService extends Service {
         root.addView(box);
         wm.addView(root, lp);
 
-        
+        // 保存引用
         root.setTag(new Object[]{btnDo, btnSkip, cd, scroll, stepsTv, btnDone});
 
-        
+        // 倒计时
         timer = new CountDownTimer(10000, 1000) {
             @Override
             public void onTick(long left) {
@@ -217,7 +220,7 @@ public class RescueWindowService extends Service {
         if (timer != null) { timer.cancel(); timer = null; }
         Log.w(TAG, "Executing rescue for: " + malPkg);
 
-        
+        // 1. 卸载
         if (!malPkg.isEmpty()) {
             try {
                 Intent u = new Intent(Intent.ACTION_DELETE);
@@ -227,7 +230,7 @@ public class RescueWindowService extends Service {
             } catch (Exception ignored) {}
         }
 
-        
+        // 2. 杀进程
         if (!malPkg.isEmpty()) {
             try {
                 ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -235,7 +238,7 @@ public class RescueWindowService extends Service {
             } catch (Exception ignored) {}
         }
 
-        
+        // 3. 通知跳转强制停止
         if (!malPkg.isEmpty()) {
             try {
                 Intent d = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
@@ -262,7 +265,7 @@ public class RescueWindowService extends Service {
             } catch (Exception ignored) {}
         }
 
-        
+        // 4. 展示脱困步骤
         showSteps();
     }
 

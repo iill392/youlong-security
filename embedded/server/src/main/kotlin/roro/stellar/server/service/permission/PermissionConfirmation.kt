@@ -49,7 +49,7 @@ class PermissionConfirmation {
 
         val intent = Intent(ServerConstants.REQUEST_PERMISSION_ACTION)
             .setPackage(MANAGER_APPLICATION_ID)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
             .putExtra("uid", callingUid)
             .putExtra("pid", callingPid)
             .putExtra("requestCode", requestCode)

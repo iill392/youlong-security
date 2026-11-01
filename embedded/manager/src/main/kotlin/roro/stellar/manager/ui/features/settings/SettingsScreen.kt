@@ -40,7 +40,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Subject
-
+// ⚠️ 本工程新增导入（第六轮）：开源许可卡片的图标。
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Info
@@ -112,17 +112,19 @@ import roro.stellar.manager.receiver.BootCompleteReceiver
 import roro.stellar.manager.startup.boot.BootScriptManager
 import roro.stellar.manager.ui.components.IconContainer
 import roro.stellar.manager.ui.components.LocalScreenConfig
+import roro.stellar.manager.authorization.CommandWhitelistActivity
+import roro.stellar.manager.authorization.AdbGuardActivity
 import roro.stellar.manager.ui.components.SettingsClickableCard
 import roro.stellar.manager.ui.components.SettingsExpandableCard
 import roro.stellar.manager.ui.components.SettingsInnerSwitchRow
 import roro.stellar.manager.ui.components.SettingsSwitchCard
 import roro.stellar.manager.ui.components.StellarSegmentedSelector
-
+// ⚠️ 本工程新增导入：品牌顶栏（带盾牌标识）。
 import roro.stellar.manager.ui.components.BrandLargeTopAppBar
 import roro.stellar.manager.ui.navigation.components.createTopAppBarScrollBehavior
 import roro.stellar.manager.ui.theme.AppShape
 import roro.stellar.manager.ui.theme.AppSpacing
-
+// ⚠️ 本工程新增导入：ColorMode（配色来源：护盾品牌色 / 跟随壁纸）。
 import roro.stellar.manager.ui.theme.ColorMode
 import roro.stellar.manager.ui.theme.StartPage
 import roro.stellar.manager.ui.theme.ThemeMode
@@ -131,7 +133,7 @@ import roro.stellar.manager.util.EnvironmentUtils
 import roro.stellar.manager.util.BackgroundVisibilityUtils
 import roro.stellar.manager.util.PortBlacklistUtils
 import roro.stellar.manager.util.UserHandleCompat
-
+// ⚠️ 本工程改动（第六轮）：删除 util/update/* 的 5 个 import（更新模块已整体移除）。
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "SettingsScreen"
@@ -140,8 +142,7 @@ private const val TAG = "SettingsScreen"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    topAppBarState: TopAppBarState,
-    onNavigateToLogs: () -> Unit = {}
+    topAppBarState: TopAppBarState
 ) {
     val scrollBehavior = createTopAppBarScrollBehavior(topAppBarState)
     val context = LocalContext.current
@@ -154,9 +155,9 @@ fun SettingsScreen(
 
     var hasRootPermission by remember { mutableStateOf<Boolean?>(null) }
     var bootMode by remember { mutableStateOf(StellarSettings.getBootMode()) }
-    
-    
-    
+    // ⚠️ 本工程改动（2026-10-01）：移除 bootBroadcastAccessibilityEnabled 与
+    // showAccessibilityHintDialog 两个状态 —— 它们只服务于已删除的
+    // 「无障碍自启」开关 / StellarAccessibilityService。
     var scriptActionInProgress by remember { mutableStateOf(false) }
     var showScriptInstallDialog by remember { mutableStateOf(false) }
     var showScriptRemoveDialog by remember { mutableStateOf(false) }
@@ -164,7 +165,7 @@ fun SettingsScreen(
     var showBootGuideDialog by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
-    
+    // ⚠️ 本工程改动（第六轮）：删除 currentSource（更新源）状态，随更新模块移除。
     var isServiceRunning by remember { mutableStateOf(Stellar.pingBinder()) }
     var bootAdbStartAvailable by remember { mutableStateOf<Boolean?>(null) }
 
@@ -200,7 +201,7 @@ fun SettingsScreen(
                 StellarSettings.setBootMode(StellarSettings.BootMode.NONE)
             }
         }
-        
+        // ⚠️ 本工程改动（第六轮）：删除 currentSource = UpdateUtils.getPreferredSource()。
     }
 
     var tcpipPort by remember {
@@ -229,7 +230,7 @@ fun SettingsScreen(
 
     var currentThemeMode by remember { mutableStateOf(ThemePreferences.themeMode.value) }
     var currentStartPage by remember { mutableStateOf(ThemePreferences.startPage.value) }
-    
+    // ⚠️ 本工程新增：配色来源状态。
     var currentColorMode by remember { mutableStateOf(ThemePreferences.colorMode.value) }
 
     var bootOptionsExpanded by remember { mutableStateOf(false) }
@@ -258,27 +259,26 @@ fun SettingsScreen(
         }
     }
 
-    
+    // ⚠️ 本工程改动（第六轮，2026-10）：
     // ==================================================================
-    
+    // 删除整个「检查更新」功能。上游此处是 7 个状态变量
     //   isCheckingUpdate / pendingUpdate / showUpdateDialog / showSourceDialog /
     //   isDownloading / downloadProgress / downloadError
-    
+    // 外加 performCheckUpdate 这个协程动作（调 UpdateUtils.checkUpdate）。
     //
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    // 删除原因：
+    //   1. 本工程把管理器内置进宿主 APK，管理器没有独立版本，也就没有独立
+    //      自更新 —— 上游这个功能查的是 Stellar 官方仓库的 release，
+    //      内置场景下点它只会提示「已是最新」或误导用户去下载别的 APK。
+    //   2. 它依赖的 util/update/ApkDownloader.kt 需要 FileProvider，
+    //      而管理器模块的 FileProvider 声明早已因与宿主 authority 冲突被删除
+    //      （见 embedded/manager/src/main/AndroidManifest.xml 的修改声明），
+    //      所以这条下载→安装链路本来就是断的。
+    // 连带删除：util/update/ 三个源文件、设置页的 UpdateCard / NewVersionDialog /
+    //          UpdateSourceDialog 三个 Composable 及其 import。
     // ==================================================================
 
-    
-    var shizukuCompatEnabled by remember { mutableStateOf(preferences.getBoolean(SHIZUKU_COMPAT_ENABLED, false)) }
+    var shizukuCompatEnabled by remember { mutableStateOf(preferences.getBoolean(SHIZUKU_COMPAT_ENABLED, true)) }
 
     LaunchedEffect(Unit) {
         try {
@@ -294,10 +294,12 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
-            
+            // ⚠️ 本工程改动：改用带盾牌标识的品牌顶栏（原为 StandardLargeTopAppBar）。
             BrandLargeTopAppBar(
-                title = "游龙安全ADB",
+                title = "设置",
                 scrollBehavior = scrollBehavior
             )
         }
@@ -314,7 +316,36 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.cardSpacing),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.cardSpacing)
         ) {
-            item(span = { GridItemSpan(gridColumns) }) {
+            // 2026-11-01（用户需求）：内置白名单已与宿主白名单合并，隐藏此入口。
+            if (false) item(span = { GridItemSpan(gridColumns) }) {
+                SettingsClickableCard(
+                    icon = Icons.Default.Security,
+                    title = "指令拦截白名单",
+                    subtitle = "白名单应用执行指令时只询问是否放行；含 youlong 的指令仍拦截",
+                    onClick = {
+                        context.startActivity(
+                            Intent(context, CommandWhitelistActivity::class.java)
+                        )
+                    }
+                )
+            }
+
+            // 2026-11-01（用户需求）：ADB 防护入口不再展示，底层功能保留不动。
+            if (false) item(span = { GridItemSpan(gridColumns) }) {
+                SettingsClickableCard(
+                    icon = Icons.Default.Security,
+                    title = "ADB 防护",
+                    subtitle = "关闭无线调试/TCP ADB，阻止第三方 App 绕过内置特权；内置特权断开时自动暂停，支持维护模式",
+                    onClick = {
+                        context.startActivity(
+                            Intent(context, AdbGuardActivity::class.java)
+                        )
+                    }
+                )
+            }
+
+            // 2026-11-01（用户需求）：个性化入口移除，固定浅色 + 护盾品牌色 + 启动页。
+            if (false) item(span = { GridItemSpan(gridColumns) }) {
                 SettingsExpandableCard(
                     icon = Icons.Default.Palette,
                     title = stringResource(R.string.personalization),
@@ -340,8 +371,8 @@ fun SettingsScreen(
                         itemLabel = { themeLabels[it] ?: "" }
                     )
 
-                    
-                    
+                    // ⚠️ 本工程新增：配色来源（护盾品牌色 / 跟随壁纸）。
+                    //    默认 BRAND，用户可切回上游的壁纸动态取色。
                     Text(
                         text = stringResource(R.string.color_source),
                         style = MaterialTheme.typography.labelLarge,
@@ -461,27 +492,28 @@ fun SettingsScreen(
                             )
                         }
 
-                        
+                        // ⚠️ 本工程改动（2026-10-01）：删除「无障碍自启」开关。
                         //
-                        
-                        
-                        
+                        // 上游这里是一个 AnimatedVisibility + SettingsInnerSwitchRow，
+                        // 用于开启 manager 自带的 StellarAccessibilityService
+                        // （把 BootCompleteReceiver 置为 enabled，作为开机广播的跳板）。
                         //
-                        
-                        
-                        
-                        
+                        // 本工程已把该无障碍服务从清单里删除：它在系统「无障碍」列表里
+                        // 与宿主自己的 AdSkipService 同名（都显示「游龙安全护盾」），
+                        // 实测出现两个条目，用户无法分辨该开哪个；而宿主开机自启本来就由
+                        // 自己的 com.youlong.hd.BootReceiver 负责。
                         //
-                        
-                        
-                        
-                        
-                        
+                        // 组件已不存在，开关留着就是骗用户，所以整块移除。
+                        // 相关状态变量 bootBroadcastAccessibilityEnabled、
+                        // showAccessibilityHintDialog 与提示弹窗也一并移除；
+                        // 服务端 ConfigManager.isAccessibilityAutoStartEnabled()
+                        // 同步恒返回 false。
                     }
                 }
             }
 
-            item {
+            // 2026-11-01（用户需求）：Shizuku 兼容层改为恒开，隐藏开关。
+            if (false) item {
                 SettingsSwitchCard(
                     icon = Icons.Default.Share,
                     title = stringResource(R.string.shizuku_compat_layer),
@@ -564,7 +596,8 @@ fun SettingsScreen(
                 )
             }
 
-            item {
+            // 2026-11-01（用户需求）：隐藏后台已自动生效，隐藏此开关。
+            if (false) item {
                 SettingsSwitchCard(
                     icon = Icons.Default.VisibilityOff,
                     title = stringResource(R.string.hide_background),
@@ -722,35 +755,11 @@ fun SettingsScreen(
                 }
             }
 
-            item(span = { GridItemSpan(gridColumns) }) {
-                if (isLandscape) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.cardSpacing)
-                    ) {
-                        SettingsClickableCard(
-                            icon = Icons.AutoMirrored.Filled.Subject,
-                            title = stringResource(R.string.service_logs),
-                            subtitle = stringResource(R.string.service_logs_subtitle),
-                            onClick = onNavigateToLogs,
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                    }
-                } else {
-                    SettingsClickableCard(
-                        icon = Icons.AutoMirrored.Filled.Subject,
-                        title = stringResource(R.string.service_logs),
-                        subtitle = stringResource(R.string.service_logs_subtitle),
-                        onClick = onNavigateToLogs
-                    )
-                }
-            }
+            // 2026-10-30（用户要求）：移除所有日志入口（原「服务日志」卡片）。
 
-            
-            
-            
+            // ⚠️ 本工程改动（2026-10，第六轮）：此处上游是一个 UpdateCard
+            //    （「检查更新」卡片），已随整个更新功能一并删除。
+            //    原因见下方删除说明与 NOTICE 第五/六轮改动清单。
 
             item(span = { GridItemSpan(gridColumns) }) {
                 Card(
@@ -850,14 +859,14 @@ fun SettingsScreen(
                              Spacer(modifier = Modifier.width(8.dp))
                              Text("Stellar", modifier = Modifier.padding(vertical = 4.dp))
                          }
-                     
-                     
-                     
-                     
-                     
-                     
+                     // ⚠️ 本工程新增（第六轮）：「开源许可」入口。
+                     //    合规依据：Apache-2.0 第 4(a) 条要求向接收者提供许可证
+                     //    副本、第 4(b) 条要求保留 NOTICE；MPL-2.0 第 3.1/3.2 条
+                     //    要求以 Source Code Form 提供被覆盖的源码。
+                     //    用户拿到的是 APK，所以许可证全文必须能在应用内查看 ——
+                     //    这里拉起 OpenSourceLicensesActivity，它直接读取
                      //    res/raw/open_source_licenses.txt
-                     
+                     //    （Apache-2.0 全文 + MPL-2.0 全文 + NOTICE）。
                      Spacer(modifier = Modifier.height(12.dp))
 
                      SettingsClickableCard(
@@ -886,23 +895,23 @@ fun SettingsScreen(
     }
 
 
-    
+    // ⚠️ 本工程改动（2026-10，第六轮）：删除整个「检查更新」功能。
     // ------------------------------------------------------------------
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    // 上游这里有两块 UI：
+    //   · UpdateCard（设置页里的「检查更新」卡片 + 当前版本号）
+    //   · showUpdateDialog / showSourceDialog 两个弹窗（新版本提示、更新源选择）
+    // 本工程把管理器内置进宿主 APK，管理器版本与宿主一同分发，
+    // 不存在独立自更新；而且管理器自带的 ApkDownloader 依赖的 FileProvider
+    // 声明早已因清单冲突被删除（见 AndroidManifest.xml 的修改声明），
+    // 这条链路本来就是坏的。
+    // 因此整块删除：卡片、两个弹窗、以及配套状态变量
+    // （currentSource / pendingUpdate / showUpdateDialog / showSourceDialog /
     //   isDownloading / downloadProgress / downloadError / isCheckingUpdate /
-    
-    
-    
-    
-    
+    //   performCheckUpdate）和相关 import。
+    // 对应删除的源文件：util/update/（UpdateUtils.kt、AppUpdate.kt、ApkDownloader.kt）
+    // 对应的字符串资源（new_version_title / check_update / ... 等 14 条）
+    // 仍留在 strings.xml 中但已无引用；保留是为了减少与上游的差异面，
+    // 资源压缩器会把它们裁掉。
 
     if (showBootGuideDialog) {
         BasicAlertDialog(onDismissRequest = { showBootGuideDialog = false }) {
@@ -1146,12 +1155,12 @@ private fun applyBootMode(
                 }
                 StellarSettings.BootMode.SCRIPT, StellarSettings.BootMode.NONE -> Unit
             }
-            
-            
-            
-            
-            
-            
+            // ⚠️ 本工程改动（2026-10-01）：这里原本会写
+            //     accessibilityAutoStart = (newMode == BROADCAST) && <无障碍自启开关>
+            // 用于让服务端把 StellarAccessibilityService 写进
+            // ENABLED_ACCESSIBILITY_SERVICES。该无障碍服务与开关均已删除，
+            // 因此恒写 false —— 服务端 ConfigManager.isAccessibilityAutoStartEnabled()
+            // 也已短路为 false，两处保持一致，不会再产生无效的系统无障碍条目。
             AppDatabase.get(context).configDao().set(
                 ConfigEntity("accessibilityAutoStart", "false")
             )

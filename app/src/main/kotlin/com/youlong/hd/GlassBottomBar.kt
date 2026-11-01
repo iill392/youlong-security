@@ -30,14 +30,20 @@ import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidBottomTab
 import com.kyant.backdrop.catalog.components.LiquidBottomTabs
 
-
+/**
+ * Java调用入口：在ComposeView中设置玻璃导航栏（使用白色Canvas背景）
+ */
 fun ComposeView.setGlassBottomBar(onTabSelected: (Int) -> Unit = {}) {
     setContent {
         GlassBottomBar(onTabSelected = onTabSelected)
     }
 }
 
-
+/**
+ * 玻璃底部导航栏 - 使用 LayerBackdrop 捕获 WebView 内容作为背景
+ * @param backdrop 从外部传入的 LayerBackdrop，已捕获 WebView 等底层内容
+ * @param modifier 外部修饰符，用于控制导航栏在父容器中的位置
+ */
 @Composable
 fun GlassBottomBar(
     backdrop: Backdrop,
@@ -84,7 +90,9 @@ fun GlassBottomBar(
     }
 }
 
-
+/**
+ * 玻璃底部导航栏 - 使用 Canvas 白色背景（原版，用于独立 ComposeView 场景）
+ */
 @Composable
 private fun GlassBottomBar(
     onTabSelected: (Int) -> Unit = {}

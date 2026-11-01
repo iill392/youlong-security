@@ -25,7 +25,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
+/**
+ * 管控应用管理（原黑名单管理）。
+ * 用户将应用加入管控后，安全护盾将拦截这些应用。
+ * 不显示系统应用。
+ * "我都很信任" 按钮清空管控列表。
+ */
 public class BlacklistActivity extends Activity {
 
     private PackageManager pm;
@@ -44,13 +49,13 @@ public class BlacklistActivity extends Activity {
         prefs = getSharedPreferences("shield_prefs", MODE_PRIVATE);
         loadBlacklist();
 
-        
+        // ===== 根布局 =====
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xFFF5F6FA);
         root.setFitsSystemWindows(true);
 
-        
+        // ------- 顶栏 -------
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -77,7 +82,7 @@ public class BlacklistActivity extends Activity {
 
         root.addView(header);
 
-        
+        // ------- 内容区 -------
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
 
@@ -86,7 +91,7 @@ public class BlacklistActivity extends Activity {
         content.setGravity(Gravity.CENTER_HORIZONTAL);
         content.setPadding(dp(24), dp(40), dp(24), dp(40));
 
-        
+        // 图标
         TextView iconView = new TextView(this);
         iconView.setText("\u26A0\uFE0F");
         iconView.setTextSize(40);
@@ -104,7 +109,7 @@ public class BlacklistActivity extends Activity {
         iconView.setLayoutParams(ip);
         content.addView(iconView);
 
-        
+        // 加入管控按钮
         Button addBtn = new Button(this);
         addBtn.setText("添加要管控的应用");
         addBtn.setTextColor(Color.WHITE);
@@ -129,7 +134,7 @@ public class BlacklistActivity extends Activity {
         });
         content.addView(addBtn);
 
-        
+        // "我都很信任" 按钮 — 清空全部管控
         trustAllBtn = new TextView(this);
         trustAllBtn.setText("我都很信任");
         trustAllBtn.setTextColor(0xFF666666);
@@ -145,7 +150,7 @@ public class BlacklistActivity extends Activity {
         });
         content.addView(trustAllBtn);
 
-        
+        // 说明文字
         TextView hint = new TextView(this);
         hint.setText("管控中的应用将启动安全护盾拦截\n不显示系统应用");
         hint.setTextColor(0xFF999999);
@@ -154,7 +159,7 @@ public class BlacklistActivity extends Activity {
         hint.setPadding(0, dp(4), 0, dp(24));
         content.addView(hint);
 
-        
+        // 空状态提示
         emptyHint = new LinearLayout(this);
         emptyHint.setOrientation(LinearLayout.VERTICAL);
         emptyHint.setGravity(Gravity.CENTER);
@@ -167,7 +172,7 @@ public class BlacklistActivity extends Activity {
         emptyHint.addView(emptyText);
         content.addView(emptyHint);
 
-        
+        // 已加入管控列表容器
         blacklistContainer = new LinearLayout(this);
         blacklistContainer.setOrientation(LinearLayout.VERTICAL);
         blacklistContainer.setPadding(0, dp(16), 0, 0);
@@ -217,7 +222,7 @@ public class BlacklistActivity extends Activity {
         String label;
     }
 
-    
+    /** 判断是否为系统应用 */
     private boolean isSystemApp(ApplicationInfo app) {
         if ((app.flags & ApplicationInfo.FLAG_SYSTEM) != 0) return true;
         if ((app.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0) return true;
@@ -229,7 +234,7 @@ public class BlacklistActivity extends Activity {
         List<ApplicationInfo> installed = pm.getInstalledApplications(0);
         allApps.clear();
         for (ApplicationInfo app : installed) {
-            
+            // 过滤掉自身和系统应用
             if (app.packageName.equals(getPackageName())) continue;
             if (isSystemApp(app)) continue;
 
@@ -294,7 +299,7 @@ public class BlacklistActivity extends Activity {
                 .show();
     }
 
-    
+    /** "我都很信任" — 清空所有管控 */
     private void trustAll() {
         if (currentBlacklist.isEmpty()) {
             new AlertDialog.Builder(this)
@@ -323,7 +328,7 @@ public class BlacklistActivity extends Activity {
     private void refreshBlacklistUI() {
         blacklistContainer.removeAllViews();
 
-        
+        // 更新信任按钮文字
         if (trustAllBtn != null) {
             trustAllBtn.setText("我都很信任" + (currentBlacklist.isEmpty() ? "" : "（清空" + currentBlacklist.size() + "个管控）"));
         }
@@ -423,7 +428,7 @@ public class BlacklistActivity extends Activity {
 
         row.addView(textCol);
 
-        
+        // 移除按钮
         Button removeBtn = new Button(this);
         removeBtn.setText("移出");
         removeBtn.setTextColor(0xFF2E7D32);

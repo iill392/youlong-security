@@ -4,7 +4,10 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-
+/**
+ * 软件级黑名单常量（硬编码，所有检测模块共用）
+ * 安装了这些包名 → 无条件弹窗拦截
+ */
 public final class BlacklistConstants {
 
     private BlacklistConstants() {}

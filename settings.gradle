@@ -11,8 +11,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        
-        
+        // 内置 Stellar 管理器界面用 libsu 以 root 方式启动服务端，而 libsu 只在 JitPack 上。
+        // Stellar 管理器还用到 Kyant0/Capsule（毛玻璃）与 jeziellago/compose-markdown。
         maven {
             url 'https://jitpack.io'
             content {
@@ -24,15 +24,15 @@ dependencyResolutionManagement {
     }
 
     // ==========================================================================
-    
+    // 上游 Stellar 的版本目录
     // --------------------------------------------------------------------------
-    
-    
-    
-    
+    // 上游分别在 server/ server.versions.toml、api/ api.versions.toml、
+    // manager/ manager.versions.toml 里定义。源码原样移植过来后，这些模块
+    // 仍然写 serverLibs.xxx / apiLibs.xxx / managerLibs.xxx，
+    // 没有这三块 catalog 就无法解析依赖。
     //
-    
-    
+    // hidden-api / refine 的版本在下面的 libs catalog 中统一维护
+    // （上游 Stellar 用的是根目录 gradle/libs.versions.toml，本工程内联于此）。
     // ==========================================================================
     versionCatalogs {
         serverLibs {
@@ -62,29 +62,29 @@ rootProject.name = "YouLongTool"
 include ':app'
 
 // ==========================================================================
-
+// 模块清单 —— 内置 Stellar（源码级融合）
 // --------------------------------------------------------------------------
-
+// 上游：https://github.com/roro2239/Stellar        (MPL-2.0 + Apache-2.0)
 //       https://github.com/roro2239/Stellar-API    (MPL-2.0 + Apache-2.0)
 //
-
-
-
+// ⚠️ 2026 年迁移：本工程原先内置的是上游 Shizuku（RikkaApps/Shizuku），
+//    现已整体替换为 Stellar —— 一个以 Shizuku 为上游的分支，权限模型更细、
+//    启动路径更完整（含降权激活 / 跟随启动 / 双进程互守）。
 //
-
-
-
-
-
-
-
-
-
-
+// 布局与上游保持一致的「平铺」形式（embedded/<module>），并保留上游模块名，
+// 以便嵌入的 Kotlin 源码里的 `project(':xxx')` 依赖关系零改动：
+//     :manager  ← 上游 Stellar manager（管理界面；本工程改为 library 模块）
+//     :server   ← 上游 Stellar server（特权服务端，运行在 ADB/Root 进程）
+//     :api      ← Stellar-API 客户端 SDK
+//     :aidl     ← Stellar AIDL 接口（com.stellar.server.*）
+//     :shared   ← 共享常量（roro.stellar.StellarApiConstants）
+//     :provider ← StellarProvider（ContentProvider，接收服务端 Binder）
+//     :userservice ← UserService 框架
+//     :shizuku-aidl / :shizuku-api ← Stellar 内置的 Shizuku 兼容层
 //
-
-
-
+// `:demo` 是上游 API 示例应用，不纳入。
+// `manager` 上游还有 rish（终端），Stellar 已移除 rish 独立 APK，
+// 其 JNI（rish.cpp）留在 manager 的 jni 里，不再单独成模块。
 // ==========================================================================
 include ':manager'
 include ':server'
@@ -105,3 +105,10 @@ project(':shared').projectDir = file('embedded/shared')
 project(':userservice').projectDir = file('embedded/userservice')
 project(':shizuku-aidl').projectDir = file('embedded/shizuku-aidl')
 project(':shizuku-api').projectDir = file('embedded/shizuku-api')
+
+
+
+// 2026-10-25 红队测试工具（独立 ADB + Stellar）
+include ':redteam'
+project(':redteam').projectDir = file('redteam')
+

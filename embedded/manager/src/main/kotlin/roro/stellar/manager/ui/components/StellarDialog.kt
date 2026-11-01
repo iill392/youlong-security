@@ -46,7 +46,7 @@ fun StellarDialog(
     ) {
         Surface(
             shape = AppShape.shapes.dialog,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
             tonalElevation = 6.dp
         ) {
             Column(

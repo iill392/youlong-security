@@ -28,7 +28,9 @@ import java.io.FileReader;
 import java.lang.reflect.Method;
 import java.util.List;
 
-
+/**
+ * 性能模式前台服务 - 鸿蒙6全面适配版
+ */
 public class PerformanceService extends Service {
 
     private static final String TAG = "PerfService";
@@ -50,7 +52,7 @@ public class PerformanceService extends Service {
     private Runnable periodicCleanTask;
 
     private static final long CLEAN_INTERVAL_MS = 3 * 60 * 1000;
-    private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000; 
+    private static final long WAKE_LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 每10分钟续一次
 
     @Override
     public void onCreate() {
@@ -66,7 +68,7 @@ public class PerformanceService extends Service {
 
         saveOriginalBrightness();
         applyAllOptimizations();
-        
+        // 定时清理第一次在 3 分钟后触发，避免和 onCreate 重复
         startPeriodicClean();
 
         running = true;
@@ -74,7 +76,7 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // FIX Bug 1: 每 10 分钟续一次 WakeLock 而不是一次性 30 分钟
     // ============================================================
 
     private void acquireWakeLock() {
@@ -131,7 +133,7 @@ public class PerformanceService extends Service {
     public IBinder onBind(Intent intent) { return null; }
 
     // ============================================================
-    
+    // 保存/恢复原始亮度
     // ============================================================
 
     private void saveOriginalBrightness() {
@@ -149,7 +151,7 @@ public class PerformanceService extends Service {
         forceMaxRefreshRate();
         setSystemMaxBrightness();
         addBrightnessOverlay();
-        
+        // 首次清理在 3 分钟后由 startPeriodicClean 触发，这里不做清理
     }
 
     private void removeRateOverlay() {
@@ -167,7 +169,7 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // 1. 强制最高刷新率
     // ============================================================
 
     private void forceMaxRefreshRate() {
@@ -221,7 +223,7 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // 2. 系统级最高亮度
     // ============================================================
 
     private void setSystemMaxBrightness() {
@@ -256,7 +258,7 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // 3. 亮度悬浮窗
     // ============================================================
 
     private void addBrightnessOverlay() {
@@ -292,15 +294,15 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // 4. 真正的清理后台（每 3 分钟 + 异步执行 → FIX Bug 2）
     // ============================================================
 
     private void performClean() {
-        
+        // 异步执行，避免阻塞 UI 线程 (FIX Bug 2)
         AsyncTask.execute(() -> {
             cleanBackgroundProcesses();
             releaseMemoryDeep();
-            
+            // 续 WakeLock (FIX Bug 1)
             acquireWakeLock();
         });
     }
@@ -345,12 +347,12 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // FIX Bug 4: 移除 getAppTasks() 方法（已废弃，对第三方应用无效）
     // ============================================================
-    
+    // cleanRecentTasks() 已彻底移除
 
     // ============================================================
-    
+    // 5. 释放内存
     // ============================================================
 
     private void releaseMemoryDeep() {
@@ -371,7 +373,7 @@ public class PerformanceService extends Service {
             System.runFinalization();
             clearAppCache();
 
-            
+            // 读取内存信息
             ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             if (am != null) {
                 ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
@@ -407,7 +409,7 @@ public class PerformanceService extends Service {
     }
 
     // ============================================================
-    
+    // 6. 定时清理（FIX Bug 3: 不再在 onCreate 时立刻清理）
     // ============================================================
 
     private void startPeriodicClean() {
