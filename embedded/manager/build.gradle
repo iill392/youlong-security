@@ -1,0 +1,158 @@
+// ==========================================================================
+// :manager —— Stellar 管理器界面（内置为库模块）
+// --------------------------------------------------------------------------
+// 源码来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）。
+//
+// 本文件是**本工程适配版**，相对上游 manager/build.gradle 的改动如下
+// （按 MPL-2.0 第 3.4 条，改动已在文件内显著标注）：
+//
+//   1. 插件 com.android.application → com.android.library。
+//      上游 manager 是一个独立 APK（applicationId: roro.stellar.manager）；
+//      本工程把它编成库并编入「游龙安全护盾」自己的 APK，从而保持
+//      「本应用即管理器、不依赖任何外部 App」的架构。
+//
+//   2. 删除 application 专属配置：applicationId、versionCode/versionName、
+//      signingConfigs、applicationVariants 输出改名与 out/ 拷贝等。
+//      库模块不会生成 APK，这些配置无意义且会报错。
+//
+//   3. 删除 externalNativeBuild / ndk.abiFilters / prefab / ANDROID_STL=none：
+//      原生部分（libstellar.so / libchid.so / libadb.so / librish.so）已移到
+//      :app 的 CMake 工程里统一构建（见 app/src/main/cpp/stellar/）——
+//      AGP 每个模块只允许一个 CMake 入口点，而本工程 :app 已有自己的
+//      CMakeLists（nativecrypto），因此以 add_subdirectory 方式合并。
+//
+//   4. 删除 collapseReleaseResourceNames（aapt2 optimize --collapse-resource-names）
+//      与 CompileArtProfileTask 关闭逻辑：前者依赖上游 AGP 内部中间产物路径，
+//      在本工程的加固/混淆流水线里会互相干扰；后者是本工程用不到的
+//      profileinstaller 优化。
+//
+//   5. autoResConfig 整个移除（含根 build.gradle 里的插件声明）。
+//      上游 manager 是 application 模块，dev.rikka.tools.autoresconfig
+//      需要 Android **application** 扩展才能工作；本工程把它降级为 library
+//      模块后，应用该插件会直接失败：
+//          Failed to apply plugin 'dev.rikka.tools.autoresconfig'.
+//          > Android application extension not found
+//      而该插件生成的 roro.stellar.manager.StellarLocales 常量类在本工程与
+//      上游 Stellar 的全部 Kotlin/XML 源码中**都没有任何引用**（已全量检索），
+//      语言选择界面走的是系统 Locale，不依赖它。因此直接去掉插件与配置块。
+//
+//   6. namespace 保持上游的 roro.stellar.manager 不变 —— 原因有两条：
+//      · 上游有硬编码的包名字符串（例如 BootScriptManager 里写出的
+//        `pm path roro.stellar.manager` 开机脚本、JNI 里的
+//        FindClass("roro/stellar/manager/adb/PairingContext")），改包名会破坏它们；
+//      · 宿主 MainActivity 用类名字符串启动管理器界面。
+//      应用自身的 applicationId 仍是 com.youlong.hd，namespace 与
+//      applicationId 不一致是 AGP 允许且常见的做法。
+//
+//   7. 依赖基本保持上游不变；仅把 libs.hidden.* 的引用对齐本工程
+//      settings.gradle 里定义的 libs catalog。
+//
+//   8. ⚠️ 品牌改名：界面上所有 "Stellar" 字样改为本产品对外的名字。
+//      上游是独立 App 叫 Stellar；本工程内置后对外名称是「ADB护盾版」。
+//
+//      ⚠️ 必须按**语言**分别替换，不能一把梭把 "Stellar" 全替成中文
+//         「ADB护盾版」—— 那会让阿拉伯语、俄语、日语等界面混进裸中文
+//         （实测出现 "Приложения ADB护盾版" 这种中俄混排）。对应关系：
+//           · values-zh-rCN            → ADB护盾版
+//           · values-zh-rHK / -zh-rTW  → ADB 護盾版
+//           · 其余全部语言             → ADB Shield
+//
+//      ⚠️ 另有两个**绝不能跟着替换**的东西（第一版替换脚本踩过这个坑）：
+//        · 资源 ID 不能含非 ASCII，否则 aapt2 报错。
+//          app 列表页标题的 ID 由 stellar_apps 改为 adb_shield_apps，
+//          引用处（ui/features/apps/AppsScreen.kt）已同步。
+//        · 真实文件路径 /data/adb/service.d/stellar.sh
+//          ——磁盘上的真实文件名，必须与 BootScriptManager.SCRIPT_PATH 一致；
+//          改了会出现「开机脚本装了却找不到」的静默失效。
+// ==========================================================================
+
+plugins {
+    id('com.android.library')
+    id('org.jetbrains.kotlin.android')
+    id('org.jetbrains.kotlin.plugin.compose')
+    id('com.google.devtools.ksp')
+    id('dev.rikka.tools.refine')
+}
+
+android {
+    namespace 'roro.stellar.manager'
+
+    defaultConfig {
+        // ⚠️ 本工程新增：显式声明 BuildConfig 的版本字段。
+        //    上游 manager 是 application 模块，由 defaultConfig 的
+        //    versionCode / versionName 自动生成
+        //        BuildConfig.VERSION_CODE / BuildConfig.VERSION_NAME；
+        //    本工程把它降级为 library 后 AGP 只生成 DEBUG / LIBRARY_PACKAGE_NAME /
+        //    BUILD_TYPE，于是 HomeViewModel 与 SettingsScreen 里显示版本号的地方报
+        //        Unresolved reference 'VERSION_CODE' / 'VERSION_NAME'
+        //    这里用与宿主完全相同的版本号补上这两个字段
+        //    （数值取自根 build.gradle 的 ext.versionCode / versionName）。
+        buildConfigField 'int', 'VERSION_CODE', "${rootProject.ext.versionCode}"
+        buildConfigField 'String', 'VERSION_NAME', "\"${rootProject.ext.versionName}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+        compose true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            consumerProguardFiles 'proguard-rules.pro'
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['/META-INF/**']
+        }
+    }
+
+    kotlin {
+        jvmToolchain(21)
+    }
+}
+
+configurations.configureEach {
+    exclude group: 'androidx.profileinstaller', module: 'profileinstaller'
+}
+
+dependencies {
+    implementation managerLibs.bundles.kotlinxCoroutines
+
+    implementation project(':server')
+    implementation project(':api')
+    implementation project(':provider')
+
+    implementation libs.hidden.compat
+    compileOnly libs.hidden.stub
+
+    implementation managerLibs.bundles.core
+    implementation managerLibs.bundles.lifecycle
+
+    implementation managerLibs.material
+
+    def composeBom = platform(managerLibs.composeBom)
+    implementation composeBom
+    implementation managerLibs.bundles.composeUi
+    debugImplementation managerLibs.composeUiTooling
+
+    implementation managerLibs.libsuCore
+
+    implementation managerLibs.bundles.nativeCrypto
+
+    implementation managerLibs.appiconloader
+
+    implementation managerLibs.okhttp
+
+    implementation managerLibs.capsule
+
+    implementation managerLibs.composeMarkdown
+
+    implementation managerLibs.roomRuntime
+    implementation managerLibs.roomKtx
+    ksp managerLibs.roomCompiler
+    implementation managerLibs.gson
+    implementation managerLibs.workRuntimeKtx
+}

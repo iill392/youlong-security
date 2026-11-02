@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="colorize">
+        <item>@string/pref_disabled</item>
+        <item>@string/pref_popup_border_sum</item>
+        <item>@string/pref_autocol_border</item>
+        <item>@string/pref_autocol_bg</item>
+        <item>@string/pref_autocol_mat_bg</item>
+    </string-array>
+    <string-array name="colorize_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+    <array name="dark_colors">
+        <item>@color/md_black</item>
+        <item>#ff323232</item>
+        <item>#ff880e4f</item>
+        <item>#ff4a148c</item>
+        <item>#ff1a237e</item>
+        <item>#ff01579b</item>
+        <item>#ff006064</item>
+        <item>#ff004d40</item>
+        <item>#ff1b5e20</item>
+        <item>#ff33691e</item>
+        <item>#ff827717</item>
+        <item>#ffc66713</item>
+        <item>#ffb54f00</item>
+        <item>#ffaa3c00</item>
+        <item>#ff87290c</item>
+    </array>
+    <string-array name="interaction">
+        <item>@string/pref_open</item>
+        <item>@string/pref_expand</item>
+        <item>@string/pref_hide</item>
+        <item>@string/pref_clear</item>
+        <item>@string/pref_popup_live</item>
+    </string-array>
+    <string-array name="interaction_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+    </string-array>
+    <array name="light_colors">
+        <item>@color/md_white</item>
+        <item>@color/md_grey_300</item>
+        <item>@color/md_pink_200</item>
+        <item>@color/md_brown_300</item>
+        <item>@color/md_brown_400</item>
+        <item>@color/md_cyan_100</item>
+        <item>@color/md_cyan_300</item>
+        <item>@color/md_cyan_600</item>
+        <item>@color/md_blue_400</item>
+        <item>@color/md_blue_a400</item>
+        <item>@color/md_teal_200</item>
+        <item>@color/md_teal_400</item>
+        <item>@color/md_light_green_300</item>
+        <item>@color/md_green_300</item>
+        <item>@color/md_green_500</item>
+        <item>@color/md_lime_a100</item>
+        <item>@color/md_yellow_300</item>
+        <item>@color/md_yellow_600</item>
+        <item>@color/md_orange_400</item>
+        <item>@color/md_red_500</item>
+    </array>
+    <array name="light_colors2">
+        <item>@color/md_white</item>
+        <item>@color/md_grey_300</item>
+        <item>@color/md_pink_200</item>
+        <item>@color/md_brown_300</item>
+        <item>@color/md_black</item>
+        <item>@color/md_cyan_100</item>
+        <item>@color/md_cyan_300</item>
+        <item>@color/md_cyan_600</item>
+        <item>@color/md_blue_400</item>
+        <item>@color/md_blue_a400</item>
+        <item>@color/md_teal_200</item>
+        <item>@color/md_teal_400</item>
+        <item>@color/md_light_green_300</item>
+        <item>@color/md_green_300</item>
+        <item>@color/md_green_500</item>
+        <item>@color/md_lime_a100</item>
+        <item>@color/md_yellow_300</item>
+        <item>@color/md_yellow_600</item>
+        <item>@color/md_orange_400</item>
+        <item>@color/md_red_500</item>
+    </array>
+    <array name="mat_colors">
+        <item>#fffafafa</item>
+        <item>@color/md_grey_500</item>
+        <item>@color/md_blue_grey_500</item>
+        <item>#ff535353</item>
+        <item>@color/md_black</item>
+        <item>@color/md_cyan_500</item>
+        <item>@color/md_blue_500</item>
+        <item>@color/md_deep_purple_500</item>
+        <item>@color/md_indigo_500</item>
+        <item>#ff1a237e</item>
+        <item>@color/md_teal_300</item>
+        <item>@color/md_teal_500</item>
+        <item>@color/md_teal_700</item>
+        <item>@color/md_light_green_500</item>
+        <item>@color/md_green_500</item>
+        <item>@color/md_yellow_500</item>
+        <item>@color/md_lime_300</item>
+        <item>@color/md_amber_500</item>
+        <item>@color/md_orange_600</item>
+        <item>@color/md_deep_orange_700</item>
+    </array>
+    <string-array name="position">
+        <item>@string/pref_middle</item>
+        <item>@string/pref_left</item>
+    </string-array>
+    <string-array name="position_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+</resources>

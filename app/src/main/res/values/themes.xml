@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  2026-10 改动（用户反馈：不同机型状态栏透明导致看不到时间）
+  ==========================================================================
+  原配置：
+      <item name="android:statusBarColor">@color/white</item>
+      <item name="android:windowLightStatusBar">true</item>
+
+  问题：
+    · 状态栏底色写死纯白，而页面背景是 #F2F2F7；
+    · windowLightStatusBar 写死 true（深色图标），且没有 values-night 版本；
+    · 夜间模式（Theme.Material3.DayNight）下页面变深，深色图标压在深色背景上，
+      时间与系统图标就看不见了；
+    · 进出全屏（WebView 视频）时也没有重新同步外观。
+
+  改为：
+    · statusBarColor / navigationBarColor 取 @color/app_window_bg
+      （白天 #F2F2F7 / 夜间 #1C1C1E，见 colors_window.xml）；
+    · windowLightStatusBar 取 @bool/app_light_status_bar
+      （白天 true = 深色图标，夜间 false = 浅色图标）；
+    · 运行时仍由 MainActivity.syncStatusBarAppearance() 兜底再设一次
+      （兼容个别 ROM 读取主题属性时机不一致的情况）。
+
+  注意：XML 注释里不能出现连续两个减号，所以本文件的分隔线一律用等号。
+  ==========================================================================
+-->
+<resources>
+
+    <style name="Theme.YouLongTool" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+
+        <!-- 2026-10 改动：状态栏不再用写死的纯白，改为随白天/夜间解析的实色 -->
+        <item name="android:statusBarColor">@color/app_window_bg</item>
+        <item name="android:navigationBarColor">@color/app_window_bg</item>
+        <item name="android:windowLightStatusBar">@bool/app_light_status_bar</item>
+    </style>
+
+    <!-- 2026-10-24 新增：高风险应用提醒弹窗（全屏透明，卡片背景自绘） -->
+    <style name="Theme.YouLongTool.VirusAlert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

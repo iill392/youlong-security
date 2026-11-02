@@ -1,0 +1,32 @@
+// ==========================================================================
+// :aidl —— Stellar AIDL 接口（com.stellar.server.*）
+// --------------------------------------------------------------------------
+// 源码来自 https://github.com/roro2239/Stellar-API （MPL-2.0 + Apache-2.0）。
+//
+// 本文件是**本工程适配版**，不是上游原文件：
+//   · 上游用 `apply from: file('../publish.gradle')` 发布到 JitPack，
+//     本工程是源码内置，不需要发布环节，故删除该行；
+//   · 上游的 compileSdk / minSdk / Java 版本由上游根 build.gradle 的
+//     subprojects 块统一注入，本工程同样在根 build.gradle 注入，故此处不重复；
+//   · 其余（namespace、buildFeatures、Java 21）与上游一致。
+// ==========================================================================
+plugins {
+    id('com.android.library')
+}
+
+android {
+    namespace 'com.stellar.aidl'
+    buildFeatures {
+        buildConfig false
+        aidl true
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}

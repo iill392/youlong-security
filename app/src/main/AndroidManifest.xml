@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:hardwareAccelerated="true">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 悬浮窗权限 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 全屏通知弹窗（绕过 Android 10+ 后台启动 Activity 限制） -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 前台服务 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 修改系统设置（亮度） -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 清理后台进程 -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- 获取任务列表（用于清理后台） -->
+    <uses-permission android:name="android.permission.GET_TASKS"
+        tools:ignore="Deprecated" />
+    <!-- 鸿蒙6兼容：包使用情况权限 -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 查询所有已安装应用 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+    <!--
+      ======================================================================
+      2026-10 新增：国内 ROM 的「读取已安装应用列表」运行时权限
+      ======================================================================
+      说明：标准 Android 上 QUERY_ALL_PACKAGES 是 normal 权限（安装即授予、不可弹窗）；
+      但国内 ROM（vivo / 小米 / OPPO 等）把它做成了一个**需要用户授权**的运行时权限，
+      权限名就是厂商自定义的：
+          com.android.permission.GET_INSTALLED_APPS
+      声明它之后再配合 requestPermissions()，系统就会弹出「允许读取应用列表」对话框。
+      申请前需要先用系统隐藏配置项判断该 ROM 是否支持：
+          Settings.Secure.getInt(cr, "oem_installed_apps_runtime_permission_enable", 0) > 0
+      （小米另一种判断方式是检查权限提供者包名是否为 com.lbe.security.miui）
+
+      这里同时保留 QUERY_ALL_PACKAGES：海外版 / 原生 Android 靠它，
+      国内 ROM 靠 GET_INSTALLED_APPS，两条路互补。
+      ======================================================================
+    -->
+    <uses-permission android:name="com.android.permission.GET_INSTALLED_APPS"
+        tools:ignore="ProtectedPermissions" />
+    <!-- 安装 APK（游龙桌面宠物） -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 卸载应用（安全护盾） -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <!-- 忽略电池优化（允许后台高耗电） -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 精确闹钟（保活用） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!--
+      2026-10 新增（用户需求：LMK 清除不掉的闹钟自启动）
+      说明：Android 13+ 起，targetSdk >= 33 的应用默认**拿不到** SCHEDULE_EXACT_ALARM
+      （需要用户去「闹钟和提醒」里手动开）。保活闹钟必须精确、必须能在 Doze 里唤醒，
+      否则进程被 LMK 回收后无法按时拉回。
+      USE_EXACT_ALARM 是「闹钟类应用」专用的普通权限，安装即授予，
+      可让 setExactAndAllowWhileIdle 直接生效。本应用为侧载分发的安全工具，
+      用它是为了让保活链真正可靠。
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <!-- ==================================================================
+         内置 Stellar（源码级融合）的权限与 Provider
+         ==================================================================
+         本应用把 Stellar 的服务端、管理器与启动器源码直接编译进自己的 APK，
+         因此「管理器」就是本应用自己，不需要也不应该依赖外部 Stellar 应用。
+         Stellar 客户端 API 的 checkSelfPermission() 由服务端按
+             roro.stellar.server.ServerConstants.MANAGER_APPLICATION_ID
+         判定「调用者是不是管理器」，因此该常量与 PROVIDER 的 authority
+         必须与本应用的 applicationId（com.youlong.hd）一致 —— 见
+         embedded/server/.../ServerConstants.kt 内的修改声明，
+         以及下方 StellarProvider 的 authority="${applicationId}.stellar"。
+         ================================================================== -->
+    <permission
+        android:name="com.youlong.hd.permission.API_V23"
+        android:protectionLevel="signature" />
+    <permission
+        android:name="com.youlong.hd.permission.MANAGER"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.youlong.hd.permission.API_V23" />
+    <uses-permission android:name="com.youlong.hd.permission.MANAGER" />
+
+    <queries>
+        <package android:name="com.sec.android.app.myfiles" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/vnd.android.package-archive" />
+        </intent>
+    </queries>
+
+    <!--
+      ==================================================================
+      内置 Stellar 管理器（:manager 库模块）与本宿主应用的清单合并
+      ==================================================================
+      :manager 自带一份 AndroidManifest（上游它是独立 APK）。作为库模块并入
+      本应用后，若干属性与宿主冲突，必须由宿主显式声明「以我为准」：
+
+        application@name       宿主 com.youlong.hd.YouLongApp
+                               vs 上游 roro.stellar.manager.StellarApplication
+                               （上游那个 Application 不会被实例化，
+                                 它的初始化改由 YouLongApp 显式调用，
+                                 见 YouLongApp.java 内的修改声明）
+        application@label      宿主「游龙安全护盾」 vs 上游 "Stellar"
+        application@theme      宿主 Theme.YouLongTool vs 上游 AppTheme
+        application@allowBackup       宿主 false vs 上游 true
+        application@fullBackupContent 宿主 false vs 上游 @xml/backup_descriptor
+
+      这些都必须保留宿主的值：本应用对备份/主题/应用名有明确要求。
+      ==================================================================
+    -->
+    <application
+        android:name=".YouLongApp"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.YouLongTool"
+        android:usesCleartextTraffic="true"
+        tools:replace="android:name,android:label,android:theme,android:allowBackup,android:fullBackupContent"
+        tools:targetApi="31">
+        <meta-data android:name="android.max_aspect" android:value="3.5" />
+        <meta-data android:name="com.google.android.gms.version" android:value="@integer/google_play_services_version" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout|uiMode|keyboardHidden"
+            android:hardwareAccelerated="true"
+            android:screenOrientation="portrait">
+            <!-- ============================================================
+                 隐藏桌面图标：**只声明 MAIN，不声明 LAUNCHER**
+                 ============================================================
+                 这是本应用的原始设计，不是疏漏：
+                 安装后系统桌面不显示图标，应用通过其它组件 / 显式 Intent 拉起。
+                 （历史上一直如此，见 git 记录里那条
+                   「隐藏桌面图标：不声明 LAUNCHER category」注释。）
+
+                 ⚠️ 2026 年内核迁移期间这里出过两次反复，记录在此以免再踩：
+
+                 ① 内置 Stellar 管理器（:manager 库模块）的 MainActivity 自带
+                        <action MAIN/> + <category LAUNCHER/>
+                    这个 intent-filter 并入宿主后**顶掉了宿主的桌面身份**：
+                    桌面出现了一个图标，而且点它进的是 Stellar 管理器界面，
+                    不是本应用的 index 主页。
+                    已从 embedded/manager/src/main/AndroidManifest.xml 删除该
+                    intent-filter（见那里的修改声明）。
+
+                 ② 删除之后我曾一度在这里**补上** LAUNCHER，理由是「整个应用
+                    没有桌面入口了」—— 这是误判：原设计就是要没有入口。
+                    现已还原为只声明 MAIN。
+
+                 所以现在：桌面**不显示**任何本应用的图标。
+                 管理器界面仍可进入：应用内「内置特权服务」页 →
+                 「打开特权服务管理器」按钮 → MainActivity.openStellarManager()
+                 以显式 ComponentName 启动 roro.stellar.manager.MainActivity。
+                 ============================================================ -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+
+        <!-- 哨兵守护服务：独立进程，与主进程 ProtectService 互相监视（双进程守护） -->
+        <service
+            android:name=".ForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":guard"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="哨兵守护，双进程互相监视，防锁机防护被杀后自动复活" />
+        </service>
+        <service
+            android:name=".ScreenFilterService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="全屏半透明覆盖层,用于屏幕调暗" />
+        </service>
+
+        <!-- 广告跳过无障碍服务 -->
+        <service
+            android:name=".AdSkipService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!--
+          ==================================================================
+          ⚠️ 这里**刻意不声明**任何 Stellar Provider
+          ==================================================================
+          历史：2026 年迁移时，此处照搬 Stellar 的「客户端接入指南」，声明了
+              <provider android:name="roro.stellar.StellarProvider"
+                        android:authorities="${applicationId}.stellar" ... />
+
+          ⚠️ 这是**错误**的，会导致「内置特权服务连不上」，已在真机复现：
+            内置管理器（:manager 库模块）自己也声明了一个 provider
+                  embedded/manager/src/main/AndroidManifest.xml
+                  <provider android:name=".StellarManagerProvider"
+                            android:authorities="${applicationId}.stellar" ...>
+            两者落到**同一个 authority** `com.youlong.hd.stellar`，而 Android 对
+            同一 authority 只认一个 provider。服务端投递 Binder 时是按
+                  ActivityManagerApis.getContentProviderExternal("com.youlong.hd.stellar", ...)
+            找 provider 并 call("sendBinder", extras)，找到的那个若不是能处理该
+            方法的实现，call 直接失败 → Binder 永远到不了 Stellar.INSTANCE →
+            应用侧表现为「特权服务未启动 / 无法打开内置特权」。
+
+          正确的做法：**只保留管理器那一个 provider**。它本身就是完整超集：
+              class StellarManagerProvider : StellarProvider()
+            它在 call() 里处理管理器专属方法（loadConfig/saveConfig/logs…），
+            其余方法一律 super.call(...) 回落到 StellarProvider 的
+            sendBinder / getBinder / sendUserService 实现。
+          也就是说：管理器的 provider 同时承担了客户端 provider 的全部职责，
+          再单独声明一个 StellarProvider 纯属多余且有害。
+
+          （roro.stellar.StellarProvider 这个**类**仍然需要打包进 APK ——
+            StellarManagerProvider 继承它；只是不该在清单里再注册一份。）
+          ==================================================================
+        -->
+        <!-- 本工程删除（原因见上方长注释）
+        <provider
+            android:name="roro.stellar.StellarProvider"
+            android:authorities="${applicationId}.stellar"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+        -->
+
+        <!-- 声明本应用向 Stellar 服务端申请的权限类型。
+             stellar = 基础 Stellar API 访问权限（必需）。
+             服务端在 BinderSender 里就是靠读这条 meta-data 判断
+             「这个包要不要发 Stellar Binder」的
+             （见 server/.../BinderSender.kt: metaData.getString(PERMISSION_KEY)）。
+             实际承载它的 provider 是管理器声明的 StellarManagerProvider。 -->
+        <meta-data
+            android:name="roro.stellar.permissions"
+            android:value="stellar" />
+
+        <!-- FileProvider for APK install -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/image_share_filepaths" />
+        </provider>
+
+        <!-- 游龙安全护盾 - ProtectService -->
+        <service
+            android:name=".ProtectService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="防锁机守护前台服务,监控音量键和屏幕状态,检测可疑锁机行为" />
+        </service>
+
+        <!-- 游龙安全护盾 - RescueWindowService -->
+        <service
+            android:name=".RescueWindowService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!--
+          ==================================================================
+          本工程已**彻底移除**本应用的设备管理器（DeviceAdmin）能力
+          ==================================================================
+          2026-10-01 按需求删除。原声明为：
+              <receiver android:name=".DeviceAdminReceiver"
+                        android:exported="true"
+                        android:permission="android.permission.BIND_DEVICE_ADMIN">
+                  <meta-data android:name="android.app.device_admin"
+                             android:resource="@xml/device_admin" />
+                  <intent-filter><action
+                      android:name="android.app.action.DEVICE_ADMIN_ENABLED"/></intent-filter>
+              </receiver>
+
+          连同一并删除的还有：
+            · app/src/main/java/com/youlong/hd/DeviceAdminReceiver.java（整个类）
+            · app/src/main/res/xml/device_admin.xml（策略声明）
+            · MainActivity 里的 isDeviceAdminActive() / requestDeviceAdmin() /
+              getDeviceAdminStatus() / openDeviceAdminSystemUi() 及 HTML 桥接
+            · index.html 里「激活设备管理器」的按钮与相关状态
+
+          ⚠️ 若某些设备上该应用**曾经激活过**设备管理器，升级安装不会自动撤销，
+             仍会在系统的「设备管理器」列表里残留一条记录。
+             用户需要在系统设置里手动取消勾选，或者卸载重装。
+          ==================================================================
+        -->
+
+        <!-- 游龙安全护盾 - 开机自启 / 应用更新自启 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- 2026-10 新增：应用被覆盖安装后系统会清掉旧的 PendingIntent，
+                     必须收到这个广播后重新排保活闹钟 -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- 部分 ROM 的快速开机广播（非标准，收到就顺手处理） -->
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 游龙安全护盾 - 保活闹钟（LMK 清不掉的系统级闹钟，触发后自动续期） -->
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- 游龙安全护盾 - 设备管理器警告 Activity -->
+        <activity
+            android:name=".ShieldWarnActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- 黑名单管理 -->
+        <activity
+            android:name=".BlacklistActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Light.NoTitleBar" />
+
+        <!-- 白名单管理 -->
+        <activity
+            android:name=".WhitelistActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Light.NoTitleBar" />
+
+        <!-- 白名单添加（全屏，替代旧弹窗） -->
+        <activity
+            android:name=".WhitelistPickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Light.NoTitleBar" />
+
+        <!-- 盗版警告页 — 签名校验失败时显示，防篡改 -->
+        <activity
+            android:name="com.youlong.hd.PiracyWarningActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+
+        <!-- 通知栏卸载按钮广播接收器 -->
+        <receiver
+            android:name=".NotifyUninstallReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- 2026-10-24：新装/更新应用后立即检测，不必等 3 分钟轮询 -->
+        <receiver
+            android:name=".VirusInstallReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 批量清除病毒弹窗 -->
+        <activity
+            android:name=".BatchCleanupActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+    </application>
+
+</manifest>

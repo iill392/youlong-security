@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  游龙安全护盾 —— 状态栏/窗口配色（2026-10 新增）
+  ==========================================================================
+  背景：不同机型上「状态栏透明导致看不到时间」，根因是三处硬编码：
+    · themes.xml 里 android:statusBarColor 固定为纯白 @color/white；
+    · themes.xml 里 android:windowLightStatusBar 固定为 true（深色图标）；
+    · activity_main.xml 里 statusBarSpacer 与根布局背景固定为 @color/white；
+    · 而且没有 values-night 版本，夜间模式下页面背景变深、图标仍是深色，
+      时间与图标就彻底看不见了。
+
+  做法：把「窗口背景色」与「状态栏图标明暗」都抽成可随白天/夜间解析的资源，
+  由 MainActivity 在运行时读取并应用到 window 上（见 syncStatusBarAppearance()）。
+  白天用与页面一致的浅灰 #F2F2F7，夜间用深色 #1C1C1E，并分别配深色/浅色图标。
+
+  ⚠️ 这两个颜色必须与 index.html 里 body 的 background 保持一致：
+     白天 #F2F2F7、夜间 #1C1C1E（见 index.html 的 @media (prefers-color-scheme: dark)）。
+  ==========================================================================
+-->
+<resources>
+    <color name="app_window_bg">#FFF2F2F7</color>
+    <bool name="app_light_status_bar">true</bool>
+</resources>

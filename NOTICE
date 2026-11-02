@@ -1,0 +1,635 @@
+游龙安全护盾 (YouLong Security Shield)
+Copyright (C) 2026 游龙
+
+本产品包含第三方开发的开源软件。
+This product includes open source software developed by third parties.
+
+■ 版权声明（2026-11-01）
+
+1. 本产品「游龙安全护盾」的自有代码、界面与文档：
+   Copyright (C) 2026 游龙，适用 Apache License 2.0。
+2. 本产品的内置特权框架基于 Stellar 修改而来：
+   Stellar / Stellar-API  https://github.com/roro2239/Stellar
+   Copyright (C) roro2239 / RoRo Studio
+   修改部分适用 Mozilla Public License 2.0。
+3. Stellar 内部保留的 Shizuku 兼容代码：
+   Shizuku / Shizuku-API  https://github.com/RikkaApps/Shizuku
+   Copyright (C) RikkaApps，适用 Apache License 2.0。
+4. 本产品是独立修改版，不是 Stellar 或 Shizuku 的官方产品，与上述作者/组织
+   不存在隶属、合作、代理或背书关系；“Stellar”“Shizuku”等名称、标识、商标
+   归各自权利人所有，本产品仅在描述代码来源、兼容性与许可归属时使用。
+5. 本产品未使用 Stellar / Shizuku 作为应用名称，未使用其官方 applicationId；
+   Java/Kotlin 包名 roro.stellar.* / com.stellar.* / moe.shizuku.* 仅因 AIDL、
+   JNI 与协议兼容而保留，不代表官方版本或作者身份。
+6. 品牌显示与日志本地化：本产品仅将无线调试配对设备显示名及用户可见日志中的
+   上游名称 “Stellar” 显示为 “youlong”；不改变源代码包名、Binder 接口、
+   文件格式、许可证或版权归属。
+7. 完整版权声明与源代码获取方式见根目录 COPYRIGHT.md / 版权声明.md；
+   许可证全文、修改文件清单与源码获取方式见本文件后续章节。
+8. 应用内查看入口：内置特权 → 设置 → 项目声明 / 开源许可。
+
+■ Shizuku 兼容层现状说明（2026-11-01 修订）
+
+早期版本曾尝试在启动内置特权时结束第三方 Shizuku 服务进程
+（shizuku_server / shizuku_daemon）。该行为自 V63 起已彻底移除。
+
+当前版本不结束、不冻结、不强制停止第三方 Shizuku 服务，不修改其 APK 或
+数据，也不再通过击杀 Shizuku 进程来接管其客户端；仅在本产品自身的权限与
+审计框架内提供 Shizuku 兼容接口。Shizuku 相关版权与许可证仍归 RikkaApps，
+适用 Apache-2.0。早期 NOTICE 中与此不一致的描述，以本节和 COPYRIGHT.md
+为准。
+
+⚠️ 2026 年重要变更：本产品的内置特权内核已由上游 Shizuku 整体替换为
+   **Stellar**（Shizuku 的深度定制分支）。因此本文件相比旧版本有三处实质变化：
+     1. 新增「Stellar 修改部分 —— Mozilla Public License 2.0」一节。
+        这是本产品**首次**包含弱 copyleft（MPL-2.0）许可的代码。
+     2. Shizuku 一节改为说明「Stellar 内含的上游 Shizuku 代码」，
+        许可仍为 Apache-2.0，版权归 RikkaApps。
+     3. 逐条列出本工程对 Stellar 源码所做的全部修改（MPL-2.0 第 3.4 条 /
+        Apache-2.0 第 4(b) 条要求「被修改的文件需带显著修改声明」）。
+
+
+================================================================================
+1. Stellar —— Mozilla Public License 2.0（修改部分）
+================================================================================
+
+    Stellar        https://github.com/roro2239/Stellar
+    Stellar-API    https://github.com/roro2239/Stellar-API
+    Copyright (C) roro2239 / RoRo Studio
+    修改部分采用 Mozilla Public License, v. 2.0
+    许可证全文见 LICENSES/MPL-2.0.txt（随本产品一同分发）
+
+融合位置（源码级内置，非 Maven 依赖）：
+
+    embedded/manager/        Stellar 管理器（Compose + Material3 界面、授权管理、
+                             ADB 无线配对、开机启动、Room 数据库）
+    embedded/server/         Stellar 特权服务端（ADB / Root 进程内运行）
+    embedded/aidl/           Stellar AIDL 接口（com.stellar.server.*）
+    embedded/shared/         共享常量（roro.stellar.StellarApiConstants）
+    embedded/api/            客户端 SDK（roro.stellar.Stellar 等）
+    embedded/provider/       StellarProvider（接收服务端下发的 Binder）
+    embedded/userservice/    UserService 框架
+    embedded/shizuku-aidl/   Shizuku 兼容层 AIDL（moe.shizuku.server.*）
+    embedded/shizuku-api/    Shizuku 兼容层客户端
+    app/src/main/cpp/stellar/ 原生层（取自 manager/src/main/jni/）
+
+■ 本工程修改声明（MPL-2.0 第 3.4 条）
+
+  以下每一处改动都已在**被改动的文件顶部**写入显著的中文修改说明注释，
+  且逐条列在这里以便接收者核对。改动全部是「适配宿主应用」性质，
+  不涉及算法、协议、数据结构或安全语义的改变。
+
+  (A) 应用级标识符改写（不改变 Java/Kotlin 包名）
+      上游 Stellar 管理器是独立 APK（applicationId = roro.stellar.manager）；
+      本产品把管理器内置进自己的 APK，应用包名为 com.youlong.hd。
+      随之改写的应用级标识符：
+
+        应用包名 / applicationId        : com.youlong.hd
+        管理器 Provider authority        : com.youlong.hd.stellar
+        REQUEST_PERMISSION action        : com.youlong.hd.intent.action.REQUEST_PERMISSION
+        binder extra key                 : com.youlong.hd.intent.extra.BINDER
+        client binder extra key          : com.youlong.hd.intent.extra.CLIENT_BINDER
+        日志回传 Provider authority      : com.youlong.hd.stellar
+        FileProvider authority（管理器） : com.youlong.hd.stellar.fileprovider
+        StellarHelper 管理器包名         : com.youlong.hd
+        开机脚本 pm path 包名            : com.youlong.hd
+
+      ⚠️ Java/Kotlin 包名 roro.stellar.* / com.stellar.* / moe.shizuku.*
+         一律**保持上游原名不变**。原因有二：
+           · 原生启动器与 JNI 按硬编码类名工作 ——
+             starter.cpp 用 CLASSPATH 加载 roro.stellar.server.StellarService，
+             adb_pairing.cpp 用 FindClass("roro/stellar/manager/adb/PairingContext")
+             注册 native 方法；
+           · 宿主用类名字符串启动管理器界面。
+
+  (B) 构建配置适配（manager 由 application 降级为 library）
+        · embedded/manager/build.gradle：
+            插件 com.android.application → com.android.library；
+            删除 applicationId / versionCode / versionName / signingConfigs /
+            applicationVariants 输出改名等 application 专属配置；
+            删除 externalNativeBuild 与 prefab（原生部分移到 :app 统一构建）；
+            删除 collapseReleaseResourceNames 与 CompileArtProfileTask 关闭逻辑；
+            删除 dev.rikka.tools.autoresconfig 插件（该插件要求 application
+            扩展，且它生成的 StellarLocales 在全部源码中均无引用）。
+        · embedded/manager/src/main/AndroidManifest.xml：
+            删除 android:sharedUserId（上游作为独立 APK 时使用，库模块不允许）；
+            FileProvider authority 改为 ${applicationId}.stellar.fileprovider
+            （与宿主已有的 ${applicationId}.fileprovider 冲突）。
+
+  (C) 宿主导入点适配（管理器不再由系统实例化）
+        · StellarApplication.kt：
+            `application` 的类型由 StellarApplication 放宽为 Application；
+            init(context) 由 private 改为 public；
+            新增 attachApplication(Application) 供宿主赋值。
+            上游这三件事由系统调用 onCreate() 完成，本产品改为由
+            com.youlong.hd.YouLongApp 显式调用（YouLongApp 顶部有说明）。
+        · 宿主 YouLongApp.java 相应新增对 StellarApplication 的初始化调用。
+
+  (D) 逐文件的具体改动清单
+
+        app/src/main/cpp/stellar/starter.cpp
+            PACKAGE_NAME: "roro.stellar.manager" → "com.youlong.hd"
+            （仅用于 `pm path <包名>` 这条回退路径）
+
+        embedded/server/.../ServerConstants.kt
+            MANAGER_APPLICATION_ID: "roro.stellar.manager" → "com.youlong.hd"
+            （服务端据此判定「调用者是否管理器」，必须与真实包名一致）
+
+        embedded/api/.../StellarHelper.kt
+            STELLAR_MANAGER_PACKAGE_NAME: "roro.stellar.manager" → "com.youlong.hd"
+
+        embedded/provider/.../StellarProvider.kt
+            EXTRA_BINDER / EXTRA_CLIENT_BINDER / MANAGER_APPLICATION_ID
+            三处前缀 "roro.stellar.manager" → "com.youlong.hd"
+
+        embedded/server/.../binder/BinderDistributor.kt
+            三处 extraKey 前缀同上
+
+        embedded/server/.../userservice/UserServiceStarter.kt
+            EXTRA_BINDER / EXTRA_CLIENT_BINDER 前缀同上
+
+        embedded/server/.../util/Logger.kt
+            PROVIDER: "roro.stellar.manager.stellar" → "com.youlong.hd.stellar"
+
+        embedded/manager/.../startup/boot/BootScriptManager.kt
+            开机脚本内 `pm path roro.stellar.manager` → `pm path com.youlong.hd`
+
+        embedded/manager/.../ui/features/home/HomeViewModel.kt
+            自检命令 `cmd package list packages roro.stellar.manager`
+            → `cmd package list packages com.youlong.hd`
+
+        embedded/manager/.../util/update/ApkDownloader.kt
+            FileProvider authority 加上 ".stellar." 段
+        embedded/manager/src/main/AndroidManifest.xml（第二轮追加改动）
+            删除 MainActivity 的 <intent-filter>（MAIN + LAUNCHER）。
+            上游把该 Activity 作为自己 APK 的桌面入口；并入宿主后会顶掉宿主的
+            桌面身份，实测 launchable-activity 变成
+            roro.stellar.manager.MainActivity，即点桌面图标进的是管理器而非宿主
+            主页。删除后由宿主 MainActivity 声明 LAUNCHER。
+
+        embedded/manager/src/main/res/values/strings.xml 及 8 个 values-*
+            删除 app_name = "Stellar"（8 个语言目录）；默认 values/ 中该条改为
+            "游龙安全护盾"（保留作 fallback，否则 en/de/it 等语言取不到应用名）。
+            原因：库模块同名资源优先于主模块，会覆盖宿主的应用名。
+
+        embedded/manager/src/main/res/mipmap-*/ic_launcher*.webp
+        embedded/manager/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml
+        embedded/manager/src/main/res/drawable/ic_launcher_foreground.xml
+        embedded/manager/src/main/res/values/ic_launcher_background.xml
+            整组删除。原因同上：库模块的应用图标会覆盖宿主自己的 ic_launcher，
+            导致桌面图标变成 Stellar 的图标。
+        embedded/manager/src/main/AndroidManifest.xml（第三轮追加改动）
+            删除 StellarAccessibilityService 的无障碍服务声明（整块 <service>）。
+            上游用它作为「开机自启的无障碍跳板」（连接后把 BootCompleteReceiver
+            置为 enabled）。其无障碍说明文字取自 app_name，因此在系统「无障碍」
+            列表里与宿主自己的 AdSkipService 同名（都显示「游龙安全护盾」），
+            实测出现两个同名条目，用户无法分辨该开哪个。
+            宿主开机自启本就由自己的 com.youlong.hd.BootReceiver 负责，不依赖它。
+            连带删除 res/xml/accessibility_service_config.xml。
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+            删除「无障碍自启」开关（AnimatedVisibility + SettingsInnerSwitchRow）、
+            「自动授予无障碍权限」提示弹窗，以及配套状态变量
+            bootBroadcastAccessibilityEnabled / showAccessibilityHintDialog。
+            原因：其对应的无障碍服务已删除，开关留着会误导用户。
+            applyBootMode() 中写入的 accessibilityAutoStart 恒为 false。
+
+        embedded/server/.../ConfigManager.kt
+            isAccessibilityAutoStartEnabled() 由「读管理器配置」改为恒返回 false。
+            原因：组件已不存在，再往 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            写入无效条目没有意义。
+
+  (E) 第五轮改动：命令安全拦截 + 内置管理器界面品牌化（2026-10）
+
+      第五轮在「适配宿主」之外新增了两个功能性改动，并因此改动了若干上游文件。
+      所有被改动的上游文件顶部均写有显著的中文修改说明注释。
+
+      ■ 新增功能一：命令安全拦截
+
+        背景：内置 Stellar 让本产品自己就是管理器，但任何获得 stellar 权限的
+        第三方应用都能借 Stellar 的 shell 身份执行任意命令，包括卸载 / 冻结 /
+        批量停止其它应用，甚至针对本产品自身。为此在「一切远程命令执行」的
+        唯一汇聚点加了拦截。
+
+        embedded/server/.../service/process/CommandInterceptor.kt
+            **本工程新增文件（非上游文件）**。规则判定：
+              · 命令中出现 com.youlong.hd / com.youlong.tool（非只读命令）
+                → 直接拒绝；
+              · am kill-all / pkill / killall / 先枚举包再批量操作
+                → 直接拒绝；
+              · pm uninstall / disable(-user) / suspend / hide / clear
+                → 需要用户确认。
+
+        embedded/server/.../service/process/CommandGuard.kt
+            **本工程新增文件（非上游文件）**。负责把「被拦截 / 需确认」变成
+            用户看得见的一次弹窗，并在需要确认时等待用户答复。
+            服务端与管理器用文件握手（/data/local/tmp/stellar_guard/），
+            因此**没有改动任何上游 AIDL 接口**。
+
+        embedded/server/.../service/process/ProcessManager.kt（第五轮改动）
+            newProcess() 与 newPtyProcess() 在真正 fork 进程之前调用
+            CommandGuard.guard(...)：管理器自身放行；命中规则时抛
+            SecurityException（沿 binder 调用栈返回给发起方）。
+            PTY 通道（rish 走的路径）一并把关，否则它可以绕过 newProcess。
+
+        embedded/server/.../ServerConstants.kt（第五轮改动）
+            新增 COMMAND_GUARD_ACTION 常量（上游没有），用于拉起拦截对话框。
+
+        embedded/manager/.../authorization/CommandGuardActivity.kt
+            **本工程新增文件（非上游文件）**。拦截告警框 / 确认框界面；
+            用户选择写回答复文件。
+
+        embedded/manager/src/main/AndroidManifest.xml（第五轮改动）
+            新增 CommandGuardActivity 声明（exported + action + 与
+            RequestPermissionActivity 相同的 INTERACT_ACROSS_USERS_FULL 保护）。
+
+        embedded/manager/src/main/res/values*/strings.xml（第五轮改动）
+            新增 command_guard_* 字符串（12 条，仅 values 与 values-zh-rCN 提供译文，
+            其余语言回落英文）。
+
+      ■ 新增功能二：内置管理器界面品牌化（默认护盾品牌配色）
+
+        embedded/manager/.../ui/theme/BrandColors.kt
+            **本工程新增文件（非上游文件）**。护盾品牌色板，主色取自宿主
+            网页 UI 的 #007AFF / #FF3B30。
+
+        embedded/manager/.../ui/theme/Theme.kt（第五轮改动）
+            默认色板由 Material3 默认色改为 BrandColors；dynamicColor 默认
+            由 true 改为 false，实际取值改由 ThemePreferences.colorMode 决定；
+            导航栏改为透明并同步图标明暗。
+
+        embedded/manager/.../ui/theme/ThemePreferences.kt（第五轮改动）
+            新增 ColorMode 枚举（BRAND / DYNAMIC）与对应持久化。
+
+        embedded/manager/.../StellarSettings.kt（第五轮改动）
+            新增 COLOR_MODE 偏好键。
+
+        embedded/manager/.../ui/components/GuardVisuals.kt
+            **本工程新增文件（非上游文件）**。品牌顶栏、首页渐变「护盾卡」、
+            盾牌标识、状态胶囊标签等复用组件。
+
+        embedded/manager/.../ui/features/home/HomeScreen.kt（第五轮改动）
+            顶栏改为品牌顶栏；首页主状态卡改为 ShieldHeroCard。
+
+        embedded/manager/.../ui/features/apps/AppsScreen.kt（第五轮改动）
+            顶栏改为品牌顶栏；授权状态由纯文字改为状态胶囊标签。
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt（第五轮改动）
+            顶栏改为品牌顶栏；「个性化」里新增「配色来源」二选一。
+
+        embedded/manager/.../ui/features/terminal/TerminalScreen.kt（第五轮改动）
+            顶栏改为品牌顶栏；命令输出区改为深色「终端面板」外观。
+
+        embedded/manager/.../ui/navigation/components/BottomNavigationManager.kt
+            （第五轮改动）底部/侧边导航显式指定品牌配色、选中指示器与分割线。
+
+      ■ 第四轮改动（承上）
+        app/src/main/AndroidManifest.xml（第四轮追加改动）
+            删除 <receiver android:name=".DeviceAdminReceiver"> 整块声明
+            （含 BIND_DEVICE_ADMIN 权限与 android.app.device_admin meta-data）。
+            同时删除 app/src/main/res/xml/device_admin.xml 与
+            app/src/main/java/com/youlong/hd/DeviceAdminReceiver.java（整个类）。
+            说明：DeviceAdminReceiver 是本应用**自有代码**（Apache-2.0），
+            不属于 Stellar 派生文件；此条记录仅为本工程变更留痕。
+
+        app/src/main/java/com/youlong/hd/MainActivity.java
+            删除 isDeviceAdminActive() / requestDeviceAdmin() /
+            getDeviceAdminStatus() / openDeviceAdminSystemUi() 四个方法、
+            openPermSettings() 的 "deviceadmin" 分支、
+            getMissingPermissions() 返回里的 deviceAdmin 字段
+            （改为常量 false 以兼容可能缓存的旧页面），
+            以及未再使用的 import android.app.admin.DevicePolicyManager。
+
+        app/src/main/java/com/youlong/hd/ProtectService.java
+            · 新增 startUninstallForceStopLoop() / stopUninstallForceStopLoop()：
+              卸载期间后台持续 force-stop 目标与第三方应用；
+              跨进程停止信号用哨兵文件 getFilesDir()/uninstall_fs_loop.flag 传递。
+            · runPreUninstallAdminRevoke() 改为从 assets 取脚本落盘后以文件执行，
+              不再把脚本拼成长命令行经 stdin 灌入（避免截断/挂住）。
+            · closeDailyOverlay() 与卸载收尾改用 stopUninstallForceStopLoop()。
+
+        app/src/main/assets/uninstall_helpers.sh（本工程新增，非上游文件）
+            预卸载解除设备管理员的 shell 脚本；每条 dpm 命令套 timeout，
+            并有总时长上限，保证不会卡住。
+
+        app/src/main/assets/index.html
+            删除 PERM_INFO 里的 deviceAdmin 项、needDeviceAdmin() 函数
+            以及两处 deviceAdmin 特判；同步移除「激活设备管理器」入口。
+
+  (G) 第六轮改动：界面去品牌化 + 删除更新模块 + 开源许可入口（2026-10）
+
+      本轮全部是界面与功能裁剪，**没有触碰 Stellar 的算法、权限模型、
+      Binder 协议、AIDL 接口定义、数据库结构**。
+
+      ■ 删除「命令」（Terminal）页
+
+        embedded/manager/.../ui/navigation/routes/NavigationRoutes.kt
+            删除 MainScreen.Terminal 枚举项（上游为 4 项：启动/授权应用/命令/设置，
+            本工程为 3 项）。
+
+        embedded/manager/.../MainActivity.kt
+            删除 TerminalScreen 的路由分支、startPage 的 TERMINAL 分支与 import。
+
+        embedded/manager/.../ui/theme/ThemePreferences.kt
+            删除 StartPage.TERMINAL（老用户若曾把它设为默认启动页，
+            会由 fromValue() 回落到首页）。
+
+        删除的源文件：ui/features/terminal/TerminalScreen.kt、TerminalViewModel.kt
+
+        embedded/manager/.../shortcut/CommandShortcutManager.kt（连带改动）
+            requestPin() 的参数由上游的 `command: CommandItem` 改为
+            `commandId: String` + `title: String` —— CommandItem 原本定义在
+            已删除的 terminal 包里；图标由 R.drawable.ic_stellar 改为
+            本工程新增的 R.drawable.ic_notification_shield。
+            保留「执行已保存命令」链路（开机跟随执行 / 桌面快捷方式），
+            只是不再有「命令」页这个创建入口。
+
+      ■ 删除「检查更新」模块
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+            删除 UpdateCard 卡片、NewVersionDialog、UpdateSourceDialog
+            三个 Composable，以及 7 个状态变量与 performCheckUpdate 协程动作。
+
+        删除的源文件：util/update/UpdateUtils.kt、AppUpdate.kt、ApkDownloader.kt
+
+        原因：本工程把管理器内置进宿主 APK，管理器没有独立版本；
+        且 ApkDownloader 依赖的 FileProvider 声明早已因与宿主 authority
+        冲突被删除（见本文件 1 节 (D) 段与本工程 AndroidManifest.xml 说明），
+        该链路本来就是断的。
+
+      ■ 去除 Stellar 图标
+
+        embedded/manager/.../ui/components/GuardVisuals.kt
+            ShieldMark 不再绘制 R.drawable.ic_stellar，改为可选的 Material 图标；
+            首页护盾卡改用 Icons.Default.Security；顶部应用栏标题前不再带图标；
+            分节头改用品牌色竖条。
+
+        embedded/manager/.../authorization/RequestPermissionActivity.kt
+            权限确认弹窗的图标由 R.drawable.ic_stellar 改为 Icons.Default.Security。
+
+        embedded/manager/.../adb/AdbPairingService.kt（9 处）、
+        .../startup/notification/BootStartNotifications.kt（1 处）
+            通知小图标由 R.drawable.ic_stellar 改为本工程新增的
+            R.drawable.ic_notification_shield（纯白盾牌轮廓，适配通知图标的
+            alpha 遮罩语义）。
+
+        本工程新增资源：
+            embedded/manager/src/main/res/drawable/ic_notification_shield.xml
+
+        ⚠️ 仍保留 R.drawable.ic_stellar 作为**未使用的资源文件**本身：
+           res/xml/accessibility_service_config.xml 已删除、所有 Kotlin 引用已清除，
+           资源压缩器在 release 构建中会把它裁掉；保留文件是为了尽量少删上游文件，
+           便于后续与上游 diff。
+
+      ■ 品牌名由「ADB护盾版」改为「游龙安全ADB」
+
+        embedded/manager/src/main/res/values*/strings.xml（10 个语言文件）
+            values / -ar / -es / -fr / -ja / -pt-rBR / -ru : "ADB Shield"
+                                                    -> "YouLong SafeADB"
+            values-zh-rCN : "ADB护盾版" -> "游龙安全ADB"
+            values-zh-rHK / -zh-rTW : "ADB 護盾版" -> "遊龍安全ADB"
+
+        embedded/manager/.../ui/features/home/HomeScreen.kt
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+        embedded/manager/.../ui/features/manager/StarterScreen.kt
+            界面硬编码标题与日志标签同步改名。
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+            「项目声明」里指向 Stellar 仓库的按钮文字由 "ADB护盾版" 改回 "Stellar"
+            —— 那是第三方项目的署名按钮，不该显示本产品的品牌名。
+
+      ■ 「项目声明」文案改为明确的许可证署名
+
+        embedded/manager/src/main/res/values{,-zh-rCN,-zh-rHK,-zh-rTW}/strings.xml
+            project_declaration_content 由上游那句泛泛的
+            「本项目基于 Shizuku 开发…」改为逐项署名：
+              Shizuku —— Apache License 2.0，Copyright RikkaApps
+              Stellar —— Mozilla Public License 2.0，Copyright roro2239 / RoRo Studio
+            并说明源代码、两份许可证全文与「已修改文件清单」随本产品分发，
+            可在应用内「开源许可」查看。
+
+      ■ 新增：应用内「开源许可」查看界面（合规必需）
+
+        embedded/manager/.../ui/features/settings/OpenSourceLicensesActivity.kt
+            **本工程新增文件（非上游文件）**。全屏等宽文本 + 可滚动 + 可复制。
+
+        embedded/manager/src/main/AndroidManifest.xml
+            新增该 Activity 声明（exported="false"）。
+
+        embedded/manager/src/main/res/raw/open_source_licenses.txt（本工程新增）
+        embedded/manager/src/main/res/raw/keep.xml（本工程新增）
+            许可证全文（Apache-2.0 + MPL-2.0 + NOTICE，48,476 字节）在
+            :manager 模块内的副本，以及防止被资源压缩器裁掉的 tools:keep 白名单。
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+            「设置 → 项目声明」卡片下方新增「开源许可」入口，拉起上述 Activity。
+
+        ⚠️ 许可证文本现在在 :app 与 :manager 两个模块各有一份副本
+           （app/src/main/res/raw/ 与 embedded/manager/src/main/res/raw/），
+           因为两个入口读的是各自模块的资源表。**修改时两份必须同步更新。**
+
+  (H) 第七轮改动：日常模式触发拦截时同步收窄无障碍服务（2026-10）
+
+      本项是宿主自有代码（Apache-2.0）的改动，**不涉及 Stellar**；
+      记录在此仅为变更留痕。
+
+      app/src/main/java/com/youlong/hd/ProtectService.java
+          新增 runDailyAccessibilityHarden()：
+            在「日常模式」触发拦截后台线程（showDailyThreatStage 里那个
+            反复 force-stop 全部第三方应用的循环）中，每轮执行一次
+            「只保留本应用自己的无障碍服务」的 shell 脚本：
+
+              T=<getPackageName()>;
+              C=$(settings get secure enabled_accessibility_services);
+              N=$(echo "$C" | tr ':' '\n' | grep "^$T/" | tr '\n' ':' | sed 's/:$//');
+              settings put secure enabled_accessibility_services "$N";
+              settings put secure accessibility_enabled 1;
+              echo "当前启用：$(settings get secure enabled_accessibility_services)"
+
+            调用点：
+              · showDailyThreatStage：dailyForceStopLoop = true 之后立刻
+                起一个 "daily-a11y-harden" 线程先跑一次；
+              · 同一个 threat 阶段的 force-stop 循环体内每轮再跑一次
+                （幂等，可覆盖「被停的应用又重新注册无障碍」的情况）。
+
+            目的：单纯 am force-stop 挡不住靠无障碍服务续命的恶意/勒索应用
+            （它们会被系统因绑定无障碍服务而重新拉起，继续读屏与自动点击）；
+            把 enabled_accessibility_services 收窄到只留自己的服务可以从根上
+            掐掉这条续命路径。
+
+            实现细节（已在真机验证过边界）：
+              · grep 模式必须是 "^$T/"，**不能**写成 -F -x "$T/*" ——
+                后者里的 "*" 是字面星号而非 glob，永远匹配不到
+                "包名/服务类名"，已在设备上实测确认；
+              · settings 是普通 shell 命令（不需要 root），但仍套 timeout 5，
+                防止个别 ROM 上 settings 卡住把整轮 force-stop 拖死；
+              · 失败只记日志，绝不影响 force-stop / 卸载主流程；
+              · getPackageName() 动态取包名，脚本里不写死 com.youlong.hd。
+
+  (I) 第八轮改动：宿主网页界面精简 + 环境检测（2026-10）
+
+      本轮改动集中在**宿主自有代码**（`app/src/main/assets/index.html`、
+      `app/src/main/java/com/youlong/hd/MainActivity.java`、`ProtectService.java`）
+      与两处管理器侧新增（授权应用弹窗文案、自身免询问授权）。
+      **没有触碰 Stellar 的算法、权限模型、Binder 协议、AIDL 接口定义、数据库结构。**
+
+      宿主自有代码（Apache-2.0）：
+        index.html
+          · 删除顶部「游龙安全护盾」标题栏（.header + h1）；
+          · 删除「超级拦截模式 / 极强拦截模式 / 终结模式」三个模式项及其
+            JS（updateModeUI、模式合法性校验、特权断开降级条件、
+            showFinalModeWarning 入口）；
+          · 日常模式说明改为「全网首发，病毒拦截率为100%」；
+          · 摇一摇默认力度由「标准」改为「猛摇」；
+          · 新增环境检测卡 #envWarnCard（位于「开启实时守护」上方）
+            与 refreshEnvWarning()。
+
+        MainActivity.java
+          · 新增 @JavascriptInterface getEnvironmentWarning()，检测
+            Dhizuku(com.rosan.dhizuku) 与 root（Magisk/KernelSU/APatch/
+            SuperSU 包名 + 常见 su 路径）；
+          · 只做无副作用探测，不执行 su -c，避免弹出 root 授权框。
+
+        ProtectService.java
+          · SHAKE_LEVEL_DEFAULT 由 2 改为 4，与 index.html 的默认档位保持一致。
+
+      管理器侧（MPL-2.0 覆盖的文件，改动均已在文件头标注）：
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+        embedded/manager/.../MainActivity.kt
+          · MainActivity.kt 新增 selfGrantPermission()：Binder 连上时把自身
+            uid 的 stellar 权限写为 GRANTED（幂等）。服务端本来就把本应用
+            按 MANAGER_APPLICATION_ID 判定为管理器并直接放行，这一步只是把
+            历史上可能残留的 FLED_DENIED 记录纠正过来。
+
+        embedded/manager/.../authorization/CommandGuardActivity.kt
+          · 告警框标题固定为「游龙工具已阻止此威胁」；
+          · 顶部标识由内置盾牌块改为本应用自己的启动图标
+            （运行时 loadIcon()，因为 :manager 编译期看不到 :app 的 mipmap）。
+
+  (F) 未修改的部分
+
+    Stellar 的算法、权限模型、Binder 协议、**AIDL 接口定义**、数据库结构与
+    数据格式，均与上游逐字一致，未作任何改动。第五轮新增的界面品牌化只涉及
+    配色与视觉组件，命令安全拦截只在上游的进程创建入口前增加了一次判定，
+    两者都没有触碰上述任一方面；拦截对话框的答复也刻意走文件握手而不是新增
+    AIDL 方法，正是为了不改接口定义。
+
+■ MPL-2.0 合规要点说明（本产品如何履行）
+
+  · 第 3.1 / 3.2 条：MPL-2.0 覆盖的源码（embedded/ 下的 Stellar 源码，
+    以及 app/src/main/cpp/stellar/ 下的原生源码）**随本产品以源码形式提供**，
+    见项目根目录 embedded/ 与 app/src/main/cpp/stellar/，
+    因此接收者可以取得其 Source Code Form。
+  · 第 3.4 条：未删改任何许可证声明与版权声明；所有改动均带显著修改说明。
+  · 第 3.3 条（Larger Work）：本产品中 MPL-2.0 代码与自有代码仅处于
+    「文件级」组合，MPL-2.0 的传染性限于被覆盖的文件本身，
+    不要求本产品整体开源。
+  · 本产品**未**附加 Exhibit B 的 "Incompatible With Secondary Licenses"
+    声明，即上游并未把 Stellar 标记为与 Secondary License 不兼容。
+
+
+================================================================================
+2. Shizuku / Shizuku-API —— Apache License 2.0（经 Stellar 内含）
+================================================================================
+
+    Shizuku        https://github.com/RikkaApps/Shizuku
+    Shizuku-API    https://github.com/RikkaApps/Shizuku-API
+    Copyright (C) RikkaApps  <https://github.com/RikkaApps>
+    Licensed under the Apache License, Version 2.0.
+
+说明：2026 年迁移后，本产品**不再直接内置**上游 Shizuku 仓库的源码。
+      Stellar 本身是 Shizuku 的分支，其内部保留了源自 Shizuku 的代码
+      （Shizuku 兼容层、部分服务端实现与 AIDL 定义），
+      这部分仍适用 Apache-2.0。上游 Shizuku 的版权头在 Stellar 源码中
+      原样保留，未作删改。
+
+      Apache-2.0 第 4(a) 条要求的许可证副本即本产品的 LICENSE
+      （以及 LICENSES/Apache-2.0.txt），已随产品一同分发。
+
+      ⚠️ 上游 Shizuku README 中的三项使用限制（不得使用 Shizuku 作为应用名、
+        不得使用 moe.shizuku.privileged.api 作为 applicationId、
+        不得声明 moe.shizuku.manager.permission.* 权限）本产品**均未违反**：
+        应用名为「游龙安全护盾」，applicationId 为 com.youlong.hd，
+        并且未声明任何 moe.shizuku.* 权限。
+
+
+================================================================================
+3. AOSP adb —— Apache License 2.0
+================================================================================
+
+    Android Open Source Project  https://source.android.com/
+    Copyright (C) The Android Open Source Project
+    Licensed under the Apache License, Version 2.0.
+
+说明：2026 年迁移后，本产品原先内置的 app/src/main/cpp/adb/
+      （取自 Shizuku 管理器的 ADB 协议实现）已随 Shizuku 一并移除，
+      改为使用 Stellar 管理器自带的 ADB 配对实现
+      （app/src/main/cpp/stellar/adb_pairing.cpp，见第 1 节）。
+      AOSP adb 的协议常量与算法思路仍体现在该实现中，故保留本条署名。
+
+
+================================================================================
+4. BoringSSL —— OpenSSL License + ISC + BSD 系
+================================================================================
+
+    BoringSSL      https://boringssl.googlesource.com/boringssl/
+    Copyright (C) The BoringSSL Authors
+    Copyright (C) 1998-2011 The OpenSSL Project
+    Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+
+说明：2026 年迁移后，本产品不再把 BoringSSL 的头文件与静态库直接内置到
+      app/src/main/cpp/boringssl/，改为通过 Maven 的 prefab 包引入：
+          io.github.vvb2060.ndk:boringssl:20250114
+      该包由 vvb2060 构建发布（https://github.com/vvb2060/BoringSSL_Android），
+      包内保留 BoringSSL 原有的 OpenSSL / ISC 许可声明，未作删改。
+      用途：ADB 无线调试配对所需的 curve25519 / HKDF / AES-GCM 原语。
+
+
+================================================================================
+5. kyant backdrop —— Apache License 2.0
+================================================================================
+
+    kyant backdrop   https://github.com/Kyant0/Backdrop
+    Copyright (C) Kyant
+    Licensed under the Apache License, Version 2.0.
+
+位置：app/src/main/kotlin/com/kyant/backdrop/（毛玻璃 / 模糊效果）
+
+
+================================================================================
+6. NDK libc++ 静态库 —— Apache License 2.0（LLVM 例外条款）
+================================================================================
+
+    LLVM libc++    https://libcxx.llvm.org/
+    Copyright (C) LLVM Project / The Android Open Source Project
+    Licensed under the Apache License, Version 2.0 with LLVM Exceptions.
+
+说明：2026 年迁移后，本产品通过 prefab 包
+          org.lsposed.libcxx:libcxx:27.0.12077973
+      引入（https://github.com/LSPosed/prefab-libcxx），供内置 Stellar 的原生
+      启动器 / 配对库使用。包内保留 LLVM 原有的许可声明。
+
+
+================================================================================
+7. 其他 Maven 依赖
+================================================================================
+
+本产品还通过 Maven 引入若干第三方库（AndroidX、Material Components、
+Kotlin 协程、Gson、Conscrypt、libsu、OkHttp、Room、WorkManager、
+BouncyCastle、hiddenapibypass、rikkax 系列等），
+其许可证与版权声明见项目根目录 THIRD_PARTY_NOTICES.md 的完整清单。
+全部为 Apache-2.0 / MIT / Bouncy Castle Licence 这类宽松许可。
+
+
+================================================================================
+8. 分发与获取源码
+================================================================================
+
+本产品分发的 APK 中，第 1 节所列 MPL-2.0 覆盖代码的 Source Code Form
+随对应版本完整源码包一同提供，默认文件名形如：
+    游龙安全护盾-V72-9.9.41-完整源码.zip
+源码包包含 embedded/、app/src/main/cpp/stellar/、AIDL、Gradle 配置、
+LICENSE、LICENSES/、NOTICE、THIRD_PARTY_NOTICES.md、COPYRIGHT.md 等。
+若仅取得 APK，可向 APK 发布者索取与该 APK 版本对应的源码包。
+版本对应关系：V72 / 9.9.41 / 1234567990。
+本产品未删除任何原始版权、许可或署名声明；完整版权声明见 COPYRIGHT.md。

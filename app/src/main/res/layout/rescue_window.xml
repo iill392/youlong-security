@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#CC000000">
+
+    <ScrollView
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#FFFFFFFF"
+        android:padding="20dp"
+        android:clipToPadding="false"
+        android:maxHeight="600dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/rescue_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚠️ 紧急救援"
+                android:textSize="22sp"
+                android:textColor="#D32F2F"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/rescue_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textColor="#333333"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="16dp" />
+
+            <Button
+                android:id="@+id/btn_rescue"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="是，立即救援（10s）"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:background="#E53935"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_cancel"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="否，我没事"
+                android:textColor="#666666"
+                android:textSize="16sp"
+                android:background="#F5F5F5"
+                android:layout_marginBottom="8dp" />
+
+            <!-- 救援步骤面板（初始隐藏） -->
+            <LinearLayout
+                android:id="@+id/rescue_steps_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/rescue_steps_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#444444"
+                    android:lineSpacingExtra="3dp"
+                    android:background="#FFF8E1"
+                    android:padding="12dp" />
+
+                <Button
+                    android:id="@+id/btn_close_rescue"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="我已脱险，关闭"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:background="#4CAF50"
+                    android:visibility="gone"
+                    android:layout_marginTop="12dp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+</FrameLayout>

@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.youlong.redteam'
+    defaultConfig {
+        applicationId 'com.redteam.lab'
+        versionCode 1
+        versionName '1.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+}
+dependencies {
+    implementation project(':api')
+    implementation project(':provider')
+    implementation 'androidx.annotation:annotation:1.9.1'
+}
+

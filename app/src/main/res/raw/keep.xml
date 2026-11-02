@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  资源压缩白名单（游龙安全护盾）
+
+  app/build.gradle 里开了 `shrinkResources true`，资源压缩器会删掉所有
+  「没有被代码或 XML 引用」的资源。open_source_licenses.txt 只在运行时由
+  MainActivity 通过 getResources().openRawResource(R.raw.open_source_licenses)
+  读取 —— 这种引用方式资源压缩器识别不到，会被当作死资源删掉。
+
+  许可证文本是 Apache-2.0 第 4(a) 条要求必须随分发提供给使用者的，
+  一旦被删就是许可证违规，所以这里显式保下来。
+
+  注意：本文件必须位于 res/raw/ 目录下，文件名必须叫 keep.xml。
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/open_source_licenses" />

@@ -1,0 +1,31 @@
+// ==========================================================================
+// :shizuku-aidl —— Stellar 内置的 Shizuku 兼容层 AIDL 接口
+// --------------------------------------------------------------------------
+// 源码来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）。
+// 接口为 moe.shizuku.server.IShizukuService 等，供仍使用 Shizuku API 的
+// 客户端在无需改动代码的前提下使用 Stellar 服务。
+//
+// 本文件是**本工程适配版**，不是上游原文件：
+//   · compileSdk / minSdk / Java 版本统一由根 build.gradle 的 subprojects 块注入
+//     （上游由自己的根 build.gradle 注入），故此处不再重复声明；
+//   · 其余（namespace、buildFeatures、依赖）与上游一致。
+// ==========================================================================
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'moe.shizuku.server'
+    buildFeatures {
+        buildConfig = false
+        aidl = true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+
+dependencies {
+    implementation serverLibs.androidxAnnotation
+}

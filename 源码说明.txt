@@ -1,0 +1,87 @@
+游龙安全护盾 V72 源码说明
+====================================
+
+版本
+----
+versionName = 9.9.41
+versionCode = 1234567990
+Git tag     = V72
+
+版权与许可证
+------------
+本产品是独立维护的修改版，内置特权框架基于 Stellar 修改而来。
+详细版权归属、非官方声明、许可证适用和源代码获取方式，请优先阅读：
+
+  COPYRIGHT.md / 版权声明.md
+  LICENSE
+  LICENSES/Apache-2.0.txt
+  LICENSES/MPL-2.0.txt
+  NOTICE
+  THIRD_PARTY_NOTICES.md
+
+核心归属：
+  · 游龙安全护盾自有代码、界面与文档
+      Copyright (C) 2026 游龙，Apache License 2.0
+  · Stellar / Stellar-API 修改部分
+      Copyright (C) roro2239 / RoRo Studio，MPL-2.0
+  · Stellar 内含的 Shizuku / Shizuku-API
+      Copyright (C) RikkaApps，Apache License 2.0
+  · 本产品不是 Stellar 或 Shizuku 官方产品，与其作者/组织无隶属、合作、
+    代理或背书关系；“Stellar”“Shizuku”名称与商标归各自权利人所有。
+
+工程结构
+--------
+app/                 宿主应用（WebView 界面、自保、ADB 防护、自动拦截）
+embedded/manager/    内置 Stellar 管理器（Compose 界面、配对、启动页）
+embedded/server/     内置 Stellar 服务端（shell uid 2000）
+embedded/api/        Stellar API
+embedded/provider/   Provider
+embedded/userservice/UserService
+embedded/shizuku-aidl/、embedded/shizuku-api/  Shizuku 兼容层
+app/src/main/cpp/stellar/  Stellar 原生层
+api/ userservice/ provider/ 等 Gradle 子模块
+app-release.jks      Release 签名文件（本地构建使用，请勿公开分发）
+gradlew / gradlew.bat
+
+V72 变更
+--------
+- 新增独立版权声明 COPYRIGHT.md / 版权声明.md；
+- 修正 NOTICE 中早期“结束 shizuku_server/daemon”的过时描述，
+  明确 V63 起已彻底移除该行为；
+- 在 NOTICE、THIRD_PARTY_NOTICES.md、应用内“项目声明/开源许可”中
+  补充非官方关系、商标归属与源代码获取方式；
+- 明确源码包与 APK 版本对应关系。
+
+构建环境
+--------
+- JDK 21
+- Android Gradle Plugin 8.13.2
+- Gradle 8.14（也可使用工程自带 gradlew）
+- compileSdk 37 / targetSdk 37 / minSdk 24
+- NDK 29.0.13113456
+
+本地配置
+--------
+源码包不包含 local.properties（本机 SDK/NDK 路径）。
+在工程根目录创建 local.properties：
+
+  sdk.dir=D\:\\Android\\sdk
+  ndk.dir=D\:\\Android\\sdk\\ndk\\29.0.13113456
+
+然后执行：
+
+  gradlew.bat :app:assembleRelease
+
+Release 签名使用根目录的 app-release.jks，密码/别名配置在 app/build.gradle。
+该签名文件只应交给可信构建环境，不要上传到公开仓库。
+
+说明：出于签名密钥安全考虑，对外分发的完整源码包不包含 app-release.jks；
+本地构建请使用你自己的 release 签名文件，并在 app/build.gradle 中配置对应
+signingConfig。工程代码本身不依赖该密钥文件。
+
+开源合规
+--------
+本产品未删除任何原始版权、许可或署名声明。
+Stellar 修改文件顶部保留显著修改说明，并在 NOTICE 中汇总。
+MPL-2.0 覆盖源码（embedded/ 与 app/src/main/cpp/stellar/）随源码包提供；
+完整许可证可在应用内“内置特权 → 设置 → 项目声明 → 开源许可”查看。

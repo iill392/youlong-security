@@ -1,0 +1,624 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    // ======================================================================
+    // Refine：把 @RefineAs 标注的「隐藏 API 替身类」真正生成到 dex 里
+    // ----------------------------------------------------------------------
+    // 融合进来的 Stellar 源码（server / manager）会引用
+    //     android.app.ActivityManagerHidden
+    // 这类类名。它们只存在于 dev.rikka.hidden:stub 这个 compileOnly 的 AAR 中，
+    // 用来在编译期提供签名；真机上并不存在，系统里真正的类叫
+    //     android.app.ActivityManager
+    // 必须由 Refine 在打包 dex 时生成替身类（继承真实的 @hide 类），否则运行时
+    //     java.lang.NoClassDefFoundError: android.app.ActivityManagerHidden
+    //     at roro.stellar.server.binder.BinderSender.register
+    // → 服务端构造失败 → 自杀 SIGKILL。
+    //
+    // ⚠️ 上游 Stellar 的 manager 就是一个「application + refine + compileOnly stub」
+    //    的模块，替身类的生成发生在 application 模块的 dex 阶段。只给库模块加
+    //    插件是不够的：AAR 里对 Hidden 类的引用必须由最终的 application 模块兑现。
+    //    本工程把 manager 降级成了库模块，所以这一层必须补在 :app 上。
+    id 'dev.rikka.tools.refine'
+    // KSP：Stellar manager 用 Room 存授权记录 / 启动命令，需要注解处理器。
+    id 'com.google.devtools.ksp'
+}
+
+// --------------------------------------------------------------------------
+// 构建输出目录：由根 build.gradle 的 gradle.beforeProject 统一指向
+// <工程根>/build_out/_app。
+//
+// 为什么离开默认的 app/build/：
+//   Windows Defender 会锁住工程树里默认位置的产物，导致下次构建删除失败
+//   —— :app 原本就有 buildDir = new File(rootDir, 'build-out') 这条规避，
+//   现在收敛到根脚本，所有子模块一致。
+//
+// ⚠️ 不能指向别的盘符：KSP（:manager 的 Room）会校验生成文件与源码必须同根，
+//    跨盘会报 "this and base files have different roots"。
+//
+// 注意：下面 assets 加密任务与混淆字典都通过 buildDir 变量取路径，
+// 因此这条改动对它们是透明的。
+// --------------------------------------------------------------------------
+
+// ==========================================================================
+// prefab 包本地解压（替代 AGP 的 prefab）
+// --------------------------------------------------------------------------
+// 内置 Stellar 的原生层需要两个自带的 C++ 预编译包：
+//     org.lsposed.libcxx:libcxx         → cxx::cxx        (NDK libc++)
+//     io.github.vvb2060.ndk:boringssl   → boringssl::crypto_static
+// 上游 Stellar（以及 AGP 默认做法）用 prefab 交付，但 prefab 在
+// 「Windows 用户名含非 ASCII 字符」的机器上必然失败：
+//     AGP 生成 prefab_command.bat（内含 Gradle 缓存的绝对路径，路径里有中文
+//     用户名）→ cmd.exe 以系统 ANSI 代码页读取该 .bat → 中文被误解码 →
+//        系统找不到指定的路径。
+//        '-path' 不是内部或外部命令，也不是可运行的程序或批处理文件。
+// 已确认没有任何 CMake / Gradle 参数能绕过（问题出在 cmd.exe 解析命令行这一步）。
+//
+// 因此这里自己把两个 AAR 解压到 <buildDir>/prefab/<包名>/。
+// AAR 内本身就带 prefab/ 目录（modules/*/include、modules/*/libs/<abi>/*.a），
+// 结构正是 CMake 侧期望的形态；对应的 CMake 侧改动见
+// src/main/cpp/stellar/CMakeLists.txt 顶部说明。
+// ==========================================================================
+// 解压目标**必须在 buildDir 之外**。
+// ⚠️ 曾经放在 buildDir/prefab，结果 `gradlew clean :app:assembleDebug` 直接死锁：
+//        Unable to make progress running work. There are items queued for
+//        execution but none of them can be started
+//    原因是 :app:clean 会删除 buildDir，而 extractPrefabPackages 又把
+//    buildDir/prefab 声明为自己的输出目录 —— Gradle 检测到「clean 要删、
+//    assembleDebug 又依赖该任务重建」形成环，于是两个都排不进去。
+//    放到工程内的 .prefab/（与 clean 无关的固定位置）即可。
+def prefabRoot = new File(project.projectDir, '.prefab')
+def stellarLibcxxPrefabDir = new File(prefabRoot, 'libcxx')
+def stellarBoringsslPrefabDir = new File(prefabRoot, 'boringssl')
+
+tasks.register('extractPrefabPackages') {
+    description = '把 libcxx / boringssl 的 prefab 内容解压到 buildDir/prefab（替代 AGP prefab）'
+    group = 'build'
+
+    // 依赖解析发生在执行期；这两个坐标同时也在 dependencies 里声明，
+    // 保证 Gradle 已经把 AAR 下载到本地缓存。
+    def cfg = configurations.detachedConfiguration(
+            dependencies.create('org.lsposed.libcxx:libcxx:27.0.12077973'),
+            dependencies.create('io.github.vvb2060.ndk:boringssl:20250114'))
+
+    inputs.files(cfg)
+    outputs.dir(prefabRoot)
+
+    doLast {
+        prefabRoot.deleteDir()
+        stellarLibcxxPrefabDir.mkdirs()
+        stellarBoringsslPrefabDir.mkdirs()
+
+        def targets = [
+                (stellarLibcxxPrefabDir)   : 'libcxx-',
+                (stellarBoringsslPrefabDir): 'boringssl-'
+        ]
+        cfg.files.each { aar ->
+            targets.each { dir, prefix ->
+                if (aar.name.startsWith(prefix)) {
+                    // ⚠️ 必须用 ZipInputStream 逐条读取并自己拼目标路径：
+                    //    Groovy 的 zipTree(...).each 给出的是指向 Gradle 临时
+                    //    解压目录的 File（绝对路径），拿它的 path 去拼目标会得到
+                    //    prefab/<包名>/an/build_out/_app/tmp/.cache/expanded/... 这种
+                    //    垃圾层级（曾经踩过）。ZipEntry.name 才是归档内的相对路径。
+                    new java.util.zip.ZipInputStream(new java.io.FileInputStream(aar)).withCloseable { zis ->
+                        def entry
+                        while ((entry = zis.nextEntry) != null) {
+                            def name = entry.name
+                            if (!entry.isDirectory() && name.startsWith('prefab/')) {
+                                def rel = name.substring('prefab/'.length())
+                                if (rel) {
+                                    def out = new File(dir, rel)
+                                    out.parentFile.mkdirs()
+                                    out.withOutputStream { os -> zis.transferTo(os) }
+                                }
+                            }
+                            zis.closeEntry()
+                        }
+                    }
+                }
+            }
+        }
+
+        // 校验关键产物存在（否则 CMake 侧会给出更晦涩的错误）
+        def checks = [
+                new File(stellarLibcxxPrefabDir, 'modules/cxx/include/vector'),
+                new File(stellarLibcxxPrefabDir, 'modules/cxx/libs/android.arm64-v8a/libcxx.a'),
+                new File(stellarBoringsslPrefabDir, 'modules/crypto_static/include/openssl/aead.h'),
+                new File(stellarBoringsslPrefabDir, 'modules/crypto_static/libs/android.arm64-v8a/libcrypto_static.a')
+        ]
+        checks.each { c ->
+            if (!c.exists()) {
+                throw new GradleException("prefab 解压不完整，缺少：${c}")
+            }
+        }
+        println "prefab 已解压到：${prefabRoot}"
+    }
+}
+
+// CMake 相关任务必须在 prefab 解压之后执行。
+//
+// ⚠️ 必须同时包含 externalNativeBuildClean*：
+//    执行 `gradlew clean` 时，AGP 会先跑 :app:externalNativeBuildCleanDebug，
+//    而该任务会用现有的 CMake 缓存「重新配置」一次工程；此时若 buildDir 已被
+//    清掉（prefab 目录不在），CMake 会在 stellar/CMakeLists.txt 的
+//    FATAL_ERROR 处直接失败：
+//        :app:externalNativeBuildCleanDebug FAILED
+//        CMake Error at stellar/CMakeLists.txt:89 (message):
+//   把 clean 类任务也挂上依赖即可。
+tasks.configureEach { t ->
+    if (t.name.startsWith('configureCMake')
+            || t.name.startsWith('buildCMake')
+            || t.name.startsWith('externalNativeBuildClean')) {
+        t.dependsOn 'extractPrefabPackages'
+    }
+}
+
+// ==========================================================================
+// 加固：生成 R8 混淆字典规则文件
+// --------------------------------------------------------------------------
+// R8 的 -obfuscationdictionary / -classobfuscationdictionary 只接受「文件路径」，
+// 而相对路径的解析基准目录在不同 AGP 版本下并不一致，因此这里在配置阶段
+// 生成一份带绝对路径的规则文件，确保字典一定被采纳。
+// 字典内容见 scripts/gen-obfuscation-dict.js（形近字符 l/I/1/O/0）。
+// ==========================================================================
+def hardeningDir = rootProject.file('hardening')
+def dictRulesFile = new File(buildDir, 'hardening/obfuscation-dict.pro')
+if (hardeningDir.exists()) {
+    dictRulesFile.parentFile.mkdirs()
+    def memberDict = new File(hardeningDir, 'member-dict.txt').absolutePath.replace('\\', '/')
+    def classDict = new File(hardeningDir, 'class-dict.txt').absolutePath.replace('\\', '/')
+    dictRulesFile.text = """\
+# 自动生成，请勿手改（由 app/build.gradle 生成）
+-obfuscationdictionary '${memberDict}'
+-classobfuscationdictionary '${classDict}'
+"""
+}
+
+android {
+    namespace 'com.youlong.hd'
+    compileSdk 37
+    // Stellar 的内置原生层需要 NDK r29（上游 manager 即 ndkVersion 29.0.13113456）。
+    // 本机 NDK 位于 local.properties 的 ndk.dir；若该目录不存在，AGP 会去
+    //   $sdk/ndk/29.0.13113456 查找。
+    ndkVersion "29.0.13113456"
+
+    defaultConfig {
+        applicationId "com.youlong.hd"
+        minSdk 24
+        targetSdk 37
+        // 2026-10-30：用户指定版本名改为 9.9.9；versionCode 同时 +1，
+        // 保证能覆盖安装旧版本（安装器只认 versionCode，不认 versionName）。
+        versionCode 1234568009
+        versionName "9.9.60"
+        multiDexEnabled true
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // NDK：Native 加密核心（密钥派生 + AES-GCM 解密 + 反调试）
+        // 以及内置 Stellar 的原生启动器（libstellar.so / libchid.so / libadb.so）。
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags '-std=c++11'
+                // 内置 Stellar 的原生层需要 libc++（org.lsposed.libcxx 的
+                // cxx::cxx）与 BoringSSL（io.github.vvb2060.ndk 的
+                // boringssl::crypto_static）。两者都自带预编译静态库，
+                // 因此系统 STL 必须置为 none，否则会同时链入两份 libc++ 符号。
+                // 与上游 Stellar 一致。
+                //
+                // ⚠️ 这两个包不用 AGP 的 prefab 交付（原因见下），
+                //    改由 extractPrefabPackages 任务解压后把路径传进来。
+                arguments '-DANDROID_STL=none',
+                        "-DSTELLAR_LIBCXX_PREFAB_DIR=${stellarLibcxxPrefabDir}",
+                        "-DSTELLAR_BORINGSSL_PREFAB_DIR=${stellarBoringsslPrefabDir}"
+            }
+        }
+    }
+
+    // NDK 构建配置（Native 加密核心）
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile     rootProject.file('app-release.jks')
+            storePassword 'youlong123'
+            keyAlias      'youlong_release'
+            keyPassword   'youlong123'
+            // 最高强度签名：v1(JAR) + v2(APK Signature Scheme v2) + v3(密钥轮换/防降级)
+            // 每多一层签名，二次打包/篡改后重签的难度就多一道系统级拦截
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', dictRulesFile
+            signingConfig signingConfigs.release
+            // 不向 APK 打包任何 native 调试符号（符号表只留在本机，不发出去）
+            ndk {
+                debugSymbolLevel 'none'
+            }
+        }
+        debug {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // ======================================================================
+    // dex 必须**以 STORED（不压缩）方式**打包（2026-09-23 真机诊断后恢复）
+    // ----------------------------------------------------------------------
+    // 内置服务是这么起来的：
+    //   adb shell 执行 libshizuku.so → fork →
+    //   /system/bin/app_process -Djava.class.path=<本应用 APK>
+    // ART 打开 APK 里的 dex 时，打包方式直接决定内存行为：
+    //   · STORED   → 直接 mmap（文件页，可回收，不占匿名内存）   ✅
+    //   · DEFLATED → 必须先把**整份** dex 解压进匿名内存         ❌
+    // 本应用 dex 合计 24.96MB（classes.dex 17.85MB + classes2.dex 7.11MB）。
+    // 压缩打包只省下 16.3MB 体积，代价是让那个以 shell(uid 2000) 身份运行的
+    // 服务进程凭空多背 25MB 匿名内存 —— 真机实测它就是被 SIGKILL(signal 9)
+    // 杀掉、且来不及写一个字节日志（见 [启动器输出]/[系统事件] 诊断）。
+    // ⚠️ 不能拿上游 Shizuku 做对照：它的 classes.dex 只有 175KB，压缩毫无影响；
+    //    本应用 dex 大两个数量级（早期把它当作「压缩无害」的证据是错的）。
+    // 代价：APK +约 16MB（12.5MB → 约 29MB），换来服务进程能够活下来。
+    // ======================================================================
+    aaptOptions {
+        noCompress 'dex'
+    }
+
+    // ======================================================================
+    // 内置 Stellar 启动器需要「可执行的原生文件」
+    // ----------------------------------------------------------------------
+    // libstellar.so / libchid.so 本质是可执行程序（见 src/main/cpp/stellar/）。
+    // Android 只允许从应用的 nativeLibraryDir（APK 内 lib/<abi>/ 解压后的
+    // 目录）执行原生程序，而 AGP 8 默认 useLegacyPackaging=false，会把 .so
+    // 压缩在 APK 里且 install 时不解压，结果就是「文件在但无法执行」。
+    // 开启旧式打包后，系统安装时会把 lib/<abi>/ 解压到 nativeLibraryDir，
+    // 内置服务才可能被拉起来。
+    // ======================================================================
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+        // BouncyCastle（Stellar 管理器自签 ADB 配对证书用）的三个 jar 里都带
+        // META-INF/versions/9/OSGI-INF/MANIFEST.MF，且内容不同，合并 java 资源时
+        // 会报 "3 files found with path ..."。这份 OSGI 清单与 Android 运行无关，
+        // 排除掉即可（不影响 bcprov/bcpkix/bcutil 的正常使用）。
+        resources {
+            excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+        // ⚠️ 必须显式声明：Gradle 守护进程的默认字符集被设成 GBK（迁就 aidl.exe，
+        //    见 gradle.properties 与根 build.gradle），而源码全部是 UTF-8。
+        encoding 'UTF-8'
+    }
+
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+
+    buildFeatures {
+        compose = true
+        // ⚠️ prefab 必须关闭：AGP 调用 prefab CLI 的方式是「生成 .bat → cmd.exe 执行」，
+        //    而批处理里写的是 Gradle 缓存的绝对路径，其中含 Windows 用户名
+        //    （本机为中文「游龙」）。cmd.exe 按系统 ANSI 代码页读取该 .bat，
+        //    中文被误解码，于是报：
+        //        Error while executing process ...\prefab_command.bat
+        //        系统找不到指定的路径。
+        //        '-path' 不是内部或外部命令，也不是可运行的程序或批处理文件。
+        //    这是 AGP + prefab 在「Windows 用户名含非 ASCII 字符」下的固有缺陷，
+        //    没有 CMake/Gradle 参数可绕过。
+        //    因此改为由下面 extractPrefabPackages 任务直接解压这两个 AAR，
+        //    再通过 -D 把路径传给 CMake（见 src/main/cpp/stellar/CMakeLists.txt）。
+        prefab = false
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    // 每次构建使用时间戳文件名，避免 Windows Defender 锁定旧 APK 导致删除失败
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def buildType = variant.buildType.name
+            output.outputFileName = "app-${buildType}-${new Date().format('yyyyMMdd-HHmmss')}.apk"
+        }
+    }
+}
+
+dependencies {
+    // ---- 显式声明的 AndroidX 依赖 ----
+    // ⚠️ 2026 年迁移后必须补上 documentfile：
+    //    DownloadManager.java 一直在用 androidx.documentfile.provider.DocumentFile，
+    //    它原先是由移植进来的 Shizuku 管理器传递带入的；换成内置 Stellar 的
+    //    manager 后，其依赖集合不再包含 documentfile，编译期直接报
+    //        DownloadManager.java:27: 错误: 程序包 androidx.documentfile.provider 不存在
+    //    这是本应用自己代码的直接依赖，理应由 :app 自己声明。
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+
+    // ---- 界面依赖 ----
+    // ⚠️ 2026 年迁移：此前这里有一条 Gradle 模块替换
+    //     modules { module('androidx.appcompat:appcompat') {
+    //                 replacedBy('dev.rikka.rikkax.appcompat:appcompat', ...) } }
+    //    那是为上游 Shizuku 管理器准备的：Shizuku 的 manager 用 rikkax 重打包的
+    //    appcompat fork（版本 1.6.1、同类名）替换原版，导致本工程里出现两份
+    //    appcompat 实现而报 Duplicate class。
+    //    内置 Stellar 的 manager 用的是**原版** androidx.appcompat:appcompat
+    //    （1.7.1），全工程只有一份实现，该替换规则已无必要，故删除 ——
+    //    留着反而会把版本强行降回 1.6.1 并与 Stellar 的 Compose/Material3 冲突。
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.material:material:1.13.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.multidex:multidex:2.0.1'
+
+// ==========================================================================
+// 内置 Stellar 特权内核（源码级融合）
+// --------------------------------------------------------------------------
+// 上游：https://github.com/roro2239/Stellar       （MPL-2.0 + Apache-2.0）
+//       https://github.com/roro2239/Stellar-API   （MPL-2.0 + Apache-2.0）
+//
+// ⚠️ 2026 年迁移：此前这里依赖的是内置的上游 Shizuku（:api / :provider /
+//    :server / :rish / :starter / :server-shared / :manager）。整体替换为
+//    Stellar 后，模块集合随之改变 —— rish、starter、server-shared 这三个
+//    Shizuku 专有模块不再存在（Stellar 已移除 rish 独立 APK，starter 的职责
+//    并入 manager，server-shared 并入 server）。
+//
+// 不再使用官方 maven 制品，因为需要把「管理器包名」与「API 权限名」
+// 改成本应用自己的，从而做到不依赖任何外部 Stellar / Shizuku 应用。
+// ==========================================================================
+implementation project(':api')
+implementation project(':provider')
+implementation project(':server')
+// UserService 框架：Stellar 允许第三方在特权服务进程里以特权身份运行自定义
+// Binder 服务（server 模块依赖它）。上游 Stellar 未把它列为 manager 的直接
+// 依赖，但本工程需要它对 refine 的 ASM 改写可见（原因见下方注释）。
+implementation project(':userservice')
+// Stellar 内置的 Shizuku 兼容层（AIDL + 客户端）。
+// ⚠️ 这两个模块本来是「传递依赖」（server 依赖它们），但 refine 的 ASM 改写
+//    只作用于 application 模块 InstrumentationScope.PROJECT 能看到的类
+//    （= 本工程直接依赖的 project 模块）。传递依赖的 class 不会被改写，
+//    于是对 android.content.ContextHidden / android.os.UserHandleHidden 的
+//    引用会原样留在 dex 里 -> 运行时 NoClassDefFoundError。
+//    上游 Stellar 的 manager 也是把相关模块直接写在 dependencies 里，此处对齐。
+implementation project(':shizuku-aidl')
+implementation project(':shizuku-api')
+
+// Refine 的输入：@RefineAs 隐藏 API 替身类的「编译期签名库」。
+// 只在编译/打包期可见，运行时不打包（替身类由 refine 插件生成）。
+compileOnly 'dev.rikka.hidden:stub:4.4.0'
+// 隐藏 API 的实际调用实现（ActivityManagerApis / PackageManagerApis 等）
+implementation 'dev.rikka.hidden:compat:4.4.0'
+
+// Stellar 管理器界面（内置）。
+//
+// embedded/manager 用的是上游 Stellar 的 manager 模块，在本工程里由
+// application 改为 library 后编入本应用 —— 内置管理器的 Compose 界面、
+// 资源、主题、Room 数据库都由这个依赖带入本 APK。
+implementation project(':manager')
+
+// 内置 Stellar 原生层所需的 C++ 依赖（prefab）：
+//   org.lsposed.libcxx:libcxx    提供 cxx::cxx（NDK r27 的 libc++ 预编译缓存）
+//   io.github.vvb2060.ndk:boringssl 提供 boringssl::crypto_static
+//     （ADB 无线配对 SPAKE2 用的 curve25519/HKDF/AEAD）
+// 上游 Stellar manager 就是这两个包（managerLibs.bundles.nativeCrypto）。
+// ⚠️ 与旧版 Shizuku 内置方式不同：以前是手工把 BoringSSL 头文件与静态库
+//    放进 src/main/cpp/boringssl 以规避 AGP 在 Windows 上的 prefab 脚本换行
+//    问题；本工程已升级到 AGP 8.13.2，该问题不复存在，故与上游一致改用 prefab，
+//    原先内置的 boringssl 目录已随 Shizuku 一并移除（见 removed_shizuku_native/）。
+implementation 'org.lsposed.libcxx:libcxx:27.0.12077973'
+implementation 'io.github.vvb2060.ndk:boringssl:20250114'
+implementation 'org.lsposed.hiddenapibypass:hiddenapibypass:6.1'
+
+// 无线调试配对要用 RFC 5705 的 TLS exporter 导出密钥材料（label "adb-label\0"），
+// 而 Android 上只有 Conscrypt 提供这个能力。
+//
+// ⚠️ 不能用系统的 @hide 类 com.android.org.conscrypt.Conscrypt：
+//     Android 9 起生效的「非 SDK 接口限制」会拦掉它的成员，targetSdk 34+ 时
+//     直连抛 NoSuchMethodError、反射抛 NoSuchMethodException，真机表现为
+//     「当前系统不允许导出 TLS 密钥材料，无法完成无线调试配对」。
+//     上游（Shizuku 与 Stellar 的 manager）都把 conscrypt 打进自己的 APK，
+//     用的是 org.conscrypt.* 实现，根本不碰系统隐藏类。这里保持一致。
+//     体积代价：仅保留 arm64-v8a / armeabi-v7a 两个 ABI，约 +1.4MB（压缩后）。
+implementation 'org.conscrypt:conscrypt-android:2.5.2'
+
+    // ======================================================================
+    // Jetpack Compose / AndroidX
+    // ----------------------------------------------------------------------
+    // 版本对齐内置 Stellar 的 manager（manager.versions.toml）：
+    //   Compose BOM 2026.01.01、activity-compose 1.12.3、navigation-compose 2.9.7
+    // 旧版（BOM 2024.09.00 / activity-compose 1.9.0）会与 Stellar 的
+    // Material3 / Compose 代码产生 API 不匹配，故随之升级。
+    // ======================================================================
+    implementation platform('androidx.compose:compose-bom:2026.01.01')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.runtime:runtime-livedata'
+    implementation 'androidx.activity:activity-compose:1.12.3'
+    implementation 'androidx.navigation:navigation-compose:2.9.7'
+
+    // 内置 Stellar 的 manager / server 直接依赖但未通过 api 暴露的组件。
+    // 上游 Stellar 用版本目录逐个声明；这里同样显式声明，避免依赖传递性
+    // 变化时静默丢类（尤其 WorkManager 与 Room 在运行期才解析）。
+    implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'androidx.browser:browser:1.8.0'
+    implementation 'androidx.fragment:fragment-ktx:1.8.9'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.preference:preference-ktx:1.2.1'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.10.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.10.0'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0'
+    implementation 'androidx.work:work-runtime-ktx:2.10.0'
+    implementation 'androidx.room:room-runtime:2.7.1'
+    implementation 'androidx.room:room-ktx:2.7.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+    implementation 'com.google.code.gson:gson:2.13.1'
+    implementation 'com.github.topjohnwu.libsu:core:6.0.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+// ========== 混淆前置步骤：HTML 内联 JS 极致混淆 ==========
+// 源 assets → build-out/obfuscated-assets（明文混淆后）
+// 要求：Node.js + scripts/node_modules/javascript-obfuscator
+def obfuscateAssets() {
+    def nodeCmd = System.getProperty('os.name').toLowerCase().contains('windows') ? 'node' : 'node'
+    def obfuscatorScript = rootProject.file('scripts/obfuscate-html.js')
+    def srcDir = file('src/main/assets')
+    def outDir = file("$buildDir/obfuscated-assets")
+    outDir.deleteDir()
+    outDir.mkdirs()
+
+    def proc = [nodeCmd, obfuscatorScript.absolutePath, srcDir.absolutePath, outDir.absolutePath]
+            .execute(null, rootProject.file('scripts'))
+    def stdout = new StringBuilder()
+    def stderr = new StringBuilder()
+    proc.consumeProcessOutput(stdout, stderr)
+    def exit = proc.waitFor()
+    if (exit != 0) {
+        throw new GradleException("JS 混淆失败:\n" + stdout + "\n" + stderr)
+    }
+    println "JS 混淆完成: ${outDir}"
+    return outDir
+}
+
+task encryptAssets {
+    doLast {
+        // ========== 先混淆 HTML 内联 JS（核心资产保护） ==========
+        def obfuscatedDir = obfuscateAssets()
+
+        // ========== 种子密钥（与 AssetsEncryptor.java 保持一致） ==========
+        def seedKey = [
+                0xA3 as byte, 0x7F as byte, 0x12 as byte, 0x6B as byte,
+                0x44 as byte, 0xD8 as byte, 0x91 as byte, 0x0E as byte,
+                0x55 as byte, 0xCC as byte, 0x73 as byte, 0x29 as byte,
+                0x88 as byte, 0x3A as byte, 0xF6 as byte, 0x1B as byte
+        ] as byte[]
+
+        def hmacSalt = [
+                0x5C as byte, 0x9B as byte, 0xE4 as byte, 0x2F as byte,
+                0x71 as byte, 0x3D as byte, 0x8A as byte, 0x06 as byte,
+                0xBC as byte, 0x1E as byte, 0xF7 as byte, 0x43 as byte,
+                0x20 as byte, 0xD5 as byte, 0x68 as byte, 0x9C as byte
+        ] as byte[]
+
+        // ========== 签名绑定：从 jks 读取证书 SHA-256 指纹 ==========
+        // 与 AssetsEncryptor.setSignatureFingerprint 注入的指纹完全一致
+        def certFingerprint = getCertFingerprint()
+        println "签名证书指纹: " + certFingerprint.collect { String.format('%02X', it) }.join('')
+
+        // ========== KDF：SHA-256(seedKey + hmacSalt + 证书指纹) ==========
+        def combinedKey = new byte[seedKey.length + hmacSalt.length + certFingerprint.length]
+        System.arraycopy(seedKey, 0, combinedKey, 0, seedKey.length)
+        System.arraycopy(hmacSalt, 0, combinedKey, seedKey.length, hmacSalt.length)
+        System.arraycopy(certFingerprint, 0, combinedKey, seedKey.length + hmacSalt.length, certFingerprint.length)
+        def sha256 = java.security.MessageDigest.getInstance("SHA-256")
+        def aesKey = sha256.digest(combinedKey)
+
+        // 加密源：混淆后的目录（HTML 已做 JS 极致混淆，非原始明文）
+        def assetsDir = obfuscatedDir
+        def outputDir = file("$buildDir/encryptedAssets")
+        outputDir.deleteDir()
+        outputDir.mkdirs()
+
+        def keySpec = new javax.crypto.spec.SecretKeySpec(aesKey, "AES")
+        javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+        def random = new java.security.SecureRandom()
+        def iv = new byte[12]  // GCM 推荐 12 字节 IV
+
+        assetsDir.eachFileRecurse { file ->
+            if (file.isFile()) {
+                def relativePath = assetsDir.toPath().relativize(file.toPath()).toString().replace('\\', '/')
+                // 伪装 .html 为 .java
+                if (relativePath.endsWith('.html')) {
+                    relativePath = relativePath[0..-6] + '.java'
+                }
+                def outputFile = new File(outputDir, relativePath)
+                outputFile.parentFile.mkdirs()
+                
+                // .apk 文件不加密，直接复制（用于运行时安装）
+                if (relativePath.endsWith('.apk')) {
+                    outputFile.bytes = file.bytes
+                    println "APK (no encrypt): ${relativePath}"
+                } else {
+                    random.nextBytes(iv)
+                    cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, keySpec, new javax.crypto.spec.GCMParameterSpec(128, iv))
+                    def encrypted = cipher.doFinal(file.bytes)
+                    def result = new byte[iv.length + encrypted.length]
+                    System.arraycopy(iv, 0, result, 0, iv.length)
+                    System.arraycopy(encrypted, 0, result, iv.length, encrypted.length)
+                    outputFile.bytes = result
+                }
+            }
+        }
+
+        println "Assets encrypted to: ${outputDir} (AES-256-GCM, 签名绑定密钥)"
+    }
+}
+
+// ========== 读取 jks 签名证书的 SHA-256 指纹 ==========
+def getCertFingerprint() {
+    def storeFile = rootProject.file('app-release.jks')
+    def storePass = 'youlong123'
+    def alias = 'youlong_release'
+
+    def ks = null
+    // 先探测魔数：JKS 以 FE ED FE ED 开头；PKCS12 是 ASN.1 序列（30 82…）
+    def head = new byte[4]
+    def fisHead = new java.io.FileInputStream(storeFile)
+    try {
+        fisHead.read(head)
+    } finally {
+        fisHead.close()
+    }
+    def isJks = (head[0] == (byte)0xFE && head[1] == (byte)0xED && head[2] == (byte)0xFE && head[3] == (byte)0xED)
+    def types = isJks ? ['JKS', 'PKCS12'] : ['PKCS12', 'JKS']
+    java.io.FileInputStream fis = null
+    for (String t : types) {
+        try {
+            def candidate = java.security.KeyStore.getInstance(t)
+            fis = new java.io.FileInputStream(storeFile)
+            candidate.load(fis, storePass.toCharArray())
+            def c = candidate.getCertificate(alias)
+            if (c != null) { ks = candidate; break }
+        } catch (Exception ignored) {
+            // 类型不匹配，尝试下一种
+        } finally {
+            if (fis != null) { try { fis.close() } catch (Exception ignored) {} }
+            fis = null
+        }
+    }
+    if (ks == null) throw new GradleException("无法用 JKS/PKCS12 加载 keystore（别名 ${alias}）")
+    def cert = ks.getCertificate(alias)
+    if (cert == null) throw new GradleException("别名 ${alias} 不存在于 keystore")
+    def md = java.security.MessageDigest.getInstance("SHA-256")
+    return md.digest(cert.getEncoded())
+}
+
+android.sourceSets.main.assets.srcDirs = ["$buildDir/encryptedAssets"]
+preBuild.dependsOn encryptAssets

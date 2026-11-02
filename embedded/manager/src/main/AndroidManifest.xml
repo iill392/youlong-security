@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  本文件来自 https://github.com/roro2239/Stellar 的 manager/src/main/AndroidManifest.xml
+  （MPL-2.0；其中源自 Shizuku 的部分为 Apache-2.0）
+
+  【本工程修改声明】—— 本文件是**本工程适配版**，改动如下：
+    1. 删除 android:sharedUserId="roro.stellar.manager"。
+       该属性是上游 manager 作为独立 APK 时给自己声明的共享 UID；本工程把管理器
+       内置进「游龙安全护盾」，应用自身的 applicationId 是 com.youlong.hd，
+       库模块又不允许自带 sharedUserId，留着会在清单合并时报冲突。
+    2. FileProvider 的 authority 由 "${applicationId}.fileprovider" 改为
+       "${applicationId}.stellar.fileprovider"。
+       原因：宿主 :app 自己已经有一个 authority 为 "${applicationId}.fileprovider"
+       的 FileProvider（用于安装 APK），合并后二者 authority 完全相同会直接
+       报 "Manifest merger failed: Attribute provider#...@authorities value=(...)"。
+       对应的 Kotlin 取值处 roro/stellar/manager/util/update/ApkDownloader.kt
+       也已同步修改。
+    3. <application> 上的 android:name=".StellarApplication" 保持不动，
+       但**不会**生效为宿主应用的 Application：宿主 :app 声明的是
+       com.youlong.hd.YouLongApp（清单合并以主模块为准）。管理器所需的初始化
+       改由 YouLongApp 显式调用 roro.stellar.manager 的初始化入口完成，
+       见 YouLongApp.java 内的修改声明。
+    其余权限声明、组件声明与上游逐字一致。
+  ==========================================================================
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MissingLeanbackLauncher">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_LOOPBACK_INTERFACE" />
+    <!--
+        Android 17 (API 37) blocks local network access - including the mDNS
+        discovery used for wireless ADB pairing - for apps targeting SDK 37+
+        unless this runtime permission is granted. It belongs to the
+        NEARBY_DEVICES permission group.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission
+        android:name="android.permission.ACCESS_WIFI_STATE"
+        tools:ignore="LeanbackUsesWifi" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <permission
+        android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:protectionLevel="signature"
+        tools:node="remove" />
+    <uses-permission
+        android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        tools:node="remove" />
+
+    <!--
+      ⚠️ 2026-10 修复：本标签上原来有
+          android:icon="@mipmap/ic_launcher"
+          android:roundIcon="@mipmap/ic_launcher_round"
+      但 manager 模块自己的 res/mipmap-* 已按「不覆盖宿主图标」的要求删除（见下方说明），
+      引用一个不存在的资源会让 :manager:verifyReleaseResources 在**干净构建**下直接失败：
+          AAPT: error: resource mipmap/ic_launcher
+                (aka roro.stellar.manager:mipmap/ic_launcher) not found
+      两条属性已删除。宿主图标由 :app 提供（app/src/main/res/mipmap-*），合并进 APK 后显示正常。
+    -->
+    <application
+        android:name=".StellarApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:directBootAware="true"
+        android:enableOnBackInvokedCallback="true"
+        android:extractNativeLibs="true"
+        android:fullBackupContent="@xml/backup_descriptor"
+        android:label="Stellar"
+        android:supportsRtl="true"
+        android:theme="@style/StellarManagerTheme"
+        tools:ignore="GoogleAppIndexingWarning"
+        tools:remove="android:appComponentFactory"
+        tools:targetApi="36">
+
+        <!--
+          ==================================================================
+          ⚠️ 本工程改动：删除 MainActivity 的 LAUNCHER 入口
+          ==================================================================
+          上游 manager 是独立 APK，它的 MainActivity 声明了
+              <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+              </intent-filter>
+          作为桌面启动入口。并入宿主后，这个 intent-filter 会**抢走宿主的桌面入口**：
+          实测 `aapt2 dump badging` 显示
+              launchable-activity: name='roro.stellar.manager.MainActivity'
+          —— 用户点桌面图标进的是 Stellar 管理器界面，而本应用真正的主页是
+          com.youlong.hd.MainActivity 里的 index.html（WebView 单页应用）。
+          宿主 MainActivity 原本刻意只声明 MAIN、不声明 LAUNCHER
+          （见 app/src/main/AndroidManifest.xml 内的说明），
+          保留这条会让「隐藏桌面图标」的设计彻底失效。
+
+          因此删除整个 intent-filter。管理器的 MainActivity 仍可由宿主通过
+          显式 ComponentName 启动（见 MainActivity.openStellarManager()），
+          这正是本应用设计的进入方式。
+
+          同类问题还有两处，一并说明：
+            · res/mipmap-*/ic_launcher*.webp 与 res/drawable/ic_launcher_foreground.xml
+              会覆盖宿主自己的应用图标（合并时库模块同名资源优先），
+              已一并删除，见 build.gradle 内的说明；
+            · res/values*/strings.xml 里的 app_name 会覆盖宿主应用名，
+              已删除（保留 values/ 一条供 fallback，见该文件内说明）。
+          ==================================================================
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:theme="@style/StellarManagerSplash"
+            android:launchMode="singleTask"
+            android:exported="true" />
+        <activity
+            android:name=".ui.features.manager.ManagerActivity"
+            android:theme="@style/StellarManagerTheme" />
+        <activity
+            android:name=".shortcut.CommandShortcutActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/ShortcutExecutor" />
+
+        <!--
+          ==================================================================
+          ⚠️ 本工程新增：开源许可查看界面 OpenSourceLicensesActivity
+          ==================================================================
+          上游没有这个组件。本工程按开源协议要求，在应用内提供许可证全文
+          查看入口（Apache-2.0 第 4(a) 条要求向**接收者**提供许可证副本，
+          而用户拿到的是 APK，把 LICENSE 只放在代码仓库里不算合规）。
+
+          文本来自 :app 模块的 res/raw/open_source_licenses.txt
+          （Apache-2.0 全文 + MPL-2.0 全文 + NOTICE），
+          由 :manager 与 :app 共用同一张资源表直接读取。
+
+          exported="false"：仅应用内自己启动，不对外暴露。
+          由「设置 → 项目声明」里的「开源许可」卡片入口拉起。
+          ==================================================================
+        -->
+        <activity
+            android:name=".ui.features.settings.OpenSourceLicensesActivity"
+            android:exported="false"
+            android:theme="@style/StellarManagerTheme" />
+
+        <activity
+            android:name=".authorization.RequestPermissionActivity"
+            android:directBootAware="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+            android:taskAffinity="com.youlong.hd.permission"
+            android:theme="@style/GrantPermissions">
+            <intent-filter>
+                <action android:name="${applicationId}.intent.action.REQUEST_PERMISSION" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".authorization.CommandWhitelistActivity"
+            android:exported="false"
+            android:label="指令拦截白名单"
+            android:theme="@style/StellarManagerTheme" />
+
+        <!--
+          ==================================================================
+          ⚠️ 本工程新增：命令安全拦截对话框 CommandGuardActivity
+          ==================================================================
+          上游没有这个组件。本工程新增了「命令安全拦截」功能：
+          已授权应用通过内置 Stellar 下发卸载 / 冻结 / 批量停止 / 针对自家应用的
+          危险命令时，服务端（ProcessManager）会：
+            · 直接拒绝并拉起本 Activity 弹「已被拦截」告警框；或
+            · 拉起本 Activity 弹「是否允许」确认框，用户选择后服务端再决定放行。
+          服务端通过 action 拉起（见 ServerConstants.COMMAND_GUARD_ACTION），
+          因此这里必须 exported="true" 并声明同名 action；同时加上
+          INTERACT_ACROSS_USERS_FULL，与 RequestPermissionActivity 保持一致，
+          避免普通应用直接构造该 Intent 骚扰用户。
+          ==================================================================
+        -->
+        <activity
+            android:name=".authorization.CommandGuardActivity"
+            android:directBootAware="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL"
+            android:taskAffinity="com.youlong.hd.commandguard"
+            android:theme="@style/GrantPermissions">
+            <intent-filter>
+                <action android:name="${applicationId}.intent.action.COMMAND_GUARD" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".adb.AdbPairingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="ADB wireless pairing service that requires user interaction" />
+        </service>
+
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync|specialUse"
+            tools:node="replace">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="WorkManager foreground service for background initialization" />
+        </service>
+
+        <service
+            android:name=".startup.service.SelfStarterService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!--
+          ==================================================================
+          ⚠️ 本工程改动：删除 StellarAccessibilityService 的无障碍声明
+          ==================================================================
+          上游这里声明：
+              <service android:name=".service.StellarAccessibilityService"
+                       android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+                  <intent-filter><action
+                      android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+                  <meta-data android:name="android.accessibilityservice"
+                             android:resource="@xml/accessibility_service_config" />
+              </service>
+
+          该服务在上游的唯一作用是「开机自启的无障碍跳板」：
+          连接后把 BootCompleteReceiver 置为 enabled
+          （见 service/StellarAccessibilityService.kt）。
+          它的无障碍说明文字也用 app_name，所以在系统「无障碍」列表里会和宿主
+          自己的 AdSkipService 一样显示为「游龙安全护盾」——
+          实测系统里出现**两个同名条目**，用户完全不知道该开哪个。
+
+          ⚠️ 它不属于宿主功能：宿主本来就自己声明了
+             com.youlong.hd.BootReceiver（含 RECEIVE_BOOT_COMPLETED），
+             开机自启不依赖这个无障碍服务。
+
+          因此整块删除。连带的两处保持一致：
+            · manager 设置页的「无障碍自启」开关已移除
+              （开关还在、服务没了 = 骗用户）；
+            · 服务端 ConfigManager.isAccessibilityAutoStartEnabled() 恒返回 false，
+              不再去把本组件写进 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+              （写了也没用，组件已不存在）。
+          删掉的无障碍配置文件：res/xml/accessibility_service_config.xml。
+          ==================================================================
+        -->
+        <!-- 本工程删除（原因见上方说明）
+        <service
+            android:name=".service.StellarAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+        -->
+
+        <receiver
+            android:name=".receiver.BootCompleteReceiver"
+            android:directBootAware="true"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".startup.notification.BootStartActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="roro.stellar.manager.action.BOOT_START_RETRY" />
+                <action android:name="roro.stellar.manager.action.BOOT_START_CANCEL" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receiver.StellarReceiver"
+            android:directBootAware="true"
+            android:enabled="true"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="roro.stellar.intent.action.REQUEST_BINDER" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name=".StellarManagerProvider"
+            android:authorities="${applicationId}.stellar"
+            android:directBootAware="true"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!--
+          ==================================================================
+          ⚠️ 本工程改动：删除上游的 FileProvider 声明
+          ==================================================================
+          上游这里声明：
+              provider  android:name="androidx.core.content.FileProvider"
+                        android:authorities="${applicationId}.fileprovider"
+          宿主 :app 自己已经有一个 provider，**类名完全相同**
+          （androidx.core.content.FileProvider）、authority 也是
+          "${applicationId}.fileprovider"。清单合并器按「类名」判定组件同一性：
+          两个元素的 authority 与 meta-data 资源不同，直接报
+          "Manifest merger failed"；而且因为组件名相同，连 tools:replace 都
+          无法消解（它只能覆盖属性，不能让两个同名 provider 并存）。
+
+          该 FileProvider 只服务于「管理器把自己下载的新版 APK 交给系统安装」
+          这一自更新流程（util/update/ApkDownloader.kt + UpdateUtils）。本工程
+          把管理器内置进宿主 APK，版本与宿主一同分发，不存在独立自更新，
+          因此删除本声明；ApkDownloader 改为复用宿主已有的 FileProvider
+          （见该文件内的修改声明）。
+          ==================================================================
+        -->
+        <!-- 本工程删除上面这个 provider，原因见本注释上方的说明。 -->
+
+        <meta-data
+            android:name="roro.stellar.permissions"
+            android:value="stellar" />
+    </application>
+
+</manifest>

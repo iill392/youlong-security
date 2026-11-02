@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:label="红队测试" android:theme="@android:style/Theme.Material.Light">
+        <activity android:name="com.youlong.redteam.MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="roro.stellar.StellarProvider"
+            android:authorities="${applicationId}.stellar"
+            android:exported="true"
+            android:multiprocess="false" />
+        <meta-data android:name="roro.stellar.permissions" android:value="stellar" />
+    </application>
+</manifest>
+

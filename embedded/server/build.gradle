@@ -1,0 +1,48 @@
+// ==========================================================================
+// :server —— Stellar 特权服务端（运行在 ADB / Root 进程）
+// --------------------------------------------------------------------------
+// 源码来自 https://github.com/roro2239/Stellar （MPL-2.0 + Apache-2.0）。
+// 入口类 roro.stellar.server.StellarService，由原生启动器 libstellar.so 以
+//     /system/bin/app_process -Djava.class.path=<本应用 APK> roro.stellar.server.StellarService
+// 的方式拉起，因此这些类的全限定名在混淆时必须原样保留。
+//
+// 本文件是**本工程适配版**，不是上游原文件：
+//   · namespace 由上游的 'com.stellar.server' 改为 'roro.stellar.server'，
+//     使 AGP 生成的 R / BuildConfig 类与源码实际包名（roro.stellar.server）
+//     一致，避免和 com.stellar.server（AIDL 接口包）混淆；
+//   · compileSdk / minSdk / Java 版本统一由根 build.gradle 的 subprojects 块注入；
+//   · 其余（插件、依赖）与上游一致。
+// ==========================================================================
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+    id 'dev.rikka.tools.refine'
+}
+
+android {
+    namespace 'roro.stellar.server'
+    buildFeatures {
+        buildConfig = false
+    }
+    kotlin {
+        jvmToolchain(21)
+    }
+}
+
+dependencies {
+    implementation serverLibs.androidxAnnotation
+
+    implementation serverLibs.gson
+
+    api serverLibs.parcelablelist
+
+    implementation project(':aidl')
+    implementation project(':shared')
+    compileOnly project(':provider')
+    implementation project(':shizuku-aidl')
+    implementation project(':shizuku-api')
+
+    implementation libs.hidden.compat
+    compileOnly libs.hidden.stub
+    implementation libs.refine.runtime
+}

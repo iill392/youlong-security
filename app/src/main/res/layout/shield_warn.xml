@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#CC000000">
+
+    <ScrollView
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="#FFFFFFFF"
+        android:padding="24dp"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/warn_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="⚠️ 安全警告"
+                android:textSize="22sp"
+                android:textColor="#D32F2F"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/warn_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textColor="#333333"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="20dp" />
+
+            <Button
+                android:id="@+id/btn_check_admin"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="前往设置检查"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:background="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_warn_ok"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="我知道了"
+                android:textColor="#666666"
+                android:textSize="16sp"
+                android:background="#F5F5F5" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</FrameLayout>

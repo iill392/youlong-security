@@ -1,0 +1,961 @@
+游龙安全护盾 (YouLong Security Shield) —— 开源许可证与第三方声明
+YouLong Security Shield -- Open Source Licenses and Third-Party Notices
+
+本应用包含第三方开发的开源软件。以下依次为：
+  第一部分：Apache License 2.0 许可证全文
+            （本应用自身代码与经 Stellar 内含的 Shizuku / AOSP adb 等融合部分适用）
+  第二部分：Mozilla Public License 2.0 许可证全文
+            （内置 Stellar 的修改部分适用 —— 2026 年内核由 Shizuku 换为 Stellar 后新增）
+  第三部分：第三方组件署名与修改说明（NOTICE）
+            （含每个被修改文件的改动说明、BoringSSL/OpenSSL 署名等）
+
+This product includes open source software developed by third parties.
+Part 1 is the full text of the Apache License, Version 2.0.
+Part 2 is the full text of the Mozilla Public License, Version 2.0.
+Part 3 contains the attributions and modification notices (NOTICE).
+
+完整依赖清单见项目根目录 THIRD_PARTY_NOTICES.md。完整署名见根目录 NOTICE
+（本文件第三部分即其内容）。对应源码见项目根目录 embedded/ 与
+app/src/main/cpp/stellar/。
+
+
+################################################################################
+#                              PART 1 / 第一部分
+#                        Apache License, Version 2.0
+################################################################################
+
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+
+################################################################################
+#                              PART 2 / 第二部分
+#                    Mozilla Public License, Version 2.0
+################################################################################
+Mozilla Public License Version 2.0
+==================================
+
+1. Definitions
+--------------
+
+1.1. "Contributor"
+    means each individual or legal entity that creates, contributes to
+    the creation of, or owns Covered Software.
+
+1.2. "Contributor Version"
+    means the combination of the Contributions of others (if any) used
+    by a Contributor and that particular Contributor's Contribution.
+
+1.3. "Contribution"
+    means Covered Software of a particular Contributor.
+
+1.4. "Covered Software"
+    means Source Code Form to which the initial Contributor has attached
+    the notice in Exhibit A, the Executable Form of such Source Code
+    Form, and Modifications of such Source Code Form, in each case
+    including portions thereof.
+
+1.5. "Incompatible With Secondary Licenses"
+    means
+
+    (a) that the initial Contributor has attached the notice described
+        in Exhibit B to the Covered Software; or
+
+    (b) that the Covered Software was made available under the terms of
+        version 1.1 or earlier of the License, but not also under the
+        terms of a Secondary License.
+
+1.6. "Executable Form"
+    means any form of the work other than Source Code Form.
+
+1.7. "Larger Work"
+    means a work that combines Covered Software with other material, in
+    a separate file or files, that is not Covered Software.
+
+1.8. "License"
+    means this document.
+
+1.9. "Licensable"
+    means having the right to grant, to the maximum extent possible,
+    whether at the time of the initial grant or subsequently, any and
+    all of the rights conveyed by this License.
+
+1.10. "Modifications"
+    means any of the following:
+
+    (a) any file in Source Code Form that results from an addition to,
+        deletion from, or modification of the contents of Covered
+        Software; or
+
+    (b) any new file in Source Code Form that contains any Covered
+        Software.
+
+1.11. "Patent Claims" of a Contributor
+    means any patent claim(s), including without limitation, method,
+    process, and apparatus claims, in any patent Licensable by such
+    Contributor that would be infringed, but for the grant of the
+    License, by the making, using, selling, offering for sale, having
+    made, import, or transfer of either its Contributions or its
+    Contributor Version.
+
+1.12. "Secondary License"
+    means either the GNU General Public License, Version 2.0, the GNU
+    Lesser General Public License, Version 2.1, the GNU Affero General
+    Public License, Version 3.0, or any later versions of those
+    licenses.
+
+1.13. "Source Code Form"
+    means the form of the work preferred for making modifications.
+
+1.14. "You" (or "Your")
+    means an individual or a legal entity exercising rights under this
+    License. For legal entities, "You" includes any entity that
+    controls, is controlled by, or is under common control with You. For
+    purposes of this definition, "control" means (a) the power, direct
+    or indirect, to cause the direction or management of such entity,
+    whether by contract or otherwise, or (b) ownership of more than
+    fifty percent (50%) of the outstanding shares or beneficial
+    ownership of such entity.
+
+2. License Grants and Conditions
+--------------------------------
+
+2.1. Grants
+
+Each Contributor hereby grants You a world-wide, royalty-free,
+non-exclusive license:
+
+(a) under intellectual property rights (other than patent or trademark)
+    Licensable by such Contributor to use, reproduce, make available,
+    modify, display, perform, distribute, and otherwise exploit its
+    Contributions, either on an unmodified basis, with Modifications, or
+    as part of a Larger Work; and
+
+(b) under Patent Claims of such Contributor to make, use, sell, offer
+    for sale, have made, import, and otherwise transfer either its
+    Contributions or its Contributor Version.
+
+2.2. Effective Date
+
+The licenses granted in Section 2.1 with respect to any Contribution
+become effective for each Contribution on the date the Contributor first
+distributes such Contribution.
+
+2.3. Limitations on Grant Scope
+
+The licenses granted in this Section 2 are the only rights granted under
+this License. No additional rights or licenses will be implied from the
+distribution or licensing of Covered Software under this License.
+Notwithstanding Section 2.1(b) above, no patent license is granted by a
+Contributor:
+
+(a) for any code that a Contributor has removed from Covered Software;
+    or
+
+(b) for infringements caused by: (i) Your and any other third party's
+    modifications of Covered Software, or (ii) the combination of its
+    Contributions with other software (except as part of its Contributor
+    Version); or
+
+(c) under Patent Claims infringed by Covered Software in the absence of
+    its Contributions.
+
+This License does not grant any rights in the trademarks, service marks,
+or logos of any Contributor (except as may be necessary to comply with
+the notice requirements in Section 3.4).
+
+2.4. Subsequent Licenses
+
+No Contributor makes additional grants as a result of Your choice to
+distribute the Covered Software under a subsequent version of this
+License (see Section 10.2) or under the terms of a Secondary License (if
+permitted under the terms of Section 3.3).
+
+2.5. Representation
+
+Each Contributor represents that the Contributor believes its
+Contributions are its original creation(s) or it has sufficient rights
+to grant the rights to its Contributions conveyed by this License.
+
+2.6. Fair Use
+
+This License is not intended to limit any rights You have under
+applicable copyright doctrines of fair use, fair dealing, or other
+equivalents.
+
+2.7. Conditions
+
+Sections 3.1, 3.2, 3.3, and 3.4 are conditions of the licenses granted
+in Section 2.1.
+
+3. Responsibilities
+-------------------
+
+3.1. Distribution of Source Form
+
+All distribution of Covered Software in Source Code Form, including any
+Modifications that You create or to which You contribute, must be under
+the terms of this License. You must inform recipients that the Source
+Code Form of the Covered Software is governed by the terms of this
+License, and how they can obtain a copy of this License. You may not
+attempt to alter or restrict the recipients' rights in the Source Code
+Form.
+
+3.2. Distribution of Executable Form
+
+If You distribute Covered Software in Executable Form then:
+
+(a) such Covered Software must also be made available in Source Code
+    Form, as described in Section 3.1, and You must inform recipients of
+    the Executable Form how they can obtain a copy of such Source Code
+    Form by reasonable means in a timely manner, at a charge no more
+    than the cost of distribution to the recipient; and
+
+(b) You may distribute such Executable Form under the terms of this
+    License, or sublicense it under different terms, provided that the
+    license for the Executable Form does not attempt to limit or alter
+    the recipients' rights in the Source Code Form under this License.
+
+3.3. Distribution of a Larger Work
+
+You may create and distribute a Larger Work under terms of Your choice,
+provided that You also comply with the requirements of this License for
+the Covered Software. If the Larger Work is a combination of Covered
+Software with a work governed by one or more Secondary Licenses, and the
+Covered Software is not Incompatible With Secondary Licenses, this
+License permits You to additionally distribute such Covered Software
+under the terms of such Secondary License(s), so that the recipient of
+the Larger Work may, at their option, further distribute the Covered
+Software under the terms of either this License or such Secondary
+License(s).
+
+3.4. Notices
+
+You may not remove or alter the substance of any license notices
+(including copyright notices, patent notices, disclaimers of warranty,
+or limitations of liability) contained within the Source Code Form of
+the Covered Software, except that You may alter any license notices to
+the extent required to remedy known factual inaccuracies.
+
+3.5. Application of Additional Terms
+
+You may choose to offer, and to charge a fee for, warranty, support,
+indemnity or liability obligations to one or more recipients of Covered
+Software. However, You may do so only on Your own behalf, and not on
+behalf of any Contributor. You must make it absolutely clear that any
+such warranty, support, indemnity, or liability obligation is offered by
+You alone, and You hereby agree to indemnify every Contributor for any
+liability incurred by such Contributor as a result of warranty, support,
+indemnity or liability terms You offer. You may include additional
+disclaimers of warranty and limitations of liability specific to any
+jurisdiction.
+
+4. Inability to Comply Due to Statute or Regulation
+---------------------------------------------------
+
+If it is impossible for You to comply with any of the terms of this
+License with respect to some or all of the Covered Software due to
+statute, judicial order, or regulation then You must: (a) comply with
+the terms of this License to the maximum extent possible; and (b)
+describe the limitations and the code they affect. Such description must
+be placed in a text file included with all distributions of the Covered
+Software under this License. Except to the extent prohibited by statute
+or regulation, such description must be sufficiently detailed for a
+recipient of ordinary skill to be able to understand it.
+
+5. Termination
+--------------
+
+5.1. The rights granted under this License will terminate automatically
+if You fail to comply with any of its terms. However, if You become
+compliant, then the rights granted under this License from a particular
+Contributor are reinstated (a) provisionally, unless and until such
+Contributor explicitly and finally terminates Your grants, and (b) on an
+ongoing basis, if such Contributor fails to notify You of the
+non-compliance by some reasonable means prior to 60 days after You have
+come back into compliance. Moreover, Your grants from a particular
+Contributor are reinstated on an ongoing basis if such Contributor
+notifies You of the non-compliance by some reasonable means, this is the
+first time You have received notice of non-compliance with this License
+from such Contributor, and You become compliant prior to 30 days after
+Your receipt of the notice.
+
+5.2. If You initiate litigation against any entity by asserting a patent
+infringement claim (excluding declaratory judgment actions,
+counter-claims, and cross-claims) alleging that a Contributor Version
+directly or indirectly infringes any patent, then the rights granted to
+You by any and all Contributors for the Covered Software under Section
+2.1 of this License shall terminate.
+
+5.3. In the event of termination under Sections 5.1 or 5.2 above, all
+end user license agreements (excluding distributors and resellers) which
+have been validly granted by You or Your distributors under this License
+prior to termination shall survive termination.
+
+************************************************************************
+*                                                                      *
+*  6. Disclaimer of Warranty                                           *
+*  -------------------------                                           *
+*                                                                      *
+*  Covered Software is provided under this License on an "as is"       *
+*  basis, without warranty of any kind, either expressed, implied, or  *
+*  statutory, including, without limitation, warranties that the       *
+*  Covered Software is free of defects, merchantable, fit for a        *
+*  particular purpose or non-infringing. The entire risk as to the     *
+*  quality and performance of the Covered Software is with You.        *
+*  Should any Covered Software prove defective in any respect, You     *
+*  (not any Contributor) assume the cost of any necessary servicing,   *
+*  repair, or correction. This disclaimer of warranty constitutes an   *
+*  essential part of this License. No use of any Covered Software is   *
+*  authorized under this License except under this disclaimer.         *
+*                                                                      *
+************************************************************************
+
+************************************************************************
+*                                                                      *
+*  7. Limitation of Liability                                          *
+*  --------------------------                                          *
+*                                                                      *
+*  Under no circumstances and under no legal theory, whether tort      *
+*  (including negligence), contract, or otherwise, shall any           *
+*  Contributor, or anyone who distributes Covered Software as          *
+*  permitted above, be liable to You for any direct, indirect,         *
+*  special, incidental, or consequential damages of any character      *
+*  including, without limitation, damages for lost profits, loss of    *
+*  goodwill, work stoppage, computer failure or malfunction, or any    *
+*  and all other commercial damages or losses, even if such party      *
+*  shall have been informed of the possibility of such damages. This   *
+*  limitation of liability shall not apply to liability for death or   *
+*  personal injury resulting from such party's negligence to the       *
+*  extent applicable law prohibits such limitation. Some               *
+*  jurisdictions do not allow the exclusion or limitation of           *
+*  incidental or consequential damages, so this exclusion and          *
+*  limitation may not apply to You.                                    *
+*                                                                      *
+************************************************************************
+
+8. Litigation
+-------------
+
+Any litigation relating to this License may be brought only in the
+courts of a jurisdiction where the defendant maintains its principal
+place of business and such litigation shall be governed by laws of that
+jurisdiction, without reference to its conflict-of-law provisions.
+Nothing in this Section shall prevent a party's ability to bring
+cross-claims or counter-claims.
+
+9. Miscellaneous
+----------------
+
+This License represents the complete agreement concerning the subject
+matter hereof. If any provision of this License is held to be
+unenforceable, such provision shall be reformed only to the extent
+necessary to make it enforceable. Any law or regulation which provides
+that the language of a contract shall be construed against the drafter
+shall not be used to construe this License against a Contributor.
+
+10. Versions of the License
+---------------------------
+
+10.1. New Versions
+
+Mozilla Foundation is the license steward. Except as provided in Section
+10.3, no one other than the license steward has the right to modify or
+publish new versions of this License. Each version will be given a
+distinguishing version number.
+
+10.2. Effect of New Versions
+
+You may distribute the Covered Software under the terms of the version
+of the License under which You originally received the Covered Software,
+or under the terms of any subsequent version published by the license
+steward.
+
+10.3. Modified Versions
+
+If you create software not governed by this License, and you want to
+create a new license for such software, you may create and use a
+modified version of this License if you rename the license and remove
+any references to the name of the license steward (except to note that
+such modified license differs from this License).
+
+10.4. Distributing Source Code Form that is Incompatible With Secondary
+Licenses
+
+If You choose to distribute Source Code Form that is Incompatible With
+Secondary Licenses under the terms of this version of the License, the
+notice described in Exhibit B of this License must be attached.
+
+Exhibit A - Source Code Form License Notice
+-------------------------------------------
+
+  This Source Code Form is subject to the terms of the Mozilla Public
+  License, v. 2.0. If a copy of the MPL was not distributed with this
+  file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+If it is not possible or desirable to put the notice in a particular
+file, then You may include the notice in a location (such as a LICENSE
+file in a relevant directory) where a recipient would be likely to look
+for such a notice.
+
+You may add additional accurate notices of copyright ownership.
+
+Exhibit B - "Incompatible With Secondary Licenses" Notice
+---------------------------------------------------------
+
+  This Source Code Form is "Incompatible With Secondary Licenses", as
+  defined by the Mozilla Public License, v. 2.0.
+
+################################################################################
+#                              PART 3 / 第三部分
+#                        NOTICE / 第三方署名与修改说明
+################################################################################
+游龙安全护盾 (YouLong Security Shield)
+游龙安全护盾 (YouLong Security Shield)
+Copyright (C) 2026 游龙
+
+本产品包含第三方开发的开源软件。
+This product includes open source software developed by third parties.
+
+⚠️ 2026 年重要变更：本产品的内置特权内核已由上游 Shizuku 整体替换为
+   **Stellar**（Shizuku 的深度定制分支）。因此本文件相比旧版本有三处实质变化：
+     1. 新增「Stellar 修改部分 —— Mozilla Public License 2.0」一节。
+        这是本产品**首次**包含弱 copyleft（MPL-2.0）许可的代码。
+     2. Shizuku 一节改为说明「Stellar 内含的上游 Shizuku 代码」，
+        许可仍为 Apache-2.0，版权归 RikkaApps。
+     3. 逐条列出本工程对 Stellar 源码所做的全部修改（MPL-2.0 第 3.4 条 /
+        Apache-2.0 第 4(b) 条要求「被修改的文件需带显著修改声明」）。
+
+
+================================================================================
+1. Stellar —— Mozilla Public License 2.0（修改部分）
+================================================================================
+
+    Stellar        https://github.com/roro2239/Stellar
+    Stellar-API    https://github.com/roro2239/Stellar-API
+    Copyright (C) roro2239 / RoRo Studio
+    修改部分采用 Mozilla Public License, v. 2.0
+    许可证全文见 LICENSES/MPL-2.0.txt（随本产品一同分发）
+
+融合位置（源码级内置，非 Maven 依赖）：
+
+    embedded/manager/        Stellar 管理器（Compose + Material3 界面、授权管理、
+                             ADB 无线配对、开机启动、Room 数据库）
+    embedded/server/         Stellar 特权服务端（ADB / Root 进程内运行）
+    embedded/aidl/           Stellar AIDL 接口（com.stellar.server.*）
+    embedded/shared/         共享常量（roro.stellar.StellarApiConstants）
+    embedded/api/            客户端 SDK（roro.stellar.Stellar 等）
+    embedded/provider/       StellarProvider（接收服务端下发的 Binder）
+    embedded/userservice/    UserService 框架
+    embedded/shizuku-aidl/   Shizuku 兼容层 AIDL（moe.shizuku.server.*）
+    embedded/shizuku-api/    Shizuku 兼容层客户端
+    app/src/main/cpp/stellar/ 原生层（取自 manager/src/main/jni/）
+
+■ 本工程修改声明（MPL-2.0 第 3.4 条）
+
+  以下每一处改动都已在**被改动的文件顶部**写入显著的中文修改说明注释，
+  且逐条列在这里以便接收者核对。改动全部是「适配宿主应用」性质，
+  不涉及算法、协议、数据结构或安全语义的改变。
+
+  (A) 应用级标识符改写（不改变 Java/Kotlin 包名）
+      上游 Stellar 管理器是独立 APK（applicationId = roro.stellar.manager）；
+      本产品把管理器内置进自己的 APK，应用包名为 com.youlong.hd。
+      随之改写的应用级标识符：
+
+        应用包名 / applicationId        : com.youlong.hd
+        管理器 Provider authority        : com.youlong.hd.stellar
+        REQUEST_PERMISSION action        : com.youlong.hd.intent.action.REQUEST_PERMISSION
+        binder extra key                 : com.youlong.hd.intent.extra.BINDER
+        client binder extra key          : com.youlong.hd.intent.extra.CLIENT_BINDER
+        日志回传 Provider authority      : com.youlong.hd.stellar
+        FileProvider authority（管理器） : com.youlong.hd.stellar.fileprovider
+        StellarHelper 管理器包名         : com.youlong.hd
+        开机脚本 pm path 包名            : com.youlong.hd
+
+      ⚠️ Java/Kotlin 包名 roro.stellar.* / com.stellar.* / moe.shizuku.*
+         一律**保持上游原名不变**。原因有二：
+           · 原生启动器与 JNI 按硬编码类名工作 ——
+             starter.cpp 用 CLASSPATH 加载 roro.stellar.server.StellarService，
+             adb_pairing.cpp 用 FindClass("roro/stellar/manager/adb/PairingContext")
+             注册 native 方法；
+           · 宿主用类名字符串启动管理器界面。
+
+  (B) 构建配置适配（manager 由 application 降级为 library）
+        · embedded/manager/build.gradle：
+            插件 com.android.application → com.android.library；
+            删除 applicationId / versionCode / versionName / signingConfigs /
+            applicationVariants 输出改名等 application 专属配置；
+            删除 externalNativeBuild 与 prefab（原生部分移到 :app 统一构建）；
+            删除 collapseReleaseResourceNames 与 CompileArtProfileTask 关闭逻辑；
+            删除 dev.rikka.tools.autoresconfig 插件（该插件要求 application
+            扩展，且它生成的 StellarLocales 在全部源码中均无引用）。
+        · embedded/manager/src/main/AndroidManifest.xml：
+            删除 android:sharedUserId（上游作为独立 APK 时使用，库模块不允许）；
+            FileProvider authority 改为 ${applicationId}.stellar.fileprovider
+            （与宿主已有的 ${applicationId}.fileprovider 冲突）。
+
+  (C) 宿主导入点适配（管理器不再由系统实例化）
+        · StellarApplication.kt：
+            `application` 的类型由 StellarApplication 放宽为 Application；
+            init(context) 由 private 改为 public；
+            新增 attachApplication(Application) 供宿主赋值。
+            上游这三件事由系统调用 onCreate() 完成，本产品改为由
+            com.youlong.hd.YouLongApp 显式调用（YouLongApp 顶部有说明）。
+        · 宿主 YouLongApp.java 相应新增对 StellarApplication 的初始化调用。
+
+  (D) 逐文件的具体改动清单
+
+        app/src/main/cpp/stellar/starter.cpp
+            PACKAGE_NAME: "roro.stellar.manager" → "com.youlong.hd"
+            （仅用于 `pm path <包名>` 这条回退路径）
+
+        embedded/server/.../ServerConstants.kt
+            MANAGER_APPLICATION_ID: "roro.stellar.manager" → "com.youlong.hd"
+            （服务端据此判定「调用者是否管理器」，必须与真实包名一致）
+
+        embedded/api/.../StellarHelper.kt
+            STELLAR_MANAGER_PACKAGE_NAME: "roro.stellar.manager" → "com.youlong.hd"
+
+        embedded/provider/.../StellarProvider.kt
+            EXTRA_BINDER / EXTRA_CLIENT_BINDER / MANAGER_APPLICATION_ID
+            三处前缀 "roro.stellar.manager" → "com.youlong.hd"
+
+        embedded/server/.../binder/BinderDistributor.kt
+            三处 extraKey 前缀同上
+
+        embedded/server/.../userservice/UserServiceStarter.kt
+            EXTRA_BINDER / EXTRA_CLIENT_BINDER 前缀同上
+
+        embedded/server/.../util/Logger.kt
+            PROVIDER: "roro.stellar.manager.stellar" → "com.youlong.hd.stellar"
+
+        embedded/manager/.../startup/boot/BootScriptManager.kt
+            开机脚本内 `pm path roro.stellar.manager` → `pm path com.youlong.hd`
+
+        embedded/manager/.../ui/features/home/HomeViewModel.kt
+            自检命令 `cmd package list packages roro.stellar.manager`
+            → `cmd package list packages com.youlong.hd`
+
+        embedded/manager/.../util/update/ApkDownloader.kt
+            FileProvider authority 加上 ".stellar." 段
+        embedded/manager/src/main/AndroidManifest.xml（第二轮追加改动）
+            删除 MainActivity 的 <intent-filter>（MAIN + LAUNCHER）。
+            上游把该 Activity 作为自己 APK 的桌面入口；并入宿主后会顶掉宿主的
+            桌面身份，实测 launchable-activity 变成
+            roro.stellar.manager.MainActivity，即点桌面图标进的是管理器而非宿主
+            主页。删除后由宿主 MainActivity 声明 LAUNCHER。
+
+        embedded/manager/src/main/res/values/strings.xml 及 8 个 values-*
+            删除 app_name = "Stellar"（8 个语言目录）；默认 values/ 中该条改为
+            "游龙安全护盾"（保留作 fallback，否则 en/de/it 等语言取不到应用名）。
+            原因：库模块同名资源优先于主模块，会覆盖宿主的应用名。
+
+        embedded/manager/src/main/res/mipmap-*/ic_launcher*.webp
+        embedded/manager/src/main/res/mipmap-anydpi-v26/ic_launcher*.xml
+        embedded/manager/src/main/res/drawable/ic_launcher_foreground.xml
+        embedded/manager/src/main/res/values/ic_launcher_background.xml
+            整组删除。原因同上：库模块的应用图标会覆盖宿主自己的 ic_launcher，
+            导致桌面图标变成 Stellar 的图标。
+        embedded/manager/src/main/AndroidManifest.xml（第三轮追加改动）
+            删除 StellarAccessibilityService 的无障碍服务声明（整块 <service>）。
+            上游用它作为「开机自启的无障碍跳板」（连接后把 BootCompleteReceiver
+            置为 enabled）。其无障碍说明文字取自 app_name，因此在系统「无障碍」
+            列表里与宿主自己的 AdSkipService 同名（都显示「游龙安全护盾」），
+            实测出现两个同名条目，用户无法分辨该开哪个。
+            宿主开机自启本就由自己的 com.youlong.hd.BootReceiver 负责，不依赖它。
+            连带删除 res/xml/accessibility_service_config.xml。
+
+        embedded/manager/.../ui/features/settings/SettingsScreen.kt
+            删除「无障碍自启」开关（AnimatedVisibility + SettingsInnerSwitchRow）、
+            「自动授予无障碍权限」提示弹窗，以及配套状态变量
+            bootBroadcastAccessibilityEnabled / showAccessibilityHintDialog。
+            原因：其对应的无障碍服务已删除，开关留着会误导用户。
+            applyBootMode() 中写入的 accessibilityAutoStart 恒为 false。
+
+        embedded/server/.../ConfigManager.kt
+            isAccessibilityAutoStartEnabled() 由「读管理器配置」改为恒返回 false。
+            原因：组件已不存在，再往 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            写入无效条目没有意义。  (E) 未修改的部分
+        app/src/main/AndroidManifest.xml（第四轮追加改动）
+            删除 <receiver android:name=".DeviceAdminReceiver"> 整块声明
+            （含 BIND_DEVICE_ADMIN 权限与 android.app.device_admin meta-data）。
+            同时删除 app/src/main/res/xml/device_admin.xml 与
+            app/src/main/java/com/youlong/hd/DeviceAdminReceiver.java（整个类）。
+            说明：DeviceAdminReceiver 是本应用**自有代码**（Apache-2.0），
+            不属于 Stellar 派生文件；此条记录仅为本工程变更留痕。
+
+        app/src/main/java/com/youlong/hd/MainActivity.java
+            删除 isDeviceAdminActive() / requestDeviceAdmin() /
+            getDeviceAdminStatus() / openDeviceAdminSystemUi() 四个方法、
+            openPermSettings() 的 "deviceadmin" 分支、
+            getMissingPermissions() 返回里的 deviceAdmin 字段
+            （改为常量 false 以兼容可能缓存的旧页面），
+            以及未再使用的 import android.app.admin.DevicePolicyManager。
+
+        app/src/main/java/com/youlong/hd/ProtectService.java
+            · 新增 startUninstallForceStopLoop() / stopUninstallForceStopLoop()：
+              卸载期间后台持续 force-stop 目标与第三方应用；
+              跨进程停止信号用哨兵文件 getFilesDir()/uninstall_fs_loop.flag 传递。
+            · runPreUninstallAdminRevoke() 改为从 assets 取脚本落盘后以文件执行，
+              不再把脚本拼成长命令行经 stdin 灌入（避免截断/挂住）。
+            · closeDailyOverlay() 与卸载收尾改用 stopUninstallForceStopLoop()。
+
+        app/src/main/assets/uninstall_helpers.sh（本工程新增，非上游文件）
+            预卸载解除设备管理员的 shell 脚本；每条 dpm 命令套 timeout，
+            并有总时长上限，保证不会卡住。
+
+        app/src/main/assets/index.html
+            删除 PERM_INFO 里的 deviceAdmin 项、needDeviceAdmin() 函数
+            以及两处 deviceAdmin 特判；同步移除「激活设备管理器」入口。
+    Stellar 的算法、权限模型、Binder 协议、AIDL 接口定义、数据库结构、
+    Compose 界面与资源，均与上游逐字一致，未作任何改动。
+
+■ MPL-2.0 合规要点说明（本产品如何履行）
+
+  · 第 3.1 / 3.2 条：MPL-2.0 覆盖的源码（embedded/ 下的 Stellar 源码，
+    以及 app/src/main/cpp/stellar/ 下的原生源码）**随本产品以源码形式提供**，
+    见项目根目录 embedded/ 与 app/src/main/cpp/stellar/，
+    因此接收者可以取得其 Source Code Form。
+  · 第 3.4 条：未删改任何许可证声明与版权声明；所有改动均带显著修改说明。
+  · 第 3.3 条（Larger Work）：本产品中 MPL-2.0 代码与自有代码仅处于
+    「文件级」组合，MPL-2.0 的传染性限于被覆盖的文件本身，
+    不要求本产品整体开源。
+  · 本产品**未**附加 Exhibit B 的 "Incompatible With Secondary Licenses"
+    声明，即上游并未把 Stellar 标记为与 Secondary License 不兼容。
+
+
+================================================================================
+2. Shizuku / Shizuku-API —— Apache License 2.0（经 Stellar 内含）
+================================================================================
+
+    Shizuku        https://github.com/RikkaApps/Shizuku
+    Shizuku-API    https://github.com/RikkaApps/Shizuku-API
+    Copyright (C) RikkaApps  <https://github.com/RikkaApps>
+    Licensed under the Apache License, Version 2.0.
+
+说明：2026 年迁移后，本产品**不再直接内置**上游 Shizuku 仓库的源码。
+      Stellar 本身是 Shizuku 的分支，其内部保留了源自 Shizuku 的代码
+      （Shizuku 兼容层、部分服务端实现与 AIDL 定义），
+      这部分仍适用 Apache-2.0。上游 Shizuku 的版权头在 Stellar 源码中
+      原样保留，未作删改。
+
+      Apache-2.0 第 4(a) 条要求的许可证副本即本产品的 LICENSE
+      （以及 LICENSES/Apache-2.0.txt），已随产品一同分发。
+
+      ⚠️ 上游 Shizuku README 中的三项使用限制（不得使用 Shizuku 作为应用名、
+        不得使用 moe.shizuku.privileged.api 作为 applicationId、
+        不得声明 moe.shizuku.manager.permission.* 权限）本产品**均未违反**：
+        应用名为「游龙安全护盾」，applicationId 为 com.youlong.hd，
+        并且未声明任何 moe.shizuku.* 权限。
+
+
+================================================================================
+3. AOSP adb —— Apache License 2.0
+================================================================================
+
+    Android Open Source Project  https://source.android.com/
+    Copyright (C) The Android Open Source Project
+    Licensed under the Apache License, Version 2.0.
+
+说明：2026 年迁移后，本产品原先内置的 app/src/main/cpp/adb/
+      （取自 Shizuku 管理器的 ADB 协议实现）已随 Shizuku 一并移除，
+      改为使用 Stellar 管理器自带的 ADB 配对实现
+      （app/src/main/cpp/stellar/adb_pairing.cpp，见第 1 节）。
+      AOSP adb 的协议常量与算法思路仍体现在该实现中，故保留本条署名。
+
+
+================================================================================
+4. BoringSSL —— OpenSSL License + ISC + BSD 系
+================================================================================
+
+    BoringSSL      https://boringssl.googlesource.com/boringssl/
+    Copyright (C) The BoringSSL Authors
+    Copyright (C) 1998-2011 The OpenSSL Project
+    Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+
+说明：2026 年迁移后，本产品不再把 BoringSSL 的头文件与静态库直接内置到
+      app/src/main/cpp/boringssl/，改为通过 Maven 的 prefab 包引入：
+          io.github.vvb2060.ndk:boringssl:20250114
+      该包由 vvb2060 构建发布（https://github.com/vvb2060/BoringSSL_Android），
+      包内保留 BoringSSL 原有的 OpenSSL / ISC 许可声明，未作删改。
+      用途：ADB 无线调试配对所需的 curve25519 / HKDF / AES-GCM 原语。
+
+
+================================================================================
+5. kyant backdrop —— Apache License 2.0
+================================================================================
+
+    kyant backdrop   https://github.com/Kyant0/Backdrop
+    Copyright (C) Kyant
+    Licensed under the Apache License, Version 2.0.
+
+位置：app/src/main/kotlin/com/kyant/backdrop/（毛玻璃 / 模糊效果）
+
+
+================================================================================
+6. NDK libc++ 静态库 —— Apache License 2.0（LLVM 例外条款）
+================================================================================
+
+    LLVM libc++    https://libcxx.llvm.org/
+    Copyright (C) LLVM Project / The Android Open Source Project
+    Licensed under the Apache License, Version 2.0 with LLVM Exceptions.
+
+说明：2026 年迁移后，本产品通过 prefab 包
+          org.lsposed.libcxx:libcxx:27.0.12077973
+      引入（https://github.com/LSPosed/prefab-libcxx），供内置 Stellar 的原生
+      启动器 / 配对库使用。包内保留 LLVM 原有的许可声明。
+
+
+================================================================================
+7. 其他 Maven 依赖
+================================================================================
+
+本产品还通过 Maven 引入若干第三方库（AndroidX、Material Components、
+Kotlin 协程、Gson、Conscrypt、libsu、OkHttp、Room、WorkManager、
+BouncyCastle、hiddenapibypass、rikkax 系列等），
+其许可证与版权声明见项目根目录 THIRD_PARTY_NOTICES.md 的完整清单。
+全部为 Apache-2.0 / MIT / Bouncy Castle Licence 这类宽松许可。
+
+
+================================================================================
+8. 分发与获取源码
+================================================================================
+
+本产品分发的 APK 中，第 1 节所列 MPL-2.0 覆盖代码的 Source Code Form
+随产品源码一同提供；若仅取得 APK，可通过项目仓库获取对应源码。
+
+################################################################################
+#                    PART 4 / 完整版权声明与许可说明
+################################################################################
+
+游龙安全护盾 (YouLong Security Shield)
+Copyright (C) 2026 游龙. All rights reserved, except third-party components.
+Copyright (C) 2026 YouLong.
+
+1. 本产品是独立修改版，内置特权框架基于 Stellar 修改而来：
+   Stellar / Stellar-API  https://github.com/roro2239/Stellar
+   Copyright (C) roro2239 / RoRo Studio
+   修改部分适用 Mozilla Public License 2.0。
+   Shizuku / Shizuku-API  https://github.com/RikkaApps/Shizuku
+   Copyright (C) RikkaApps，适用 Apache License 2.0。
+   本产品与上述作者/组织不存在隶属、合作、代理或背书关系，不是其官方产品。
+   “Stellar”“Shizuku”等名称、标识、商标归各自权利人所有，仅用于说明来源、
+   兼容性与许可归属。包名 roro.stellar.* / com.stellar.* / moe.shizuku.*
+   仅因 AIDL、JNI 与协议兼容而保留。
+
+2. 早期版本曾尝试结束第三方 Shizuku 服务进程（shizuku_server /
+   shizuku_daemon），该行为自 V63 起已彻底移除。当前版本不结束、不冻结、
+   不强制停止第三方 Shizuku 服务，不修改其 APK 或数据，也不再通过击杀
+   Shizuku 进程接管客户端；仅在本产品自身权限与审计框架内提供兼容接口。
+   Shizuku 相关版权与许可证仍归 RikkaApps，适用 Apache-2.0。
+
+3. 本产品自有代码、界面与文档适用 Apache License 2.0；Stellar 修改部分适用
+   MPL-2.0；本产品未删除任何原始版权、许可或署名声明，所有被修改的 Stellar
+   文件顶部保留显著修改说明，并在 NOTICE 中逐项汇总。
+
+4. 源代码获取：随对应版本发布完整源码包，默认文件名形如
+   游龙安全护盾-V72-9.9.41-完整源码.zip，包含 embedded/、
+   app/src/main/cpp/stellar/、AIDL、Gradle 配置、LICENSE、LICENSES/、
+   NOTICE、THIRD_PARTY_NOTICES.md、COPYRIGHT.md 等。若仅取得 APK，
+   可向 APK 发布者索取对应版本源码；版本对应 V72 / 9.9.41 / 1234567990。
+
+5. 完整版权声明见源码包根目录 COPYRIGHT.md / 版权声明.md。

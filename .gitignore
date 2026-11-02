@@ -1,0 +1,55 @@
+# ========== 构建产物(含明文调试副本,严禁入库) ==========
+/build/
+/build-out/
+/build_out/
+build/
+build-out/
+build_out/
+**/build_out/
+
+# ========== Gradle ==========
+.gradle/
+**/build/
+node_modules/
+scripts/node_modules/
+local.properties
+*.jks
+*.keystore
+*.jks.*
+
+# ========== IDE ==========
+.idea/
+*.iml
+.vscode/
+
+# ========== 系统 ==========
+.DS_Store
+Thumbs.db
+
+# ========== 临时/调试产物 ==========
+*.log
+*.tmp
+*.apk
+*.aab
+*.zip
+/ui*.xml
+/rt*.xml
+/lock*.xml
+/*.xml
+tools/*.png
+tools/shot*.png
+temp_scan.py
+dump_ids.ps1
+test_stable.ps1
+
+# ========== 密钥/敏感文件(加密种子、签名) ==========
+app-release.jks
+
+# 由 :app:extractPrefabPackages 解压的 prefab 包（libcxx / boringssl），
+# 可由 Maven 重新生成，不入库
+app/.prefab/
+
+# CMake 构建指纹
+app/.cxx/
+**/.cxx/
+

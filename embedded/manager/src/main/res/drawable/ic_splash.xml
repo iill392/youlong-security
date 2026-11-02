@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  2026-10-17 第 18 轮：替换原来的上游圆形标识，改为游龙控制台的盾牌 + 对勾。
+  （上游该文件是 Stellar 的图形标识；本工程按需求不使用其名称与图标。）
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:height="108dp"
+    android:width="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 外层盾牌 -->
+    <path
+        android:fillColor="#3DF5B6"
+        android:pathData="M54,10 L90,24 L90,50 C90,74 74,92 54,99 C34,92 18,74 18,50 L18,24 Z" />
+
+    <!-- 内层深色盾牌 -->
+    <path
+        android:fillColor="#060A0F"
+        android:pathData="M54,22 L80,32 L80,50 C80,68 68,82 54,88 C40,82 28,68 28,50 L28,32 Z" />
+
+    <!-- 对勾 -->
+    <path
+        android:pathData="M41,52 L50,61 L69,41"
+        android:strokeColor="#3DF5B6"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

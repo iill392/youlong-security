@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  游龙安全护盾 —— 本工程新增资源（不是上游 Stellar 的资源）
+  ==========================================================================
+  资源压缩白名单（内置管理器模块）。
+
+  :app 模块开了 `shrinkResources true`，资源压缩器会删掉所有「没有被代码或
+  XML 引用」的资源。open_source_licenses.txt 只在运行时由
+  OpenSourceLicensesActivity 通过
+      resources.openRawResource(R.raw.open_source_licenses)
+  读取 —— 这种引用方式资源压缩器识别不到，会被当作死资源删掉。
+
+  许可证文本是 Apache-2.0 第 4(a) 条 / MPL-2.0 第 3.1 条要求必须随分发
+  提供给使用者的，一旦被删就是许可证违规，所以这里显式保下来。
+
+  ⚠️ 本文件与 app/src/main/res/raw/keep.xml 是**同一个作用**、同一份文本的
+     两个副本：
+       · app 模块那份由宿主 MainActivity 的「开源许可」入口使用
+         （WebView 的 Android.openSourceLicenses 桥接）；
+       · manager 模块这份由内置管理器的「设置 → 项目声明 → 开源许可」入口使用。
+     两个入口读的是各自模块的资源表，所以资源需要两边都有。
+     修改许可证文本时**必须同时更新这两份**，否则两个入口内容会不一致。
+
+  注意：本文件必须位于 res/raw/ 目录下，文件名必须叫 keep.xml。
+  ==========================================================================
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/open_source_licenses" />

@@ -1,0 +1,2699 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>游龙安全护盾</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#F2F2F7;color:#1c1c1e;min-height:100vh;padding:20px 16px;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+.container{max-width:500px;margin:0 auto}
+/* 顶部导航 */
+.header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.header h1{font-size:1.35rem;font-weight:700;color:#1c1c1e;flex:1;letter-spacing:-0.3px}
+.header .ver{display:inline-block;background:linear-gradient(135deg,#4CD964,#28A745);color:#fff;font-size:0.8rem;font-weight:700;line-height:1;padding:7px 14px;border-radius:999px;vertical-align:middle;margin-left:8px;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(40,167,69,0.4);text-transform:lowercase}
+/* 鸿蒙兼容提示（小红字） */
+.harmony-tip{font-size:0.72rem;color:#FF3B30;margin:0 4px 14px;font-weight:500}
+/* 模式描述中的红色高亮 */
+.red-txt{color:#FF3B30;font-weight:700}
+/* 推荐标识（日常模式） */
+.recommend-badge{display:inline-block;background:linear-gradient(135deg,#FF3B30,#FF9500);color:#fff;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:8px;vertical-align:middle;margin-left:4px;letter-spacing:0.5px;box-shadow:0 1px 4px rgba(255,59,48,0.35)}
+/* 紧急提示横幅 */
+.emergency-banner{background:#fff;border-radius:20px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.emergency-banner .text{font-size:0.82rem;line-height:1.5;flex:1;color:#8e8e93}
+.emergency-banner .text strong{color:#FF3B30;font-size:0.9rem}
+/* 卡片（iOS 分组样式） */
+.card{background:#fff;border-radius:22px;padding:16px;margin-bottom:20px}
+.card-title{font-size:0.78rem;font-weight:600;color:#8e8e93;margin-bottom:10px;padding:0 4px;text-transform:uppercase;letter-spacing:0.3px}
+/* toggle 行 */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:11px 4px}
+.toggle-label{font-size:1rem;font-weight:400;color:#1c1c1e}
+.toggle-sub{font-size:0.75rem;color:#8e8e93;margin-top:3px}
+.toggle-switch{position:relative;display:inline-block;width:51px;height:31px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:rgba(120,120,128,0.16);border-radius:31px;transition:background 0.25s}
+.toggle-slider::before{content:"";position:absolute;height:27px;width:27px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:transform 0.25s}
+.toggle-switch input:checked+.toggle-slider{background:#34C759}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px)}
+/* 状态显示 */
+.status-box{text-align:center;padding:12px;margin:10px 0 4px;background:rgba(120,120,128,0.08);border-radius:10px;font-size:0.88rem;color:#8e8e93;transition:background 0.25s,color 0.25s}
+.status-box.active{background:#34C759;color:#fff;font-weight:600}
+/* 按钮 */
+.btn-group{display:flex;gap:10px;margin:10px 0}
+.btn{flex:1;border:none;border-radius:999px;padding:13px;font-weight:600;font-size:0.92rem;cursor:pointer;transition:opacity 0.15s;font-family:inherit}
+.btn:active{opacity:0.6}
+.btn-primary{background:#007AFF;color:#fff}
+.btn-secondary{background:rgba(120,120,128,0.12);color:#1c1c1e}
+.btn-small{display:inline-block;padding:6px 16px;font-size:0.8rem;border-radius:999px;border:none;cursor:pointer;font-family:inherit}
+.btn-danger{background:#FF3B30;color:#fff}
+/* 结果面板 */
+.result-panel{display:none;margin-top:12px}
+.danger-app-item{background:rgba(255,59,48,0.06);border-radius:18px;padding:13px;margin-bottom:8px}
+.danger-app-item .app-name{font-weight:600;font-size:0.95rem;color:#1c1c1e}
+.danger-app-item .app-pkg{font-size:0.75rem;color:#8e8e93;margin:4px 0}
+.danger-app-item .app-perms{font-size:0.78rem;color:#FF3B30;margin:4px 0}
+.danger-app-item .btn-row{display:flex;gap:8px;margin-top:10px}
+.danger-app-item .btn-uninstall{background:#FF3B30;color:#fff;border:none;border-radius:999px;padding:6px 16px;font-size:0.8rem;font-weight:500;cursor:pointer}
+.danger-app-item .btn-uninstall:active{opacity:0.6}
+.danger-app-item .btn-control{background:#007AFF;color:#fff;border:none;border-radius:999px;padding:6px 16px;font-size:0.8rem;font-weight:500;cursor:pointer}
+.danger-app-item .btn-control:active{opacity:0.6}
+.history-item{background:rgba(120,120,128,0.06);border-radius:18px;padding:13px;margin-bottom:8px;font-size:0.85rem}
+.history-item .history-time{font-size:0.72rem;color:#8e8e93;margin-top:4px}
+/* 加载 */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(120,120,128,0.2);border-radius:50%;border-top-color:#007AFF;animation:spin 0.8s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-box{text-align:center;padding:20px;color:#8e8e93}
+/* 弹窗 */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:10000;padding:24px}
+.modal-box{background:#fff;border-radius:14px;padding:20px;max-width:320px;width:100%;max-height:90vh;display:flex;flex-direction:column}
+.modal-title{text-align:center;font-size:1.05rem;font-weight:600;color:#1c1c1e;margin-bottom:10px}
+.modal-body{font-size:0.88rem;color:#3c3c43;line-height:1.6;text-align:left;padding:0 4px;margin-bottom:16px}
+.modal-body strong{color:#FF3B30}
+.modal-footer{text-align:center;flex-shrink:0}
+.modal-btn{background:#007AFF;color:#fff;border:none;border-radius:999px;padding:12px;width:100%;font-size:1rem;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.15s}
+.modal-btn:active{opacity:0.6}
+.modal-btn:disabled{background:rgba(120,120,128,0.2);cursor:not-allowed}
+/* 应用列表 */
+.app-list{flex:1;overflow-y:auto;margin:8px 0 14px;border-radius:12px;padding:4px 0;min-height:200px;max-height:50vh;background:rgba(120,120,128,0.06)}
+.app-list-item{display:flex;align-items:center;padding:10px 14px;cursor:pointer;gap:10px}
+.app-list-item:last-child{border-bottom:none}
+.app-list-item:active{background:rgba(120,120,128,0.1)}
+.app-list-item .ck{width:22px;height:22px;border:2px solid #c7c7cc;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;color:#fff}
+.app-list-item .ck.checked{background:#007AFF;border-color:#007AFF}
+.app-list-item .app-info{flex:1}
+.app-list-item .app-info .app-name{font-size:0.9rem;font-weight:400;color:#1c1c1e}
+.app-list-item .app-info .app-pkg{font-size:0.72rem;color:#8e8e93;margin-top:2px}
+.app-list-item .app-icon{width:36px;height:36px;border-radius:9px;background:rgba(0,122,255,0.1);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;color:#007AFF;flex-shrink:0}
+.search-bar{width:100%;padding:10px 14px;border:none;border-radius:10px;font-size:0.88rem;outline:none;box-sizing:border-box;margin-bottom:8px;font-family:inherit;background:rgba(120,120,128,0.08)}
+.search-bar:focus{background:rgba(120,120,128,0.12)}
+.select-all-row{display:flex;align-items:center;gap:8px;padding:8px 14px;color:#007AFF;font-size:0.85rem;font-weight:500;cursor:pointer;user-select:none}
+.select-all-row:active{background:rgba(120,120,128,0.1)}
+.selected-count{text-align:center;font-size:0.75rem;color:#8e8e93;margin-bottom:6px}
+/* 权限提示小栏 — 深橙色警告 */
+#permBanners{margin-bottom:16px}
+.perm-banner{background:#FFF3E0;border:1.5px solid #E65100;border-radius:18px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.perm-banner .perm-info{flex:1;min-width:0}
+.perm-banner .perm-info .perm-title{font-size:0.88rem;font-weight:600;color:#E65100;margin-bottom:2px}
+.perm-banner .perm-info .perm-desc{font-size:0.72rem;color:#BF360C;line-height:1.4}
+.perm-banner .perm-btn{flex-shrink:0;background:#E65100;color:#fff;border:none;border-radius:999px;padding:7px 18px;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit}
+.perm-banner .perm-btn:active{opacity:0.6}
+/* 模式选择 */
+.mode-row{display:flex;align-items:center;gap:12px;padding:15px 16px;border-radius:20px;cursor:pointer;background:rgba(120,120,128,0.06);margin-bottom:10px}
+.mode-row:active{background:rgba(120,120,128,0.12)}
+.mode-row.selected{background:rgba(0,122,255,0.08)}
+.mode-radio{width:22px;height:22px;border-radius:50%;border:2px solid #c7c7cc;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mode-radio.checked{border-color:#007AFF;background:#007AFF}
+.mode-radio.checked::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
+.mode-info{flex:1}
+.mode-name{font-size:0.95rem;font-weight:500;color:#1c1c1e}
+/* Super Shield 模式：名称做「橙 → 红」渐变，红色占后 40% */
+.super-shield-name{
+  display:inline-block;
+  background:linear-gradient(90deg,#FFD60A 0%,#FFD60A 25%,#FF9F0A 55%,#FF3B30 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  color:transparent;
+  font-weight:800;
+}
+/* SuperShield 专用：橙色渐变到红色，60% 之后全部为红色（红色占 40%） */
+.super-shield-name.orange-gradient{
+  background:linear-gradient(90deg,#FF9500 0%,#FF6B00 35%,#FF3B30 60%,#FF3B30 100%);
+}
+.mode-desc{font-size:0.75rem;color:#8e8e93;margin-top:3px}
+.mode-row.selected .mode-name{color:#007AFF}
+/* 极强拦截模式 — 置顶高亮卡片（深色主题，简洁醒目） */
+.mode-row.featured{background:linear-gradient(135deg,#2C2C2E 0%,#1C1C1E 100%);border:1.5px solid rgba(255,149,0,0.75);box-shadow:0 6px 20px rgba(0,0,0,0.16)}
+.mode-row.featured:active{background:linear-gradient(135deg,#3A3A3C,#26262A)}
+.mode-row.featured .mode-name{color:#FFD60A;font-weight:700}
+.mode-row.featured .mode-desc{color:rgba(255,255,255,0.82)}
+.mode-row.featured .mode-desc .red-txt{color:#FF9500}
+.mode-row.featured .mode-radio{border-color:rgba(255,255,255,0.45)}
+.mode-row.featured .mode-radio.checked{border-color:#FF9500;background:#FF9500}
+.mode-row.featured.selected{border-color:#FF9500;box-shadow:0 6px 22px rgba(255,149,0,0.3)}
+.mode-row.featured.selected .mode-name{color:#FFD60A}
+/* 终结模式 — 与普通模式一致，不显眼（最危险模式刻意低调，防止误触） */
+/* 高级设置 */
+.advanced-card{cursor:default}
+.advanced-body{padding-top:4px}
+.advanced-body .toggle-row:first-child{border-bottom:0.5px solid rgba(60,60,67,0.12);padding-bottom:12px;margin-bottom:4px}
+/* 音量触发自定义（触发按键分段选择 + 连按次数步进器） */
+.vol-custom{margin:8px 0 2px;padding:12px 14px;background:rgba(120,120,128,0.06);border-radius:16px;transition:opacity 0.2s}
+.vol-custom.disabled{opacity:0.4}
+.vol-custom.disabled .seg,.vol-custom.disabled .stepper{pointer-events:none}
+.vol-custom-line{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+.vol-custom-label{font-size:0.85rem;color:#3c3c43}
+.seg{display:flex;background:rgba(120,120,128,0.12);border-radius:10px;padding:3px;gap:3px}
+.seg-btn{border:none;background:transparent;font-family:inherit;font-size:0.8rem;font-weight:500;color:#3c3c43;padding:6px 14px;border-radius:8px;cursor:pointer;transition:background 0.2s,color 0.2s}
+.seg-btn.active{background:#fff;color:#007AFF;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.12)}
+.seg-4 .seg-btn{padding:6px 10px;font-size:0.75rem}
+.stepper{display:flex;align-items:center;background:rgba(120,120,128,0.12);border-radius:10px;padding:3px;gap:3px}
+.step-btn{width:32px;height:28px;border:none;background:#fff;color:#007AFF;font-size:1rem;font-weight:600;line-height:1;border-radius:8px;cursor:pointer;font-family:inherit;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+.step-btn:active{opacity:0.6}
+.step-btn:disabled{color:#c7c7cc;background:rgba(255,255,255,0.5);box-shadow:none;cursor:default}
+.step-val{min-width:28px;text-align:center;font-size:0.92rem;font-weight:600;color:#1c1c1e}
+.vol-custom-tip{font-size:0.72rem;color:#8e8e93;margin-top:8px;line-height:1.45;text-align:center}
+.vol-custom-tip strong{color:#007AFF}
+/* ===== 顶部导航（首页 / 自动拦截）===== */
+.nav-tabs{display:flex;gap:5px;background:rgba(120,120,128,0.12);border-radius:14px;padding:4px;margin-bottom:18px}
+.nav-tab{flex:1;border:none;background:transparent;font-family:inherit;font-size:0.92rem;font-weight:600;color:#3c3c43;padding:9px 0;border-radius:11px;cursor:pointer;transition:background 0.2s,color 0.2s}
+.nav-tab.active{background:#fff;color:#007AFF;box-shadow:0 1px 4px rgba(0,0,0,0.12)}
+/* ===== 自动拦截页面 ===== */
+.vdb-hero{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.vdb-hero .dot{width:12px;height:12px;border-radius:50%;background:#c7c7cc;flex-shrink:0;box-shadow:0 0 0 5px rgba(120,120,128,0.12)}
+.vdb-hero .dot.ok{background:#34C759;box-shadow:0 0 0 5px rgba(52,199,89,0.18)}
+.vdb-hero .dot.bad{background:#FF3B30;box-shadow:0 0 0 5px rgba(255,59,48,0.16)}
+/* 断网但有缓存兜底：既不是全好也不是全坏，用琥珀色区分 */
+.vdb-hero .dot.warn{background:#FF9500;box-shadow:0 0 0 5px rgba(255,149,0,0.18)}
+.vdb-hero .dot.loading{background:#FF9500;box-shadow:0 0 0 5px rgba(255,149,0,0.18);animation:vdbPulse 1s ease-in-out infinite}
+@keyframes vdbPulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.vdb-hero .t1{font-size:1rem;font-weight:700;color:#1c1c1e;line-height:1.45}
+.vdb-meta{font-size:0.75rem;color:#8e8e93;line-height:1.75}
+.vdb-meta strong{color:#1c1c1e}
+.vdb-meta .em{color:#34C759;font-weight:600}
+/* ===== 扫描页（2026-10 新增，用户需求）===== */
+.scan-hero{text-align:center;padding:22px 16px}
+.scan-hero .ico{font-size:2.8rem;line-height:1}
+.scan-hero .t1{font-size:1.2rem;font-weight:800;margin-top:8px;color:#1c1c1e;letter-spacing:-0.2px}
+.scan-hero .t2{font-size:0.8rem;color:#8e8e93;margin-top:6px;line-height:1.55}
+.scan-btn{font-size:1.05rem;padding:15px;font-weight:700;letter-spacing:2px}
+.scan-btn:disabled{background:rgba(120,120,128,0.25);color:#fff;cursor:default}
+/* ===== 扫描动画（2026-10 新增，用户需求）===== */
+.scan-anim{background:#fff;border-radius:22px;padding:22px 18px 20px;margin-bottom:14px;text-align:center;position:relative;overflow:hidden}
+.scan-radar{position:relative;width:136px;height:136px;margin:2px auto 16px;border-radius:50%;border:1px solid rgba(0,122,255,.18);background:radial-gradient(circle at 50% 50%,rgba(0,122,255,.07),rgba(0,122,255,.01));overflow:hidden}
+.scan-radar .ring{position:absolute;border:1px solid rgba(0,122,255,.16);border-radius:50%}
+.scan-radar .ring.r1{inset:18px}
+.scan-radar .ring.r2{inset:38px}
+.scan-radar .ring.r3{inset:58px}
+.scan-radar .sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(0,122,255,0) 0deg,rgba(0,122,255,0) 285deg,rgba(0,122,255,.35) 345deg,rgba(52,199,89,.9) 359deg,rgba(52,199,89,0) 360deg);animation:scanSweep 1.5s linear infinite}
+@keyframes scanSweep{to{transform:rotate(360deg)}}
+.scan-radar .beam{position:absolute;left:-10%;right:-10%;top:50%;height:14px;background:linear-gradient(180deg,rgba(52,199,89,0),rgba(52,199,89,.65),#34C759,rgba(52,199,89,.65),rgba(52,199,89,0));opacity:.55;animation:scanBeam 1.7s ease-in-out infinite alternate}
+@keyframes scanBeam{from{transform:translateY(-58px)}to{transform:translateY(58px)}}
+.scan-radar .dot{position:absolute;width:7px;height:7px;border-radius:50%;background:#34C759;box-shadow:0 0 8px rgba(52,199,89,.85);animation:scanDot 1.5s ease-in-out infinite}
+.scan-radar .dot.d1{left:38px;top:42px;animation-delay:.15s}
+.scan-radar .dot.d2{left:88px;top:62px;animation-delay:.5s}
+.scan-radar .dot.d3{left:56px;top:96px;animation-delay:.85s}
+@keyframes scanDot{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:1;transform:scale(1.2)}}
+.scan-radar .core{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:30px;filter:drop-shadow(0 2px 6px rgba(0,122,255,.35))}
+.scan-anim-title{font-size:1rem;font-weight:800;color:#1c1c1e;letter-spacing:0.5px}
+.scan-anim-sub{font-size:0.78rem;color:#8e8e93;margin-top:7px;line-height:1.5;min-height:20px}
+.scan-progress{height:6px;border-radius:999px;background:rgba(120,120,128,.15);overflow:hidden;margin-top:16px}
+.scan-progress span{display:block;height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,rgba(0,122,255,0) 0%,#007AFF 22%,#34C759 50%,#007AFF 78%,rgba(0,122,255,0) 100%);background-size:200% 100%;animation:scanProgress 1.15s linear infinite}
+@keyframes scanProgress{from{background-position:200% 0}to{background-position:-200% 0}}
+/* 扫描时顶部图标轻轻呼吸 */
+.scan-hero.scanning .ico{animation:scanHeroPulse 1.1s ease-in-out infinite}
+@keyframes scanHeroPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14)}}
+.scan-section-title{font-size:0.9rem;font-weight:800;margin:6px 4px 10px}
+.scan-section-title.danger{color:#FF3B30}
+.scan-section-title.warn{color:#E65100}
+.scan-threat{border-radius:20px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden}
+.scan-threat .threat-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.scan-threat .threat-badge{font-size:0.66rem;font-weight:800;padding:3px 9px;border-radius:8px;letter-spacing:0.5px;flex-shrink:0}
+.scan-threat .threat-name{font-size:1.08rem;font-weight:800;line-height:1.35;word-break:break-all}
+.scan-threat .threat-pkg{font-size:0.7rem;margin-top:5px;word-break:break-all;opacity:0.85}
+.scan-threat .threat-tip{font-size:0.86rem;font-weight:600;margin-top:10px;line-height:1.55}
+.scan-threat .threat-actions{display:flex;gap:8px;margin-top:13px}
+.scan-threat .threat-uninstall{flex:1;border:none;border-radius:999px;padding:12px;font-size:0.95rem;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity 0.15s}
+.scan-threat .threat-uninstall:active{opacity:0.65}
+.scan-threat .threat-uninstall:disabled{opacity:0.55;cursor:default}
+/* 100% 病毒：整块红色 + 呼吸光晕，务必一眼看到 */
+.scan-threat.certain{background:linear-gradient(135deg,#FF453A 0%,#C81E1E 100%);color:#fff;box-shadow:0 8px 24px rgba(255,59,48,0.38);animation:threatPulse 1.6s ease-in-out infinite}
+.scan-threat.certain .threat-badge{background:rgba(255,255,255,0.22);color:#fff;border:1px solid rgba(255,255,255,0.55)}
+.scan-threat.certain .threat-uninstall{background:#fff;color:#D70015}
+@keyframes threatPulse{0%,100%{box-shadow:0 8px 24px rgba(255,59,48,0.38)}50%{box-shadow:0 8px 36px rgba(255,59,48,0.8)}}
+/* 可能病毒：琥珀色警示 */
+.scan-threat.suspect{background:#FFF8EE;border:1.5px solid #FF9500}
+.scan-threat.suspect .threat-badge{background:#FF9500;color:#fff}
+.scan-threat.suspect .threat-name{color:#8A4B00}
+.scan-threat.suspect .threat-pkg{color:#A16207}
+.scan-threat.suspect .threat-tip{color:#7C2D12}
+.scan-threat.suspect .threat-uninstall{background:#FF9500;color:#fff}
+.scan-ok{text-align:center;padding:28px 18px;background:#fff;border-radius:22px;border:2px solid #34C759}
+.scan-ok .ico{font-size:2.4rem;line-height:1}
+.scan-ok .t1{font-size:1.05rem;font-weight:800;color:#1E7A34;margin-top:8px}
+.scan-ok .t2{font-size:0.78rem;color:#8e8e93;margin-top:6px;line-height:1.55}
+/* ===== 金龙引擎（2026-10 新增，用户需求）===== */
+.gd-state{font-size:0.75rem;line-height:1.6;margin-top:8px;text-align:center;word-break:break-all}
+.gd-state .on{color:#34C759;font-weight:700}
+.gd-state .off{color:#FF9500;font-weight:700}
+/* ===== 内置 Shizuku 引导页（整屏）===== */
+.sz-page{position:fixed;top:0;left:0;width:100%;height:100%;background:#F2F2F7;z-index:9000;overflow-y:auto;padding:20px 16px;display:none}
+.sz-page.show{display:block}
+.sz-step{display:flex;gap:12px;padding:12px 0;border-bottom:0.5px solid rgba(60,60,67,0.1)}
+.sz-step:last-child{border-bottom:none;padding-bottom:2px}
+.sz-step .idx{width:24px;height:24px;border-radius:50%;background:#007AFF;color:#fff;font-size:0.78rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sz-step .txt{flex:1;font-size:0.85rem;line-height:1.6;color:#3c3c43}
+.sz-step .txt strong{color:#1c1c1e}
+.sz-link{display:block;font-size:0.78rem;color:#007AFF;word-break:break-all;margin-top:6px;text-decoration:none}
+.sz-code{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid rgba(60,60,67,0.18);background:#fff;font-size:0.95rem;color:#1c1c1e;letter-spacing:2px;text-align:center;box-sizing:border-box}
+.sz-code::placeholder{letter-spacing:0;font-size:0.8rem;color:#b0b0b6}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- 2026-10 改动（用户需求）：删除顶部「游龙安全护盾」标题栏。
+       原为：<div class="header"><h1>游龙安全护盾<span class="ver">beta</span></h1></div>
+       删除原因：页面顶部已由系统任务栏展示应用名，这里再放一个大标题属重复，
+       且用户明确要求去掉。 -->
+
+  <!-- 顶部导航：首页 / 自动拦截 / 扫描 -->
+  <div class="nav-tabs">
+    <button type="button" class="nav-tab active" id="navTabHome">首页</button>
+    <button type="button" class="nav-tab" id="navTabVirusDb">自动拦截</button>
+    <!-- 2026-10 新增（用户需求）：扫描入口放在顶部导航栏 -->
+    <button type="button" class="nav-tab" id="navTabScan">扫描</button>
+  </div>
+
+  <!-- 权限提示小栏（动态生成，全部授权后隐藏） -->
+  <div id="permBanners"></div>
+
+  <!-- ==================== 首页 ==================== -->
+  <div id="pageHome">
+
+  <!-- 上次运行崩溃提示：已按用户要求移除所有日志/崩溃日志入口 -->
+
+  <!-- 兼容性提示（紧急逃生操作最上方） -->
+  <div class="harmony-tip" style="text-align:center">部分手机无效，某系统可能有限制</div>
+
+  <!-- 紧急提示横幅 -->
+  <div class="emergency-banner">
+    <div class="text" id="emergencyText">
+      <strong>紧急逃生操作</strong><br>
+      连续按 <strong>3 次音量−键</strong> 立即触发紧急拦截救援
+    </div>
+  </div>
+
+  <!-- ==================================================================
+       环境检测提示（2026-10 新增，用户需求）
+       ------------------------------------------------------------------
+       由 JS 调用原生桥 Android.getEnvironmentWarning() 动态填充：
+         · 装了 Dhizuku(com.rosan.dhizuku) → 拦截率 96.2%
+         · 有 root                        → 拦截率 73.2%
+       两者都命中时只显示更严重的（root）。
+       无异常时整张卡隐藏，不占位。
+       ================================================================== -->
+  <div class="card" id="envWarnCard" style="display:none;border:1.5px solid #FF3B30">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="font-size:1.3rem;line-height:1.2">&#9888;&#65039;</div>
+      <div style="flex:1">
+        <div id="envWarnTitle" style="font-size:0.95rem;font-weight:700;color:#FF3B30">当前系统环境异常</div>
+        <div id="envWarnMsg" style="font-size:0.82rem;color:#3c3c43;margin-top:4px;line-height:1.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================
+       进入应用权限门槛（2026-10 新增，用户需求）
+       ------------------------------------------------------------------
+       进入软件即检查「读取应用」与「通知」两项权限；任一缺失就显示本卡片，
+       并在 JS 里拦截「开启实时守护」开关 —— 不授权无法开启安全守护。
+       全部授权后本卡片自动隐藏。
+       ================================================================== -->
+  <div class="card" id="entryPermCard" style="display:none;border:1.5px solid #FF9500">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div style="font-size:1.3rem;line-height:1.2">&#128273;</div>
+      <div style="flex:1">
+        <div style="font-size:0.95rem;font-weight:700;color:#E65100">需要先授予以下权限</div>
+        <div id="entryPermMsg" style="font-size:0.82rem;color:#3c3c43;margin-top:4px;line-height:1.5"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary" id="entryPermNotifBtn" style="display:none;flex:1;min-width:140px">允许通知</button>
+          <!-- 2026-10 恢复：读取应用列表按钮。
+               国内 ROM（华为/HyperOS/ColorOS 等）会为它弹系统授权框；
+               标准 Android 上它安装即授予、点击会立刻返回已授权，不会卡住。 -->
+          <button type="button" class="btn btn-primary" id="entryPermAppsBtn" style="display:none;flex:1;min-width:140px">允许读取应用列表</button>
+          <button type="button" class="btn btn-primary" id="entryPermRetryBtn" style="flex:1;min-width:120px">我已授权，重新检查</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2026-10 改动（用户需求）：此处原为「环境良好」绿色描边提示卡
+       （#envGoodCard，无 root 且无 Dhizuku 时显示、可关闭），已整块删除。 -->
+
+  <!-- 实时守护总开关（置于最上方） -->
+  <div class="card" id="toggleCard">
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">开启实时守护</div>
+        <div class="toggle-sub">游龙安全护盾为您服务</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="shieldToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="status-box" id="shieldStatus">未开启</div>
+  </div>
+
+  <!-- 拦截模式选择卡片 -->
+  <div class="card" id="modeCard">
+    <div class="card-title">拦截模式</div>
+    <!-- 2026-10-31（用户需求）：日常模式3.0 放在第一位、推荐；拦截逻辑与 Super 模式一致 -->
+    <div class="mode-row featured" id="modeDaily30">
+      <div class="mode-radio" id="radioDaily30"></div>
+      <div class="mode-info">
+        <div class="mode-name"><span class="super-shield-name">日常模式3.0</span> <span class="recommend-badge">推荐</span></div>
+        <div class="mode-desc">经测试<strong class="red-txt">600款</strong>拦截率为<strong class="red-txt">99.2%</strong></div>
+      </div>
+    </div>
+    <!-- 2026-10-17（用户需求）：日常模式更名为「Super Shield 模式」，名称黄→红渐变（黄色占 1/4） -->
+    <div class="mode-row" id="modeDaily">
+      <div class="mode-radio" id="radioDaily"></div>
+      <div class="mode-info">
+        <div class="mode-name"><span style="color:#000;font-weight:800;">SuperShield 模式</span></div>
+        <div class="mode-desc">经测试<strong class="red-txt">600款</strong>拦截率为<strong class="red-txt">99.6%</strong></div>
+      </div>
+    </div>
+    <!-- 2026-10-17（用户需求）：删除「超级拦截模式」，恢复「极强拦截模式」 -->
+    <div class="mode-row" id="modeExtreme">
+      <div class="mode-radio" id="radioExtreme"></div>
+      <div class="mode-info">
+        <div class="mode-name">极强拦截模式</div>
+        <div class="mode-desc">经过<strong class="red-txt">236款</strong>病毒真机测试，拦截率为<strong class="red-txt">92.3%</strong></div>
+      </div>
+    </div>
+    <div class="mode-row" id="modeBasic">
+      <div class="mode-radio" id="radioBasic"></div>
+      <div class="mode-info">
+        <div class="mode-name">基础模式</div>
+        <div class="mode-desc">经过621款真机测试，可以拦截 <strong class="red-txt">56.3%</strong> 以上的病毒</div>
+      </div>
+    </div>
+    <!-- 2026-10-17（用户需求）：恢复「终结模式」（刻意低调，防止误触） -->
+    <div class="mode-row" id="modeFinal">
+      <div class="mode-radio" id="radioFinal"></div>
+      <div class="mode-info">
+        <div class="mode-name">终结模式</div>
+        <div class="mode-desc">经过<strong class="red-txt">236款</strong>病毒真机测试，拦截率为<strong class="red-txt">98.2%</strong></div>
+      </div>
+    </div>
+    <div id="shizukuStatus" style="margin-top:8px;font-size:0.75rem;color:#8e8e93;text-align:center"></div>
+  </div>
+
+  <!-- 高级设置卡片 -->
+  <div class="card advanced-card">
+    <div class="card-title" style="margin-bottom:10px">高级设置</div>
+    <div class="advanced-body" id="advancedBody">
+      <!-- 2026-10-31（用户需求）：自保模式放到高级设置第一位 -->
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">自保模式</div>
+          <div class="toggle-sub">如果软件被恶意程序冻结，可通过此功能进行恢复。</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="selfDefenseToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">音量按键触发</div>
+          <div class="toggle-sub" id="volumeTriggerDesc">连续按 3 次音量−键触发紧急弹窗</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="volumeTriggerToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <!-- 音量触发自定义：触发按键（音量− / 音量+）+ 连按次数（2~10） -->
+      <div class="vol-custom disabled" id="volCustomBox">
+        <div class="vol-custom-line">
+          <span class="vol-custom-label">触发按键</span>
+          <div class="seg" id="volKeySeg">
+            <button type="button" class="seg-btn active" data-key="down">音量 −</button>
+            <button type="button" class="seg-btn" data-key="up">音量 +</button>
+          </div>
+        </div>
+        <div class="vol-custom-line">
+          <span class="vol-custom-label">连按次数</span>
+          <div class="stepper">
+            <button type="button" class="step-btn" id="volCountMinus">−</button>
+            <span class="step-val" id="volCountVal">3</span>
+            <button type="button" class="step-btn" id="volCountPlus">+</button>
+          </div>
+        </div>
+        <div class="vol-custom-tip">连续按 <strong id="volCustomTip">3 次音量−键</strong> 立即触发紧急救援</div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">摇一摇触发 <span style="display:inline-block;background:#007AFF;color:#fff;font-size:0.65rem;font-weight:600;padding:2px 7px;border-radius:8px;vertical-align:middle;margin-left:2px;">推荐</span></div>
+          <div class="toggle-sub" id="shakeTriggerDesc">需要非常用力猛摇手机才会触发，几乎不会误触</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="shakeTriggerToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <!-- 摇一摇自定义：触发力度档位（2=标准 3=用力 4=猛摇 5=超级猛摇）
+           档位会改变原生传感器的加速度阈值与需要连续命中的尖峰次数 -->
+      <div class="vol-custom disabled" id="shakeCustomBox">
+        <div class="vol-custom-line">
+          <span class="vol-custom-label">触发力度</span>
+          <div class="seg seg-4" id="shakeLevelSeg">
+            <button type="button" class="seg-btn" data-level="2">标准</button>
+            <button type="button" class="seg-btn" data-level="3">用力</button>
+            <!-- 2026-10-30（用户需求）：去掉「轻摇」，默认仍选「猛摇」 -->
+            <button type="button" class="seg-btn active" data-level="4">猛摇</button>
+            <button type="button" class="seg-btn" data-level="5">超级猛摇</button>
+          </div>
+        </div>
+        <div class="vol-custom-tip">需以 <strong id="shakeLevelTip">猛摇</strong> 力度摇晃手机即可触发紧急弹窗</div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">隐藏后台</div>
+          <div class="toggle-sub">从最近任务中隐藏本应用，防止被划掉/终结</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="hideRecentsToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <!-- 2026-10-31（用户需求）：独立自保模式已移到高级设置第一位 -->
+      <div class="toggle-row" id="batteryOptRow" style="cursor:pointer;">
+        <div>
+          <div class="toggle-label">允许后台高耗电</div>
+          <div class="toggle-sub">防止系统后台限制，守护持续运行，点击前往系统设置</div>
+        </div>
+        <span id="batteryOptStatus" style="font-size:0.78rem;color:#8e8e93;">未开启</span>
+      </div>
+      <!-- 开源许可：本应用融合了 Stellar / 经其内含的 Shizuku / AOSP adb / BoringSSL 等开源代码，
+           Apache-2.0 第 4(a) 条要求把许可证副本提供给使用者，
+           所以必须有一个用户真的能点开看到的入口（文本在 res/raw 里）。 -->
+      <div class="toggle-row" id="oslRow" style="cursor:pointer;">
+        <div>
+          <div class="toggle-label">开源许可</div>
+          <div class="toggle-sub">查看本应用所用开源组件的许可证与署名声明</div>
+        </div>
+        <span style="font-size:0.78rem;color:#8e8e93;">查看 ›</span>
+      </div>
+      <!-- 2026-10-31（用户要求）：完整启动/配对诊断日志，一键复制给开发者 -->
+      <div class="toggle-row" id="fullLogRow" style="cursor:pointer;">
+        <div>
+          <div class="toggle-label">完整日志</div>
+          <div class="toggle-sub">配对、端口、ADB 命令、Binder 等待和服务端启动全过程</div>
+        </div>
+        <span style="font-size:0.78rem;color:#007AFF;">复制 ›</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 按钮卡片 -->
+  <div class="card">
+    <div class="btn-group">
+      <button class="btn btn-secondary" id="shieldHistoryBtn">拦截记录</button>
+      <button class="btn" id="shieldTrustBtn" style="background:#34C759;color:#fff;">白名单管理</button>
+    </div>
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn" id="frozenManageBtn" style="background:#FF9500;color:#fff;">冻结管理</button>
+    </div>
+    <div class="result-panel" id="shieldHistoryResult"></div>
+  </div>
+
+  </div><!-- /#pageHome -->
+
+  <!-- ==================== 自动拦截 ==================== -->
+  <!-- ⚠️ 本页严禁展示任何服务器域名 / 网址 / 接口路径（硬要求）。
+       状态只分三种：已连接 / 从未同步成功 / 同步过但当前断网（走缓存兜底）。 -->
+  <div id="pageVirusDb" style="display:none">
+
+    <div class="card">
+      <div class="card-title">自动拦截状态</div>
+      <div class="vdb-hero">
+        <div class="dot" id="vdbDot"></div>
+        <div style="flex:1;min-width:0">
+          <div class="t1" id="vdbState">检测中…</div>
+        </div>
+      </div>
+      <div class="vdb-meta" id="vdbMeta" style="text-align:center;margin-top:10px">正在读取自动拦截状态…</div>
+      <div class="btn-group" style="margin-top:14px;margin-bottom:0">
+        <button class="btn btn-primary" id="vdbRefreshBtn">立即检查更新</button>
+      </div>
+    </div>
+
+    <!-- 2026-10-31（用户需求）：自动拦截总开关隐藏，固定默认开启，用户无法关闭 -->
+
+    <!-- 自动拦截方式：只作用于宿主 App 的 100% 病毒自动卸载，不涉及内置特权 -->
+    <div class="card" id="autoBlockModeCard">
+      <div class="card-title">自动拦截方式</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer;">
+        <input type="radio" name="autoBlockMode" value="direct" checked
+               style="margin-top:4px;transform:scale(1.2);accent-color:#D32F2F;">
+        <span>
+          <span class="toggle-label">直接卸载（默认）</span>
+          <span class="toggle-sub">检测到 100% 病毒后立即强制卸载，和原有机制一致</span>
+        </span>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer;border-top:1px solid rgba(255,255,255,.08);">
+        <input type="radio" name="autoBlockMode" value="confirm"
+               style="margin-top:4px;transform:scale(1.2);accent-color:#D32F2F;">
+        <span>
+          <span class="toggle-label">询问后卸载</span>
+          <span class="toggle-sub">检测到 100% 病毒先询问；5 秒内未选择则自动卸载</span>
+        </span>
+      </label>
+    </div>
+
+    <!-- 金龙引擎：检测到软件修改系统音量时，自动停止所有第三方调用内置特权 -->
+    <div class="card">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">金龙引擎</div>
+          <div class="toggle-sub" id="goldenDragonSub">检测到软件修改系统音量时，自动停止所有第三方调用内置特权</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="goldenDragonToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div class="gd-state" id="goldenDragonState">读取状态中…</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">说明</div>
+      <div class="vdb-meta">
+        1. 如果病毒未被自动拦截，那么您还可以使用<strong>紧急逃生操作【摇一摇或按音量键】</strong>进行拦截<br>
+        2. 我们的病毒库支持<strong>远程更新</strong>，每次更新都代表它自动拦截的能力越强
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== 扫描（2026-10 新增，用户需求） ====================
+       点顶部导航「扫描」进入本页 → 页面上有「立即扫描」按钮 →
+       点击后用云端病毒库逐个比对手机里已安装的应用：
+         · 100% 病毒  → 红色大卡片 + 呼吸光晕，醒目标注「建议立即卸载」
+         · 可能病毒   → 琥珀色卡片，同样带「立即卸载」按钮
+       卸载由原生执行（内置特权在位时静默 pm uninstall，否则走系统卸载框）。
+       ⚠️ 本页不展示任何服务器域名 / 接口路径。 -->
+  <div id="pageScan" style="display:none">
+
+    <div class="card scan-hero">
+      <div class="ico">🛡️</div>
+      <div class="t1">病毒扫描</div>
+      <div class="t2">基于云端病毒库，扫描手机中已安装的应用<br>病毒与可能病毒都会逐条列出</div>
+      <div class="vdb-meta" id="scanDbState" style="margin-top:10px">正在读取病毒库…</div>
+      <div class="btn-group" style="margin-top:14px;margin-bottom:0">
+        <button class="btn btn-primary scan-btn" id="scanStartBtn">立即扫描</button>
+      </div>
+    </div>
+
+    <div id="scanResult"></div>
+
+  </div>
+
+  <!-- ==================== 内置特权服务（Stellar）配对引导（整屏） ==================== -->
+  <div class="sz-page" id="pageShizuku">
+
+    <div class="header" style="margin-bottom:14px">
+      <h1 style="font-size:1.2rem">内置特权服务</h1>
+      <button type="button" class="btn btn-secondary" id="szCloseBtn" style="flex:0 0 auto;padding:9px 18px;font-size:0.85rem">关闭</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">当前状态</div>
+      <div class="vdb-hero">
+        <div class="dot" id="szDot"></div>
+        <div style="flex:1;min-width:0">
+          <div class="t1" id="szState">未连接</div>
+          <div class="t2" id="szHint">尚未启动内置特权服务</div>
+        </div>
+      </div>
+      <div class="btn-group" style="margin-top:12px;margin-bottom:0">
+        <button class="btn btn-primary" id="szCheckBtn">我已启动，立即连接</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">内置特权服务</div>
+      <div class="vdb-meta" id="szBuiltinInfo">
+        Stellar 的完整源码（<strong>含它自己的管理界面</strong>）已直接编译进本应用，
+        <strong>不需要安装任何外部应用</strong>。点下方按钮打开内置管理器，
+        按提示启动特权服务并授权即可。
+      </div>
+      <div class="vdb-meta" style="margin-top:10px">
+        内核 <strong id="szBuiltinVer">内置内核</strong>，源码来自
+        <a class="sz-link" id="szRepoLink" href="https://github.com/roro2239/Stellar">roro2239/Stellar</a>
+        （Stellar 修改部分 MPL-2.0，内含的 Shizuku 原始代码 Apache-2.0；
+        不使用其名称与图标）
+      </div>
+      <div class="btn-group" style="margin-bottom:0">
+        <button class="btn btn-primary" id="szInstallBtn">打开特权服务管理器</button>
+      </div>
+    </div>
+
+    <!-- 运行日志 / 崩溃日志入口已按用户要求全部移除 -->
+
+    <div class="card">
+      <div class="card-title">特权服务的启动方式</div>
+      <!-- 【界面精简】管理器首页已移除「通过 Root 启动」「通过电脑启动」两个入口，
+           这里的三条说明同步收紧，只保留无线调试这一种方式，避免指引用户点不存在的选项。 -->
+      <div class="vdb-meta" style="margin-bottom:8px">
+        点上面的<strong>「打开特权服务管理器」</strong>进入内置管理器，在它的界面里启动特权服务即可。
+      </div>
+      <div class="sz-step"><div class="idx">A</div><div class="txt"><strong>只有一部手机</strong>：在管理器界面里选<strong>「通过无线调试启动」</strong>，按它自己的引导配对即可，不需要电脑与数据线（需 <strong>Android 11 及以上</strong>）。</div></div>
+      <div class="sz-step"><div class="idx">B</div><div class="txt">服务端 <strong>roro.stellar.server.StellarService</strong> 已随本应用一同编译，启动一次即可长期有效；手机重启后重新启动一次即可。</div></div>
+      <div class="sz-step"><div class="idx">C</div><div class="txt">没启动时本应用会自动<strong>降级为基础模式</strong>，常规防护照常可用，不会影响日常使用。</div></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+var shieldPollTimer = null;
+var shieldProtectOn = false;
+
+function $(id){return document.getElementById(id)}
+
+// ==================== 顶部导航（首页 / 自动拦截 / 扫描）====================
+var currentPage = 'home';
+var vdbTimer = null;
+
+function switchPage(page){
+  currentPage = (page === 'virusdb' || page === 'scan') ? page : 'home';
+  var home = $('pageHome'), vdb = $('pageVirusDb'), scan = $('pageScan');
+  var tHome = $('navTabHome'), tVdb = $('navTabVirusDb'), tScan = $('navTabScan');
+  if(home) home.style.display = (currentPage === 'home') ? '' : 'none';
+  if(vdb) vdb.style.display = (currentPage === 'virusdb') ? '' : 'none';
+  if(scan) scan.style.display = (currentPage === 'scan') ? '' : 'none';
+  if(tHome) tHome.className = (currentPage === 'home') ? 'nav-tab active' : 'nav-tab';
+  if(tVdb) tVdb.className = (currentPage === 'virusdb') ? 'nav-tab active' : 'nav-tab';
+  if(tScan) tScan.className = (currentPage === 'scan') ? 'nav-tab active' : 'nav-tab';
+  if(typeof refreshPermBanners === 'function') refreshPermBanners();
+
+  if(currentPage === 'virusdb'){
+    refreshVirusDbPage();
+    refreshGoldenDragonUI();
+    if(!vdbTimer) vdbTimer = setInterval(function(){
+      refreshVirusDbPage();
+      refreshGoldenDragonUI();
+    }, 2500);
+  }else if(vdbTimer){
+    clearInterval(vdbTimer);
+    vdbTimer = null;
+  }
+
+  // 扫描页：每次切进来刷新一次病毒库就绪状态（不自动扫描，等用户点按钮）
+  if(currentPage === 'scan'){
+    refreshScanDbState();
+  }
+}
+
+// ==================== 自动拦截：与服务器 / 缓存的关系 ====================
+// ⚠️ 这里绝对不要输出 st.host、st.lists[].url、st.lastError（失败详情里可能带域名）
+//    等任何网址信息，用户明确要求本页不展示病毒库地址。
+//
+// 三态判定：
+//   1) st.reachable            本轮至少有一个列表拉取成功 → 已连接病毒分析库
+//   2) 不可达 且 total > 0     说明缓存里有数据，即以前同步成功过 → 断网走缓存拦截
+//   3) 不可达 且 total == 0    从来没有成功同步过 → 连不上服务器，自动拦截不可用
+// 说明：原生只有「最近一次拉取时间」是持久化的，没持久化「上次成功时间」；
+//       但只有拉取成功才会把数据写进缓存，所以 total > 0 与「曾经同步成功过」完全等价，
+//       用它判定即可，无需改动 Java 侧代码。
+function fmtTime(ms){
+  if(!ms || ms <= 0) return '从未';
+  var d = new Date(ms);
+  function p(n){ return n < 10 ? ('0' + n) : ('' + n); }
+  return p(d.getMonth()+1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+}
+
+function refreshVirusDbPage(){
+  if(typeof Android === 'undefined' || !Android.getVirusDbStatus) return;
+  var st;
+  try{ st = JSON.parse(Android.getVirusDbStatus()); }catch(e){ return; }
+  if(!st || st.error) return;
+
+  var dot = $('vdbDot'), state = $('vdbState'), meta = $('vdbMeta');
+  if(!dot || !state) return;
+
+  var total = st.total || 0;
+  // lastSuccess 只在本次进程内同步成功过才有值，fetchTime 是落盘的那份；优先用后者兜底
+  var syncTime = (st.lastSuccess > 0) ? st.lastSuccess : (st.fetchTime || 0);
+
+  if(st.refreshing){
+    dot.className = 'dot loading';
+    state.textContent = '正在连接服务器…';
+  }else if(st.reachable){
+    dot.className = 'dot ok';
+    state.textContent = '您已连接我们的病毒分析库，自动拦截可用';
+  }else if(total > 0){
+    dot.className = 'dot warn';
+    state.textContent = '当前网络不可用，我们将使用缓存进行自动拦截';
+  }else{
+    dot.className = 'dot bad';
+    state.textContent = '您无法连接到我们的服务器，自动拦截不可用';
+  }
+
+  if(meta){
+    var html = '';
+    // 【界面精简】不显示病毒库条目数量（用户要求：不要显示「获取到几条」）。
+    // 只保留同步时间，让用户自行判断数据新旧；条数仍参与上面的三态状态判定。
+    if(total > 0){
+      if(syncTime > 0){
+        html += (st.reachable ? '上次同步：' : '最近一次同步：')
+              + '<strong>' + fmtTime(syncTime) + '</strong>';
+      }else{
+        // 有数据但没记录到时间（极少见）：给一句不含数量的兜底，避免这块留白
+        html += '病毒库数据已缓存到本地';
+      }
+    }else if(st.refreshing){
+      html += '正在与病毒分析库同步，请稍候…';
+    }else{
+      html += '本地暂无缓存数据，请检查网络后点击下方按钮重试';
+    }
+    meta.innerHTML = html;
+  }
+}
+
+// ==================== 自动拦截总开关（病毒库页面）====================
+// 默认开启；关闭后原生 ProtectService 不再做任何基于病毒库的自动拦截。
+// 每次「开启实时守护」时原生 startProtect 会强制把它重新打开，
+// 所以守护开启成功后必须调用 forceAutoBlockOn() 把界面同步过来。
+function renderAutoBlockToggle(){
+  var t = $('autoBlockToggle'), sub = $('autoBlockSub');
+  if(!t) return;
+  if(sub){
+    sub.textContent = t.checked
+      ? '命中病毒库时自动拦截 / 卸载'
+      : '已关闭 — 命中病毒库也不会自动拦截';
+  }
+}
+
+// 以原生为准刷新界面（首次进入 / 从设置页回来）
+function syncAutoBlockToggle(){
+  var t = $('autoBlockToggle');
+  if(!t) return;
+  try{
+    if(typeof Android !== 'undefined' && Android.getAutoBlockEnabled){
+      t.checked = Android.getAutoBlockEnabled() === true;
+    }
+  }catch(e){}
+  renderAutoBlockToggle();
+}
+
+// 强制打开（开启实时守护时调用）：先写原生再同步界面
+function forceAutoBlockOn(){
+  var t = $('autoBlockToggle');
+  var wasOn = !!(t && t.checked);   // 记住原状态，只有真的从关→开才弹提示
+  try{
+    if(typeof Android !== 'undefined' && Android.setAutoBlockEnabled) Android.setAutoBlockEnabled(true);
+  }catch(e){}
+  if(t) t.checked = true;
+  renderAutoBlockToggle();
+  // 开关已隐藏：不再弹“自动拦截已开启”提示
+  if(t && !wasOn) showAutoBlockTip();
+}
+
+// 2026-10-31（用户需求）：自动拦截开关已隐藏，固定开启且用户无法关闭。
+function initAutoBlockToggle(){
+  try{
+    if(typeof Android !== 'undefined' && Android.setAutoBlockEnabled){
+      Android.setAutoBlockEnabled(true);
+    }
+  }catch(e){}
+}
+
+// ==================== 自动拦截方式（2026-10-29）====================
+// direct  = 检测到 100% 病毒直接卸载（默认）
+// confirm = 先询问，5 秒内未选择自动卸载
+function renderAutoBlockMode(){
+  var mode = 'direct';
+  try{
+    if(typeof Android !== 'undefined' && Android.getAutoBlockMode){
+      mode = Android.getAutoBlockMode() || 'direct';
+    }
+  }catch(e){}
+  var radios = document.getElementsByName('autoBlockMode');
+  for(var i=0;i<radios.length;i++){
+    radios[i].checked = (radios[i].value === mode);
+  }
+}
+
+function initAutoBlockMode(){
+  renderAutoBlockMode();
+  var radios = document.getElementsByName('autoBlockMode');
+  for(var i=0;i<radios.length;i++){
+    radios[i].onchange = function(){
+      if(!this.checked) return;
+      var mode = this.value === 'confirm' ? 'confirm' : 'direct';
+      try{
+        if(typeof Android !== 'undefined' && Android.setAutoBlockMode){
+          Android.setAutoBlockMode(mode);
+        }
+      }catch(e){}
+      showToast(mode === 'confirm'
+        ? '已切换：询问后卸载（5 秒未选择自动卸载）'
+        : '已切换：检测到威胁直接卸载');
+    };
+  }
+}
+
+// ==================== 扫描页（2026-10 新增，用户需求）====================
+// 流程：点「立即扫描」→ 原生 VirusScanner 用病毒库比对已安装应用 →
+//       返回 {ready, scanned, certain[], suspect[]} → 渲染成醒目卡片。
+// 病毒库没同步好时自动等它（最多 20 秒），期间显示「正在同步病毒库」。
+var scanRunning = false;
+var scanAnimStartedAt = 0;
+// 扫描动画的最短展示时间：扫描本身通常只要几百毫秒，
+// 不留一点时间的话用户会看不到动画（用户明确要求要有扫描动画）。
+var SCAN_ANIM_MIN_MS = 900;
+
+function scanEscape(s){
+  return escapeHtml(s == null ? '' : String(s));
+}
+
+// 顶部「病毒库就绪」状态
+function refreshScanDbState(){
+  var el = $('scanDbState');
+  if(typeof Android === 'undefined' || !Android.getVirusScanStatus){
+    if(el) el.textContent = '原生桥接未就绪';
+    return null;
+  }
+  var st = null;
+  try{ st = JSON.parse(Android.getVirusScanStatus()); }catch(e){ st = null; }
+  if(!el || !st) return st;
+  if(st.ready){
+    el.innerHTML = '病毒库已就绪 · 共 <strong>' + (st.total || 0) + '</strong> 条特征'
+        + (st.reachable ? '' : '（离线缓存）');
+  }else if(st.refreshing){
+    el.innerHTML = '正在同步病毒库，请稍候…';
+  }else{
+    el.innerHTML = '病毒库尚未同步，点「立即扫描」会自动重试';
+  }
+  return st;
+}
+
+function finishVirusScan(){
+  scanRunning = false;
+  var btn = $('scanStartBtn');
+  if(btn){ btn.disabled = false; btn.textContent = '立即扫描'; }
+  var hero = document.querySelector('.scan-hero');
+  if(hero) hero.classList.remove('scanning');
+}
+
+// 扫描中的动画（雷达扫描 + 光带 + 进度条）——用户要求：加一个扫描动画
+function buildScanAnim(){
+  return '<div class="scan-anim">'
+      + '<div class="scan-radar">'
+      +   '<div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>'
+      +   '<div class="sweep"></div><div class="beam"></div>'
+      +   '<div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>'
+      +   '<div class="core">🛡️</div>'
+      + '</div>'
+      + '<div class="scan-anim-title">正在扫描手机应用</div>'
+      + '<div class="scan-anim-sub" id="scanAnimSub">正在读取已安装应用…</div>'
+      + '<div class="scan-progress"><span></span></div>'
+      + '</div>';
+}
+
+function startVirusScan(){
+  if(scanRunning) return;
+  if(typeof Android === 'undefined' || !Android.scanVirusApps){
+    showToast('原生桥接未就绪');
+    return;
+  }
+  scanRunning = true;
+  scanAnimStartedAt = Date.now();
+  var btn = $('scanStartBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '扫描中…'; }
+  var box = $('scanResult');
+  if(box) box.innerHTML = buildScanAnim();
+  var hero = document.querySelector('.scan-hero');
+  if(hero) hero.classList.add('scanning');
+
+  // 病毒库没就绪 → 顺手触发一次拉取，然后轮询等它
+  var st = refreshScanDbState();
+  if(st && !st.ready && !st.refreshing){
+    try{ if(Android.refreshVirusDb) Android.refreshVirusDb(); }catch(e){}
+  }
+  doVirusScan(0);
+}
+
+function doVirusScan(attempt){
+  var res = null;
+  try{ res = JSON.parse(Android.scanVirusApps()); }catch(e){ res = null; }
+
+  if(res && res.ready){
+    // 保证扫描动画至少完整显示 SCAN_ANIM_MIN_MS，避免一闪而过
+    var elapsed = Date.now() - scanAnimStartedAt;
+    var wait = Math.max(0, SCAN_ANIM_MIN_MS - elapsed);
+    if(wait > 0){
+      var subReady = $('scanAnimSub');
+      if(subReady) subReady.textContent = '扫描完成，正在整理结果…';
+      setTimeout(function(){
+        if(!scanRunning) return;
+        renderVirusScanResult(res);
+        finishVirusScan();
+        refreshScanDbState();
+      }, wait);
+    }else{
+      renderVirusScanResult(res);
+      finishVirusScan();
+      refreshScanDbState();
+    }
+    return;
+  }
+
+  // 病毒库还没同步好 → 每秒重试一次，最多 20 秒（保持扫描动画，只更新提示文字）
+  if(attempt < 20){
+    var sub = $('scanAnimSub');
+    if(sub){
+      sub.textContent = '正在同步病毒库，请稍候…（' + (attempt + 1) + '/20）';
+    }else{
+      var box = $('scanResult');
+      if(box) box.innerHTML = buildScanAnim();
+    }
+    setTimeout(function(){ doVirusScan(attempt + 1); }, 1000);
+    return;
+  }
+
+  finishVirusScan();
+  var box2 = $('scanResult');
+  if(box2){
+    box2.innerHTML = '<div class="scan-ok" style="border-color:#FF9500">'
+        + '<div class="ico">⚠️</div>'
+        + '<div class="t1" style="color:#E65100">病毒库暂时不可用</div>'
+        + '<div class="t2">无法连接病毒分析库，请检查网络后重新点击「立即扫描」</div></div>';
+  }
+}
+
+function renderVirusScanResult(res){
+  var box = $('scanResult');
+  if(!box) return;
+  var certain = res.certain || [];
+  var suspect = res.suspect || [];
+  var scanned = res.scanned || 0;
+
+  var html = '<div class="card" style="padding:14px 16px;margin-bottom:14px">'
+      + '<div style="font-size:0.95rem;font-weight:800;color:#1c1c1e">扫描完成</div>'
+      + '<div class="vdb-meta" style="margin-top:6px">共扫描 <strong>' + scanned + '</strong> 个应用 · '
+      + '病毒 <strong style="color:#FF3B30">' + certain.length + '</strong> 个 · '
+      + '可能病毒 <strong style="color:#FF9500">' + suspect.length + '</strong> 个</div></div>';
+
+  if(certain.length === 0 && suspect.length === 0){
+    html += '<div class="scan-ok">'
+        + '<div class="ico">✅</div>'
+        + '<div class="t1">未发现病毒</div>'
+        + '<div class="t2">病毒库中没有命中任何一个已安装应用<br>建议保持实时守护开启，自动拦截新安装的风险应用</div>'
+        + '</div>';
+    box.innerHTML = html;
+    return;
+  }
+
+  if(certain.length > 0){
+    html += '<div class="scan-section-title danger">⚠️ 发现 ' + certain.length + ' 个病毒应用，建议立即卸载</div>';
+    for(var i = 0; i < certain.length; i++){
+      html += buildThreatCard(certain[i], true);
+    }
+  }
+  if(suspect.length > 0){
+    html += '<div class="scan-section-title warn">⚠️ 发现 ' + suspect.length + ' 个可能病毒应用，建议卸载</div>';
+    for(var j = 0; j < suspect.length; j++){
+      html += buildThreatCard(suspect[j], false);
+    }
+  }
+  box.innerHTML = html;
+
+  // 100% 病毒 → 额外弹一个全屏级红色警示（用户要求：非常显眼）
+  if(certain.length > 0) showVirusAlarmModal(certain);
+}
+
+function buildThreatCard(item, certain){
+  var pkg = scanEscape(item.pkg || '');
+  var name = scanEscape(item.name || item.pkg || '');
+  var why = scanEscape(item.why || '');
+  var tip = certain
+      ? '这是一个<strong>病毒</strong>软件，建议立即卸载！'
+      : '这个软件<strong>可能为病毒</strong>（' + (why || '命中病毒库') + '），建议立即卸载！';
+  return '<div class="scan-threat ' + (certain ? 'certain' : 'suspect') + '" data-pkg="' + pkg + '">'
+      + '<div class="threat-head">'
+      +   '<span class="threat-badge">' + (certain ? '病毒' : '可能病毒') + '</span>'
+      +   '<span class="threat-name">' + name + '</span>'
+      + '</div>'
+      + '<div class="threat-pkg">' + pkg + '</div>'
+      + '<div class="threat-tip">' + tip + '</div>'
+      + '<div class="threat-actions">'
+      +   '<button type="button" class="threat-uninstall" data-pkg="' + pkg + '">立即卸载</button>'
+      + '</div>'
+      + '</div>';
+}
+
+// 100% 病毒的全屏红色警示弹窗（非常显眼，不可忽略）
+function showVirusAlarmModal(certain){
+  var old = document.querySelector('.modal-overlay');
+  if(old) old.remove();
+  var names = [];
+  var max = Math.min(certain.length, 5);
+  for(var i = 0; i < max; i++) names.push(scanEscape(certain[i].name || certain[i].pkg));
+  var more = certain.length > max ? ('<br>…等 ' + certain.length + ' 个应用') : '';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box" style="border:3px solid #FF3B30">' +
+      '<div class="modal-title" style="color:#FF3B30;font-size:1.15rem">⚠️ 发现病毒</div>' +
+      '<div class="modal-body">检测到手机里有 <strong style="color:#FF3B30">' + certain.length + ' 个病毒</strong> 软件：<br><br>' +
+        names.join('<br>') + more +
+        '<br><br><strong style="color:#FF3B30">建议立即卸载！</strong>卸载入口在下方列表里，点「立即卸载」即可。</div>' +
+      '<div class="modal-footer">' +
+        '<button class="modal-btn" id="virusAlarmGo" style="background:#FF3B30">立即查看并卸载</button>' +
+        '<button class="modal-btn" id="virusAlarmLater" style="background:rgba(120,120,128,0.2);color:#1c1c1e;margin-top:8px">稍后处理</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  var go = document.getElementById('virusAlarmGo');
+  if(go) go.onclick = function(){
+    overlay.remove();
+    try{
+      var first = document.querySelector('.scan-threat.certain');
+      if(first && first.scrollIntoView) first.scrollIntoView({behavior:'smooth', block:'center'});
+    }catch(e){}
+  };
+  var later = document.getElementById('virusAlarmLater');
+  if(later) later.onclick = function(){ overlay.remove(); };
+}
+
+function uninstallScannedApp(pkg, btn){
+  if(!pkg) return;
+  if(typeof Android === 'undefined' || !Android.uninstallVirusApp){
+    showToast('原生桥接未就绪');
+    return;
+  }
+  if(btn){ btn.disabled = true; btn.textContent = '卸载中…'; }
+  showToast('正在卸载：' + pkg);
+  try{
+    Android.uninstallVirusApp(pkg);
+  }catch(e){
+    showToast('卸载请求失败，请重试');
+    if(btn){ btn.disabled = false; btn.textContent = '立即卸载'; }
+    return;
+  }
+  // 兜底：部分 ROM 的系统卸载框不回传结果 → 60 秒后恢复按钮，避免永远卡在「卸载中」
+  setTimeout(function(){
+    try{
+      var b = document.querySelector('.threat-uninstall[data-pkg="' + pkg + '"]');
+      if(b && b.disabled){ b.disabled = false; b.textContent = '立即卸载'; }
+    }catch(e){}
+  }, 60000);
+}
+
+// 原生卸载完成后回调这里（MainActivity.notifyVirusUninstallResult）
+window.__onVirusUninstallResult = function(r){
+  try{
+    if(!r) return;
+    var pkg = r.pkg || '';
+    if(r.ok){
+      showToast('已卸载：' + pkg);
+      var card = document.querySelector('.scan-threat[data-pkg="' + pkg + '"]');
+      if(card) card.remove();
+      // 卸载成功 → 重新扫描一次，刷新统计与列表
+      if(currentPage === 'scan') setTimeout(function(){ if(!scanRunning) startVirusScan(); }, 700);
+    }else{
+      showToast('卸载失败：' + (r.message || '请手动重试'));
+      var btn = document.querySelector('.threat-uninstall[data-pkg="' + pkg + '"]');
+      if(btn){ btn.disabled = false; btn.textContent = '立即卸载'; }
+    }
+  }catch(e){}
+};
+
+function initScanPage(){
+  var btn = $('scanStartBtn');
+  if(!btn) return;
+  btn.onclick = function(){ startVirusScan(); };
+
+  // 事件委托：动态渲染出来的「立即卸载」按钮
+  var box = $('scanResult');
+  if(box){
+    box.onclick = function(e){
+      var t = e.target;
+      if(!t || !t.getAttribute) return;
+      if(!t.classList || !t.classList.contains('threat-uninstall')) return;
+      var pkg = t.getAttribute('data-pkg');
+      uninstallScannedApp(pkg, t);
+    };
+  }
+  refreshScanDbState();
+}
+
+// ==================== 金龙引擎（2026-10 新增，用户需求）====================
+// 默认开启；未连接内置特权时自动关闭，连接后自动开启（原生 GoldenDragon.sync 维护）。
+// 页面只负责展示与手动切换，真正的音量检测/处置在 ProtectService 里。
+var goldenDragonReady = false;
+
+function renderGoldenDragonUI(st){
+  var t = $('goldenDragonToggle');
+  var sub = $('goldenDragonSub');
+  var el = $('goldenDragonState');
+  if(!t || !st) return;
+
+  var ready = st.stellarReady === true;
+  var enabled = st.enabled === true;
+  goldenDragonReady = ready;
+
+  t.checked = enabled;
+  t.disabled = !ready;
+  if(sub){
+    sub.textContent = ready
+        ? '检测到软件修改系统音量时，自动停止所有第三方调用内置特权'
+        : '未连接内置特权，已自动关闭（连接后会自动开启）';
+  }
+  if(el){
+    if(!ready){
+      el.innerHTML = '<span class="off">未连接内置特权 · 金龙引擎已自动关闭</span>';
+    }else{
+      var last = '';
+      if(st.lastAction){
+        last = ' · 最近一次：' + scanEscape(st.lastAction);
+      }
+      el.innerHTML = '<span class="' + (enabled ? 'on' : 'off') + '">'
+          + (enabled ? '已开启' : '已关闭') + '</span>' + last;
+    }
+  }
+}
+
+function refreshGoldenDragonUI(){
+  if(typeof Android === 'undefined' || !Android.getGoldenDragonStatus) return;
+  var st = null;
+  try{ st = JSON.parse(Android.getGoldenDragonStatus()); }catch(e){ st = null; }
+  if(st) renderGoldenDragonUI(st);
+}
+
+function initGoldenDragonToggle(){
+  var t = $('goldenDragonToggle');
+  if(!t) return;
+  refreshGoldenDragonUI();
+  t.onchange = function(){
+    var want = this.checked;
+    var eff = false;
+    try{
+      if(typeof Android !== 'undefined' && Android.setGoldenDragonEnabled){
+        eff = Android.setGoldenDragonEnabled(want) === true;
+      }
+    }catch(e){ eff = false; }
+
+    if(want && !eff){
+      // 未连接内置特权 → 不允许开启，开关回弹
+      this.checked = false;
+      renderGoldenDragonUI({enabled:false, stellarReady:goldenDragonReady});
+      showToast('未连接内置特权，金龙引擎无法开启');
+      return;
+    }
+    renderGoldenDragonUI({enabled:(want ? eff : false), stellarReady:goldenDragonReady});
+    showToast(want ? '金龙引擎已开启' : '金龙引擎已关闭');
+  };
+}
+
+// ==================== 内置特权服务（Stellar）配对引导 ====================
+var pendingShizukuCb = null;
+var szTimer = null;
+var szAutoAsked = false;
+
+function openShizukuGuide(){
+  var p = $('pageShizuku');
+  if(!p) return;
+  p.className = 'sz-page show';
+  szAutoAsked = false;
+  refreshShizukuGuide(false);
+  if(!szTimer) szTimer = setInterval(function(){ refreshShizukuGuide(true); }, 2000);
+}
+
+// ==================== 内置特权服务入口 ====================
+//
+// ⚠️ 2026-10-01 真机踩坑：这里的桥接方法名曾经与 Java 侧不一致，导致
+// 「打开特权服务管理器」永远弹「当前环境无法打开内置特权服务」。
+//
+// 起因：内核由 Shizuku 换成 Stellar 时，Java 侧把方法名改了
+//       （openShizukuManager → openStellarManager、
+//         isShizukuReady     → isStellarReady、
+//         openShizukuRepo    → openStellarRepo），
+//       但这个 HTML 里的调用点没跟着改 —— 而 index.html 是**加密打包**的
+//       （见 app/build.gradle 的 encryptAssets），改 Java 时不容易注意到它。
+//
+// 因此下面统一走一个「按候选名依次尝试」的辅助函数：
+// 只要 Java 侧暴露了其中任意一个名字就能工作，以后改名也不会再静默失效。
+// 新增/改名 Java 桥接方法时，请把新名字加进对应候选数组的**最前面**。
+function _bridgeCall(obj, names, args){
+  if(typeof obj==='undefined'||obj===null) return null;
+  for(var i=0;i<names.length;i++){
+    var fn=names[i];
+    try{
+      if(typeof obj[fn]==='function'){ return obj[fn].apply(obj, args||[]); }
+    }catch(e){ logDiag('桥接调用 '+fn+' 抛异常: '+e); }
+  }
+  return null;
+}
+function _hasBridge(obj, names){
+  if(typeof obj==='undefined'||obj===null) return false;
+  for(var i=0;i<names.length;i++){
+    if(typeof obj[names[i]]==='function') return true;
+  }
+  return false;
+}
+
+// Java 侧桥接方法候选名（新名在前，旧名兜底）
+var BRIDGE_OPEN_MANAGER = ['openStellarManager','openShizukuManager'];
+var BRIDGE_IS_READY     = ['isStellarReady','isShizukuReady'];
+var BRIDGE_OPEN_REPO    = ['openStellarRepo','openShizukuRepo'];
+
+function openStellarManager(){
+  if(_hasBridge(Android, BRIDGE_OPEN_MANAGER)){
+    logDiag('点击「内置特权服务入口」');
+    _bridgeCall(Android, BRIDGE_OPEN_MANAGER);
+    return true;
+  }
+  logDiag('当前环境没有 openStellarManager/openShizukuManager 桥');
+  showToast('当前环境无法打开内置特权服务');
+  return false;
+}
+
+// ==================== 运行日志 / 崩溃日志 ====================
+// 出问题时用户只需点「复制日志」再粘贴发过来即可，不需要 root，也不需要连电脑。
+// 日志文件同时落在 /sdcard/Android/data/com.youlong.hd/files/crash/
+function logDiag(msg){
+  try{
+    if(typeof Android!=='undefined'&&Android.logEvent) Android.logEvent(String(msg));
+  }catch(e){}
+}
+
+function hasCrashRecord(){
+  try{
+    if(typeof Android!=='undefined'&&Android.hasCrashLog) return !!Android.hasCrashLog();
+  }catch(e){}
+  return false;
+}
+
+// 刷新首页崩溃横幅 + 引导页日志卡片
+function refreshDiagCards(){
+  var has = hasCrashRecord();
+
+  var banner = $('crashBanner');
+  if(banner) banner.style.display = has ? '' : 'none';
+
+  var card = $('szLogCard');
+  var title = $('szLogTitle');
+  var info = $('szLogInfo');
+  if(card) card.style.border = has ? '2px solid #e5484d' : '';
+  if(title){
+    title.textContent = has ? '⚠️ 上次运行崩溃了' : '运行日志';
+    title.style.color = has ? '#e5484d' : '';
+  }
+  if(info){
+    info.innerHTML = has
+      ? '已捕获到<strong>崩溃堆栈</strong>。点下面「复制日志」，把内容直接发给我，我就能定位并修复。'
+      : '暂未捕获到崩溃。如果某个功能点了没反应或报错，也可以点「复制日志」把<strong>操作轨迹</strong>发给我。';
+  }
+  return has;
+}
+
+function copyDiagLog(){
+  try{
+    if(typeof Android!=='undefined'&&Android.copyDiagnostics){
+      Android.copyDiagnostics();
+      return;
+    }
+  }catch(e){}
+  showToast('当前环境无法复制日志');
+}
+
+function clearCrashRecord(){
+  try{
+    if(typeof Android!=='undefined'&&Android.clearCrashLog){
+      Android.clearCrashLog();
+      setTimeout(refreshDiagCards,150);
+      return;
+    }
+  }catch(e){}
+  showToast('当前环境无法清除记录');
+}
+
+function closeShizukuGuide(){
+  var p = $('pageShizuku');
+  if(p) p.className = 'sz-page';
+  if(szTimer){ clearInterval(szTimer); szTimer = null; }
+}
+
+// 刷新引导页状态；auto=true 时在「待授权」阶段自动弹出授权框
+function refreshShizukuGuide(auto){
+  var st = '';
+  try{
+    if(typeof Shizuku !== 'undefined' && Shizuku.getServiceStatus) st = Shizuku.getServiceStatus();
+  }catch(e){ st = ''; }
+
+  var dot = $('szDot'), txt = $('szState'), hint = $('szHint');
+  if(!dot || !txt) return st;
+
+  if(st === 'Shizuku已连接'){
+    dot.className = 'dot ok';
+    txt.textContent = '已连接';
+    if(hint) hint.textContent = '高权限能力已就绪，可使用高级拦截模式';
+    if(pendingShizukuCb){
+      var cb = pendingShizukuCb;
+      pendingShizukuCb = null;
+      closeShizukuGuide();
+      showToast('内置服务连接成功');
+      setTimeout(cb, 250);
+    }
+    return st;
+  }
+
+  if(st === 'Shizuku待授权'){
+    dot.className = 'dot loading';
+    txt.textContent = '等待授权…';
+    if(hint) hint.textContent = '授权弹窗即将弹出，请点击「允许」';
+    // 自动授权：服务已启动但未授权 → 主动弹系统授权框（只自动请求一次）
+    if(auto && !szAutoAsked){
+      szAutoAsked = true;
+      try{ if(typeof Shizuku !== 'undefined' && Shizuku.requestPermission) Shizuku.requestPermission(); }catch(e){}
+    }
+    return st;
+  }
+
+  dot.className = 'dot bad';
+  txt.textContent = '未连接';
+  if(hint) hint.textContent = '特权服务尚未启动（点「打开特权服务管理器」启动）';
+  szAutoAsked = false;
+  return st;
+}
+
+function checkShizukuConnection(){
+  var st = refreshShizukuGuide(false);
+  if(st === 'Shizuku已连接'){ showToast('内置服务已连接'); return true; }
+  if(st === 'Shizuku待授权'){
+    try{ if(typeof Shizuku !== 'undefined' && Shizuku.requestPermission) Shizuku.requestPermission(); }catch(e){}
+    showToast('已发送授权请求，请点击「允许」');
+    return false;
+  }
+  showToast('特权服务尚未启动（点「打开特权服务管理器」启动）');
+  return false;
+}
+
+// 需要 Shizuku 时的引导弹窗：弹窗 → 打开内置管理器启动服务 → 授权完自动继续
+function showShizukuModal(onReady){
+  var old = document.querySelector('.modal-overlay');
+  if(old) old.remove();
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box">' +
+      '<div class="modal-title">需要启动特权服务</div>' +
+      '<div class="modal-body">该模式依赖高权限（shell 级）能力。<br><br>本应用已内置特权服务，但<strong>需要先启动它</strong>。点下面「去启动」打开内置管理器，在里面启动服务并授权，回来后会自动继续。</div>' +
+      '<div class="modal-footer">' +
+        '<button class="modal-btn" id="szModalGo">去启动</button>' +
+        '<button class="modal-btn" id="szModalCancel" style="background:rgba(120,120,128,0.2);color:#1c1c1e;margin-top:8px">暂不开启</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('szModalCancel').onclick = function(){ overlay.remove(); };
+  document.getElementById('szModalGo').onclick = function(){
+    overlay.remove();
+    pendingShizukuCb = onReady || null;
+    // 2026-09-25 恢复：内置管理器已重新编入 APK，这里直接把界面打开。
+    // 用户在管理器里启动服务并授权后返回，state 轮询会自动继续 onReady。
+    openStellarManager();
+  };
+}
+
+// 2026-10 改动（用户需求）：此处原本是 showDisclaimer() —— 每次进入应用都弹的
+// 「提示」弹窗，内容为「目前格机脚本 sh 文件防不了，建议日常尽量不要开……概不负责」。
+// 用户明确要求去掉，故整块删除（函数体 + init() 里的调用）。
+// 若日后需要恢复，注意同时恢复 init() 里的调用点。
+
+// 2026-10 改动（用户需求）：此处原本是 showGuardWarning()
+// —— 开启实时守护时弹的「建议日常尽量不要开启，可能会误伤」温馨提示。
+// 用户明确要求删除该弹窗，故整块移除。若日后需要恢复，注意同时恢复
+// toggle.onchange 里的调用点。
+
+// 「自动拦截」开关每次开启时的提示弹窗（用户要求：每次开启都要弹）
+// 提醒用户自动拦截并非万无一失，没拦住时还有紧急逃生兜底。
+// 注：弹窗 z-index 10000 会盖住 z-index 9999 的 toast，所以开启时不另发 toast。
+function showAutoBlockTip(){
+  var overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=
+    '<div class="modal-box">'+
+      '<div class="modal-title">自动拦截已开启</div>'+
+      '<div class="modal-body">如果<strong>自动拦截未成功</strong>，你仍然可使用<strong>紧急逃生功能【音量键 / 摇一摇】</strong>。</div>'+
+      '<div class="modal-footer"><button class="modal-btn" id="autoBlockTipBtn">我知道了</button></div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('autoBlockTipBtn').onclick=function(){
+    overlay.remove();
+  };
+}
+
+// 权限信息（标题、描述）
+// ⚠️ 2026-10-01：设备管理器（DeviceAdmin）能力已从本应用**彻底移除**，
+// 因此这里不再列出 deviceAdmin 这一项，也不再需要在终结模式下强求它。
+// 连带移除的还有 needDeviceAdmin() 以及所有 "deviceAdmin" 判断分支。
+var PERM_INFO = [
+  {key:'applist',title:'读取应用列表权限',desc:'用于读取已安装应用、识别病毒与黑名单，未授权时功能不完整',action:'applist'},
+  {key:'accessibility',title:'无障碍权限',desc:'用于监听音量键、检测前台应用，是紧急逃生的核心',action:'accessibility'},
+  {key:'overlay',title:'悬浮窗权限',desc:'用于在全屏锁机病毒上方弹出救援覆盖层',action:'overlay'},
+  {key:'usage',title:'使用情况访问',desc:'用于识别前台锁机应用，精准拦截',action:'usage'}
+];
+
+// 渲染权限提示小栏
+function refreshPermBanners(){
+  var container = $('permBanners');
+  if(!container) return;
+  container.innerHTML = '';
+
+  if(typeof Android==='undefined' || !Android.getMissingPermissions){
+    // 桥接未就绪，不显示
+    return;
+  }
+
+  var perms;
+  try{ perms = JSON.parse(Android.getMissingPermissions()); }
+  catch(e){ return; }
+
+  var any = false;
+  PERM_INFO.forEach(function(info, i){
+    // ⚠️ 2026-10-01：deviceAdmin 项已删除（设备管理器能力整体移除），
+    // 因此这里不再需要「非终结模式跳过设备管理器」的特判。
+    if(perms[info.key]===true) return; // 已授权，跳过
+    any = true;
+    var banner = document.createElement('div');
+    banner.className = 'perm-banner perm-'+i;
+    banner.innerHTML =
+
+      '<div class="perm-info">'+
+        '<div class="perm-title">需授权 '+info.title+'</div>'+
+        '<div class="perm-desc">'+info.desc+'</div>'+
+      '</div>'+
+      '<button class="perm-btn">授权</button>';
+    banner.querySelector('.perm-btn').onclick = function(){
+      try{
+        if(info.action === 'applist' && typeof Android !== 'undefined'
+           && Android.requestAppListPermission){
+          Android.requestAppListPermission();
+          showToast('请在系统弹窗中点击「允许」');
+        } else {
+          Android.openPermSettings(info.action);
+        }
+      }catch(e){ showToast('申请失败，请稍后重试'); }
+    };
+    container.appendChild(banner);
+  });
+
+  // 全部授权 → 隐藏整个容器
+  if(!any){
+    container.style.display = 'none';
+  } else {
+    container.style.display = '';
+  }
+}
+
+// 权限不足/丢失弹窗
+// missing: 缺失的权限名称；isLost: 是否为运行中权限丢失（true 时显示不同文案）
+// shizukuFallback: 是否为无障碍丢失+Shizuku 兜底中（true 时显示"已通过特权服务继续守护"文案）
+function showPermissionModal(missing, isLost, shizukuFallback){
+  // 去掉旧弹窗
+  var old=document.querySelector('.modal-overlay');
+  if(old) old.remove();
+
+  var title = isLost ? '权限已丢失' : '需要授权';
+  var desc;
+  if(shizukuFallback){
+    desc = '检测到无障碍权限已被关闭，<strong>已通过特权服务继续守护</strong>，实时防护不会中断。<br><br>'+
+      '当前拦截、终结、冻结功能均正常，无需担心。<br><br>'+
+      '建议尽快重新开启无障碍权限，获得最完整的防护能力：<br>'+
+      '设置 → 无障碍 → 已下载的服务 → 游龙安全护盾 → 开启';
+  }else{
+    desc = isLost
+      ? '检测到必要权限已被关闭，<strong>实时防护已自动关闭</strong>。<br><br>请重新开启缺失权限：<br>'+
+        '<strong style="font-size:1.05rem;color:#FF3B30;">'+missing+'</strong><br><br>'+
+        '授权完成后，<strong>再手动打开守护开关</strong>即可继续防护。'
+      : '开启守护需要以下权限：<br><br>'+
+        '<strong style="font-size:1.05rem;color:#FF3B30;">'+missing+'</strong><br><br>'+
+        '已自动跳转系统设置页，<strong>请开启对应权限</strong>后返回重新打开开关。';
+  }
+
+  // 2026-10-18：部分 ROM 的无障碍一级列表不显示本应用，给出定位路径。
+  if(missing && missing.indexOf('无障碍')>=0){
+    desc += '<br><br><span style="color:#8e8e93;font-size:0.85rem">' +
+      '如果列表里找不到「游龙安全护盾」：先返回桌面重新打开一次本应用；' +
+      '再到 设置 → 无障碍 → 已下载的应用 / 已安装的服务 中查找；' +
+      '部分手机还需要在「应用信息 → 右上角 → 允许受限设置」后再开启。' +
+      '</span>';
+  }
+
+  var overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=
+    '<div class="modal-box">'+
+      '<div class="modal-title">'+title+'</div>'+
+      '<div class="modal-body">'+desc+'</div>'+
+      '<div class="modal-footer"><button class="modal-btn" id="permOkBtn">我知道了</button></div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('permOkBtn').onclick=function(){
+    overlay.remove();
+  };
+}
+
+// 初始化
+// ======================================================================
+// 环境检测：Dhizuku / root（2026-10 新增，用户需求）
+// ----------------------------------------------------------------------
+// 调用原生桥 Android.getEnvironmentWarning()（见 MainActivity 同名方法），
+// 返回 {"level":"none|dhizuku|root","title":"...","message":"..."}。
+// 有异常则在「开启实时守护」上方展示一条提示；正常则整卡隐藏。
+//
+// ⚠️ 2026-10 改动（用户需求）：这条提示**不可关闭**。
+//    原实现带了「点此不再提示」+ localStorage 记忆，用户点一下就能永久隐藏 ——
+//    但环境异常（装了 Dhizuku / 手机有 root）意味着日常模式拿不到 100% 拦截，
+//    属于必须让用户持续看到的信息，因此：
+//      · 去掉点击关闭与 localStorage 记忆；
+//      · 卡片固定常驻，只在环境恢复正常（level === 'none'）时自动消失。
+// ======================================================================
+function refreshEnvWarning(){
+  var card=$('envWarnCard'), titleEl=$('envWarnTitle'), msgEl=$('envWarnMsg');
+  if(!card) return;
+
+  var info=null;
+  try{
+    if(typeof Android!=='undefined' && Android.getEnvironmentWarning){
+      info=JSON.parse(Android.getEnvironmentWarning());
+    }
+  }catch(e){ info=null; }
+
+  if(!info || !info.level || info.level==='none'){
+    // 环境正常 → 隐藏；异常 → 常驻
+    card.style.display='none';
+    card.onclick=null;
+    return;
+  }
+
+  if(titleEl) titleEl.textContent=info.title||'当前系统环境异常';
+  if(msgEl) msgEl.textContent=info.message||'';
+  card.style.display='block';
+  // 明确不提供关闭入口（用户需求：一直无法关闭）
+  card.onclick=null;
+}
+
+// ======================================================================
+// 进入应用权限门槛（2026-10 新增，用户需求）
+// ----------------------------------------------------------------------
+// 需求：进入软件就要「读取应用权限」与「通知权限」，不开启则无法开启安全守护。
+//
+// · 读取应用：靠 QUERY_ALL_PACKAGES（安装期授予，无弹窗）。原生侧不是读 flag，
+//   而是真的查一次已安装应用列表来判定是否真的可用（见 getEntryRequirements）。
+// · 通知权限：Android 13+ 运行时权限，进页面就申请一次。
+//
+// 结果缓存在 entryReq 里，供「开启实时守护」开关做拦截判断。
+// ======================================================================
+var entryReq = null;              // {notification, applist, ok, missing[]}
+// 2026-10 改动：ENV_GREEN_KEY（环境良好提示的"不再提示"记忆键）已随该提示删除。
+
+function refreshEntryRequirements(){
+  var card = $('entryPermCard');
+  var msgEl = $('entryPermMsg');
+  var notifBtn = $('entryPermNotifBtn');
+  var appsBtn = $('entryPermAppsBtn');
+  if(!card) return;
+
+  try{
+    if(typeof Android !== 'undefined' && Android.getEntryRequirements){
+      entryReq = JSON.parse(Android.getEntryRequirements());
+    }
+  }catch(e){ entryReq = null; }
+
+  if(!entryReq){ card.style.display='none'; return; }
+
+  if(entryReq.ok){
+    card.style.display='none';
+    return;
+  }
+
+  var lacks = [];
+  if(!entryReq.notification) lacks.push('通知');
+  if(!entryReq.applist) lacks.push('读取已安装应用列表');
+  if(msgEl){
+    msgEl.textContent = lacks.length > 0
+        ? ('还需要授权：' + lacks.join('、') + '。未授权时无法开启实时守护。')
+        : '';
+  }
+  if(notifBtn) notifBtn.style.display = entryReq.notification ? 'none' : '';
+  if(appsBtn)  appsBtn.style.display  = entryReq.applist ? 'none' : '';
+  card.style.display = 'block';
+}
+
+// ======================================================================
+// 请求进入应用所需的权限（2026-10 改动：要"打开就弹"，不能等开守护才弹）
+// ----------------------------------------------------------------------
+// 早期实现只在 init() 里请求一次，但 init() 有可能跑在原生桥接就绪**之前**，
+// 那一次会因为拿不到 getEntryRequirements() 而跳过请求，
+// 直到用户开守护触发重查时才补上 —— 表现就是"过一会才弹"。
+//
+// 现在：
+//   · requestEntryPermissions() 可重入、幂等（记 permRequested 防止重复弹）；
+//   · 桥接没就绪就 600ms 后重试，最多 10 次；
+//   · 页面 load 完成后再补一次；
+//   · 权限回调里若发现还缺通知权限，再补一次。
+// ======================================================================
+var permRequested = false;
+// 应用列表权限只自动请求一次（避免反复弹）
+var appListRequested = false;
+
+function requestEntryPermissions(){
+  try{
+    // 桥接还没就绪 → 稍后重试（这是"过一会才弹"的根因）
+    if(typeof Android === 'undefined' || !Android.getEntryRequirements){
+      if((requestEntryPermissions._n = (requestEntryPermissions._n || 0) + 1) <= 10){
+        setTimeout(requestEntryPermissions, 600);
+      }
+      return;
+    }
+    refreshEntryRequirements();
+    if(!entryReq) return;
+    // ① 先弹通知（Android 13+ 才是运行时权限）
+    if(!entryReq.notification
+       && Android.requestNotificationPermission
+       && !permRequested){
+      permRequested = true;
+      Android.requestNotificationPermission();
+      return;   // 等通知弹完的回调里再处理下一个
+    }
+    // ② 通知已就绪 → 再弹「读取应用列表」
+    if(!entryReq.applist
+       && Android.requestAppListPermission
+       && !appListRequested){
+      appListRequested = true;
+      Android.requestAppListPermission();
+    }
+  }catch(e){}
+}
+
+// 原生申请完通知权限后会回调这里，立即刷新卡片
+window.__dshOnPermResult = function(req){
+  try{
+    entryReq = req;
+    refreshEntryRequirements();
+    if(req && req.ok){
+      showToast('权限已就绪，可以开启实时守护了');
+      return;
+    }
+    if(req && !req.notification){
+      // 用户这次没给（或系统没弹出来）→ 允许再请求一次
+      permRequested = false;
+      return;
+    }
+    // 通知已就绪但还缺应用列表 → 紧接着弹「允许读取应用列表」
+    if(req && req.notification && !req.applist
+       && typeof Android !== 'undefined' && Android.requestAppListPermission
+       && !appListRequested){
+      appListRequested = true;
+      Android.requestAppListPermission();
+    }
+  }catch(e){}
+};
+
+// 2026-10 改动（用户需求）：refreshEnvGoodHint() 已随「环境良好」提示卡一并删除。
+// 保留说明：原生侧的 getEnvGoodHint() 仍在（未被调用，不影响功能），
+// 如日后需要恢复该提示，把上面这段函数与卡片 HTML 恢复即可。
+
+function init(){
+  // 2026-10 改动（用户需求）：原来这里会调 showDisclaimer() 弹「sh 文件防不了」的
+  // 提示弹窗，已按用户要求删除，进入应用不再弹任何免责提示。
+  refreshPermBanners();
+  refreshEnvWarning();
+
+  // ===== 进入应用即检查/申请权限（用户需求：打开就弹，不要等开了守护才弹）=====
+  refreshEntryRequirements();
+  requestEntryPermissions();
+
+  // 权限卡片按钮
+  var appsBtn = $('entryPermAppsBtn');
+  if(appsBtn){
+    appsBtn.onclick = function(){
+      try{
+        if(typeof Android !== 'undefined' && Android.requestAppListPermission){
+          Android.requestAppListPermission();     // 直接弹系统授权框
+          showToast('请在系统弹窗中点击「允许」');
+        }else{
+          showToast('原生桥接未就绪');
+        }
+      }catch(e){ showToast('申请失败，请稍后重试'); }
+    };
+  }
+  var notifBtn = $('entryPermNotifBtn');
+  if(notifBtn){
+    notifBtn.onclick = function(){
+      try{
+        if(typeof Android !== 'undefined' && Android.requestNotificationPermission){
+          Android.requestNotificationPermission();
+        }else{
+          showToast('原生桥接未就绪');
+        }
+      }catch(e){ showToast('申请失败，请在系统设置里手动开启'); }
+    };
+  }
+  // 2026-10 改动：原来这里有「检查读取应用权限」按钮的绑定（跳系统设置），已删除。
+  var retryBtn = $('entryPermRetryBtn');
+  if(retryBtn){
+    retryBtn.onclick = function(){
+      refreshEntryRequirements();
+      if(entryReq && entryReq.ok) showToast('权限已就绪');
+      else showToast('仍缺少权限，请先授予');
+    };
+  }
+
+  // 2026-10 改动：环境良好提示已删除，此处不再调用 refreshEnvGoodHint()。
+
+  var toggle=$('shieldToggle'), statusDiv=$('shieldStatus');
+  if(!toggle)return;
+  if(typeof Android!=='undefined'&&Android.getProtectStatus){
+    try{
+      var st=JSON.parse(Android.getProtectStatus());
+      toggle.checked=st.on;
+      shieldProtectOn=st.on;
+      updateStatus(st.on,st.duration||'0m');
+    }catch(e){
+      toggle.checked=false;shieldProtectOn=false;
+      statusDiv.textContent='未开启';
+    }
+  }else{
+    toggle.checked=false;shieldProtectOn=false;
+    statusDiv.innerHTML='未开启 <span style="font-size:0.75rem;color:#999">(桥接未就绪)</span>';
+  }
+
+  // 开关
+  toggle.onchange=function(){
+    if(typeof Android==='undefined'){
+      showToast('原生桥接未就绪');
+      this.checked=false;shieldProtectOn=false;return;
+    }
+    if(this.checked){
+      // 2026-10 新增（用户需求）：权限门槛 —— 没拿到「读取应用」+「通知」时
+      // 不允许开启安全守护。这里再查一次，避免用户中途去设置里关掉了权限。
+      refreshEntryRequirements();
+      if(entryReq && !entryReq.ok){
+        this.checked = false;
+        shieldProtectOn = false;
+        var lacks = [];
+        if(!entryReq.applist) lacks.push('读取已安装应用');
+        if(!entryReq.notification) lacks.push('通知');
+        showToast('请先授予「' + lacks.join('」「') + '」权限，否则无法开启安全守护');
+        var card = $('entryPermCard');
+        if(card) card.style.display = 'block';
+        return;
+      }
+      try{
+        var res=JSON.parse(Android.startProtect());
+        if(res.status==='started'){
+          shieldProtectOn=true;
+          updateStatus(true,'0m');
+          // 原生 startProtect 已将摇一摇开启、音量键关闭、「自动拦截」强制打开，同步 UI
+          $('shakeTriggerToggle').checked = true;
+          $('volumeTriggerToggle').checked = false;
+          syncVolCustomUI();
+          forceAutoBlockOn();
+          startPolling();
+          showToast('守护已开启');
+        }else if(res.status==='need_permission'){
+          // 权限不足 → 回弹开关，弹窗提示
+          this.checked=false;
+          shieldProtectOn=false;
+          updateStatus(false,'');
+          showPermissionModal(res.missing||'权限');
+          refreshPermBanners();
+        }else{
+          shieldProtectOn=true;
+          updateStatus(true,'0m');
+          $('shakeTriggerToggle').checked = true;
+          $('volumeTriggerToggle').checked = false;
+          syncVolCustomUI();
+          forceAutoBlockOn();
+          startPolling();
+        }
+      }catch(e){
+        shieldProtectOn=true;
+        updateStatus(true,'0m');
+        $('shakeTriggerToggle').checked = true;
+        $('volumeTriggerToggle').checked = false;
+        syncVolCustomUI();
+        forceAutoBlockOn();
+        startPolling();
+      }
+    }else{
+      Android.stopProtect();
+      // 关闭主开关时同步关闭所有触发器（stopProtect 原生层已将触发器置为 false）
+      $('volumeTriggerToggle').checked = false;
+      $('shakeTriggerToggle').checked = false;
+      syncVolCustomUI();
+      updateStatus(false,'');
+      stopPolling();
+      // 2026-10：自动拦截可以独立运行；如果它还开着，要如实告诉用户
+      var autoStill = false;
+      try{
+        if(Android.getAutoBlockEnabled) autoStill = Android.getAutoBlockEnabled() === true;
+      }catch(e){}
+      showToast(autoStill ? '实时守护已关闭，自动拦截仍在运行' : '守护已关闭');
+    }
+  };
+
+  // 冻结管理（自保脚本反复冻结的嫌疑应用）
+  function frozenEsc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function openFrozenManager(){
+    if(typeof Android==='undefined' || !Android.getFrozenApps){
+      showToast('原生桥接未就绪'); return;
+    }
+    var list=[];
+    try{ list=JSON.parse(Android.getFrozenApps() || '[]'); }catch(e){ list=[]; }
+    var overlay=document.createElement('div');
+    overlay.className='modal-overlay';
+    overlay.innerHTML=
+      '<div class="modal-box">'+
+        '<div class="modal-title">冻结管理</div>'+
+        '<div class="modal-body" id="frozenListBody" style="max-height:55vh;overflow:auto;"></div>'+
+        '<div class="modal-footer"><button class="modal-btn" id="frozenCloseBtn">关闭</button></div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+    var body=$('frozenListBody');
+    function render(){
+      if(!body) return;
+      if(!list.length){
+        body.innerHTML='<div style="text-align:center;color:#999;padding:24px 0;">暂无被冻结的应用</div>';
+        return;
+      }
+      var html='';
+      for(var i=0;i<list.length;i++){
+        var it=list[i]||{};
+        html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);">'
+          +'<div style="flex:1;min-width:0;">'
+          +'<div style="font-weight:600;word-break:break-all;">'+frozenEsc(it.label || it.pkg)+'</div>'
+          +'<div style="font-size:12px;color:#999;word-break:break-all;">'+frozenEsc(it.pkg)+'</div>'
+          +'</div>'
+          +'<button class="btn" data-pkg="'+frozenEsc(it.pkg)+'" style="width:auto;padding:7px 16px;background:#34C759;color:#fff;">解冻</button>'
+          +'</div>';
+      }
+      body.innerHTML=html;
+      var btns=body.querySelectorAll('button[data-pkg]');
+      for(var j=0;j<btns.length;j++){
+        btns[j].onclick=function(){
+          var pkg=this.getAttribute('data-pkg');
+          var ok=false;
+          try{ ok=Android.unfreezeApp(pkg)===true; }catch(e){ ok=false; }
+          if(!ok){ showToast('解冻失败：内置特权未连接'); return; }
+          for(var k=0;k<list.length;k++){
+            if(list[k] && list[k].pkg===pkg){ list.splice(k,1); break; }
+          }
+          showToast('已解冻：'+pkg);
+          render();
+        };
+      }
+    }
+    render();
+    $('frozenCloseBtn').onclick=function(){ overlay.remove(); };
+    overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+  }
+
+  // 拦截记录
+  $('shieldHistoryBtn').onclick=function(){
+    var panel=$('shieldHistoryResult');
+    panel.style.display='block';
+    panel.innerHTML='<div class="loading-box"><span class="spinner"></span>加载中...</div>';
+    if(typeof Android!=='undefined'&&Android.getBlockHistory){
+      try{
+        var records=JSON.parse(Android.getBlockHistory());
+        renderHistory(records);
+      }catch(e){panel.innerHTML='<div style="text-align:center;padding:20px;color:#FF3B30;">加载失败</div>'}
+    }else{panel.innerHTML='<div style="text-align:center;padding:20px;color:#999;">桥接未就绪</div>'}
+  };
+
+  // 白名单管理（加入白名单的应用在其界面不触发拦截）
+  $('shieldTrustBtn').onclick=function(){
+    if(typeof Android!=='undefined'&&Android.openWhitelistManager){
+      Android.openWhitelistManager();
+    }else{
+      showToast('原生桥接未就绪');
+    }
+  };
+
+  // 冻结管理（在首页白名单管理按钮下方）
+  var frozenBtn=$('frozenManageBtn');
+  if(frozenBtn) frozenBtn.onclick=openFrozenManager;
+
+  // 运行日志入口已按用户要求移除
+
+  // 返回
+
+
+  // 从系统设置页返回时实时刷新权限小栏与后台高耗电状态
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){
+      refreshPermBanners();
+      if(typeof refreshBatteryOptStatus === 'function') refreshBatteryOptStatus();
+    }
+  });
+
+  // 每5秒独立轮询权限状态（无论护盾开关状态，始终检测缺失权限）
+  setInterval(refreshPermBanners, 5000);
+
+  if(shieldProtectOn)startPolling();
+
+  // ===== 顶部导航（首页 / 自动拦截 / 扫描）=====
+  var tHome=$('navTabHome'), tVirus=$('navTabVirusDb'), tScan=$('navTabScan');
+  if(tHome) tHome.onclick=function(){ switchPage('home'); };
+  if(tVirus) tVirus.onclick=function(){ switchPage('virusdb'); };
+  if(tScan) tScan.onclick=function(){ switchPage('scan'); };
+
+  var vdbBtn=$('vdbRefreshBtn');
+  if(vdbBtn) vdbBtn.onclick=function(){
+    if(typeof Android==='undefined'||!Android.refreshVirusDb){ showToast('原生桥接未就绪'); return; }
+    var self=this;
+    self.disabled=true;
+    self.textContent='正在检查…';
+    Android.refreshVirusDb();
+    setTimeout(function(){ self.textContent='立即检查更新'; self.disabled=false; refreshVirusDbPage(); },1500);
+  };
+
+  // ===== 内置特权服务（Stellar）配对引导页 =====
+  var szClose=$('szCloseBtn');
+  if(szClose) szClose.onclick=function(){ pendingShizukuCb=null; closeShizukuGuide(); };
+  var szChk=$('szCheckBtn');
+  if(szChk) szChk.onclick=function(){ checkShizukuConnection(); };
+  // 内置管理器入口（2026-09-25 恢复）：:manager 已重新纳入构建图，
+  // 点击后直接启动 moe.shizuku.manager.MainActivity。
+  var szIns=$('szInstallBtn');
+  if(szIns) szIns.onclick=function(){ openStellarManager(); };
+  var szRepo=$('szRepoLink');
+  if(szRepo) szRepo.onclick=function(e){
+    e.preventDefault();
+    if(typeof Android!=='undefined'&&_hasBridge(Android,BRIDGE_OPEN_REPO)) _bridgeCall(Android,BRIDGE_OPEN_REPO);
+    else showToast('请手动访问 github.com/roro2239/Stellar');
+  };
+
+  // ===== 运行日志 / 崩溃日志按钮已按用户要求移除 =====
+
+  // ===== 模式选择 =====
+  initModeSelection();
+
+  // ===== 高级设置 =====
+  initAdvancedSettings();
+
+  // ===== 自动拦截总开关（病毒库页面）=====
+  initAutoBlockToggle();
+
+  // ===== 自动拦截方式（直接卸载 / 询问后卸载）=====
+  initAutoBlockMode();
+
+  // ===== 扫描页（2026-10 新增）=====
+  initScanPage();
+
+  // ===== 金龙引擎开关（自动拦截页面，2026-10 新增）=====
+  initGoldenDragonToggle();
+
+  // 护盾未开启时，从原生读取触发器实际状态，不强制覆盖
+  if(!shieldProtectOn){
+    try{
+      if(typeof Android !== 'undefined' && Android.getVolumeTriggerEnabled){
+        $('volumeTriggerToggle').checked = Android.getVolumeTriggerEnabled();
+      }
+      if(typeof Android !== 'undefined' && Android.getShakeTriggerEnabled){
+        $('shakeTriggerToggle').checked = Android.getShakeTriggerEnabled();
+      }
+    }catch(e){}
+    updateEmergencyText();
+  }
+
+  // 开关状态可能被上面的代码程序化改过 → 再同步一次自定义控件
+  syncVolCustomUI();
+}
+
+// ===== 模式选择逻辑 =====
+var currentMode = 'basic';
+
+function initModeSelection(){
+  // 从原生读取当前模式
+  if(typeof Android!=='undefined'&&Android.getShieldMode){
+    try{ currentMode = Android.getShieldMode(); }catch(e){}
+  }
+  // 2026-10-17（用户需求）：删除「超级拦截模式」，恢复「极强拦截模式」。
+  // 模式只保留 basic / daily30 / daily / extreme / final；老的 super 存量一律回落基础模式。
+  if(currentMode!=='basic'&&currentMode!=='daily30'&&currentMode!=='daily'
+     &&currentMode!=='extreme'&&currentMode!=='final'){
+    currentMode='basic';
+    // 同步写回原生：否则界面显示基础模式、后台服务却仍按旧的 super/extreme 跑
+    if(typeof Android!=='undefined'&&Android.setShieldMode){
+      try{ Android.setShieldMode('basic'); }catch(e){}
+    }
+  }
+  updateModeUI();
+  // 读取到真实模式后立即刷新权限提示
+  refreshPermBanners();
+
+  // 基础模式点击
+  $('modeBasic').onclick=function(){ setMode('basic')};
+
+  // 需要 Shizuku 的模式（极强拦截 / 终结模式 / Super Shield 模式）统一走此检查
+  // ⚠️ 2026-10-01 真机踩坑：这里原来写的是
+  //     if(typeof Shizuku!=='undefined' && Shizuku.isShizukuReady) ready = Shizuku.isShizukuReady()===true;
+  //   —— 先判断「方法是否存在」再调用。内核由 Shizuku 换成 Stellar 后，
+  //   Java 侧方法名改为 isStellarReady，于是这个守护条件**不成立**，
+  //   方法压根不会被调用，ready 永远是 false。
+  //   症状：状态行用 Shizuku.getServiceStatus() 显示「已连接」，
+  //         一点高级模式却弹「需要启动特权服务」。
+  //
+  // 现在改为：**不依赖方法名存在性**，依次尝试新名/旧名，
+  // 并额外兜底一个 Android.* 桥。任一条路能给出 true 就认为可用。
+  // 与 Java 侧 StellarBridge 新增的 isShizukuReady() 别名互为保险。
+  function _stellarReady(){
+    var cands = [
+      function(){ return Shizuku.isStellarReady(); },
+      function(){ return Shizuku.isShizukuReady(); },
+      function(){ return Android.isStellarReady(); }
+    ];
+    for(var i=0;i<cands.length;i++){
+      try{
+        var r = cands[i]();
+        if(r===true) return true;
+      }catch(e){ /* 方法不存在或抛错，试下一个 */ }
+    }
+    return false;
+  }
+
+  function requireShizuku(cb){
+    if(_stellarReady()){ cb(); return; }
+    // 未连接 → 引导弹窗 → 内置配对页 → 配对完成后自动授权并自动继续
+    showShizukuModal(cb);
+  }
+
+  // 日常模式3.0（与 Super 模式相同拦截逻辑，独立名称/推荐项）
+  $('modeDaily30').onclick=function(){ requireShizuku(function(){ setMode('daily30'); }); };
+  // Super Shield 模式（原日常模式）
+  $('modeDaily').onclick=function(){ requireShizuku(function(){ setMode('daily'); }); };
+  // 极强拦截模式：需内置特权，获取全部第三方应用并逐个 force-stop
+  $('modeExtreme').onclick=function(){ requireShizuku(function(){ setMode('extreme'); }); };
+  // 终结模式：需内置特权，且连续两次危险确认后才切换
+  $('modeFinal').onclick=function(){
+    requireShizuku(function(){
+      showFinalModeWarning(function(){ setMode('final'); });
+    });
+  };
+
+  // 定时检查 Shizuku 状态
+  updateShizukuStatus();
+  setInterval(updateShizukuStatus, 3000);
+}
+
+// 2026-10-17（用户需求）：恢复「终结模式」入口，同步恢复它的两次危险确认弹窗。
+// 依次弹两个警示弹窗，两次都确认才真正切到终结模式。
+function showFinalModeWarning(cb){
+  // 第一次弹窗：非常警示
+  var overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=
+    '<div class="modal-box" style="border:3px solid #FF3B30">'+
+      '<div class="modal-title" style="color:#FF3B30">⚠️ 危险操作警告</div>'+
+      '<div class="modal-body"><strong style="color:#FF3B30">不到迫不得已的时候，请不要使用此模式！</strong><br><br>终结模式会<strong>卸载并冻结</strong>绝大多数第三方应用，<strong>误伤概率极高</strong>，一旦开启极难挽回。<br><br><span style="color:#FF3B30">你真的要开启终结模式吗？</span></div>'+
+      '<div class="modal-footer">'+
+        '<button class="modal-btn" id="finalWarnCancel" style="background:rgba(120,120,128,0.2);color:#1c1c1e;margin-bottom:8px">我再想想</button>'+
+        '<button class="modal-btn" id="finalWarnOk" style="background:#FF3B30">我要开启</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('finalWarnCancel').onclick=function(){
+    overlay.remove();
+  };
+  document.getElementById('finalWarnOk').onclick=function(){
+    overlay.remove();
+    // 第二次弹窗：最后确认
+    var overlay2=document.createElement('div');
+    overlay2.className='modal-overlay';
+    overlay2.innerHTML=
+      '<div class="modal-box" style="border:3px solid #FF3B30">'+
+        '<div class="modal-title" style="color:#FF3B30">⚠️ 最后确认</div>'+
+        '<div class="modal-body"><strong style="color:#FF3B30">这是最后一次确认！</strong><br><br>开启终结模式后将进入<strong>全面卸载/冻结</strong>流程，<strong>可能对手机造成不可逆的影响</strong>。<br><br><span style="color:#FF3B30">你确定真的要开启终结模式吗？</span></div>'+
+        '<div class="modal-footer">'+
+          '<button class="modal-btn" id="finalWarn2Cancel" style="background:rgba(120,120,128,0.2);color:#1c1c1e;margin-bottom:8px">算了，不开了</button>'+
+          '<button class="modal-btn" id="finalWarn2Ok" style="background:#FF3B30">确定开启</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay2);
+    document.getElementById('finalWarn2Cancel').onclick=function(){
+      overlay2.remove();
+    };
+    document.getElementById('finalWarn2Ok').onclick=function(){
+      overlay2.remove();
+      if(cb) cb();
+    };
+  };
+}
+
+function setMode(mode){
+  currentMode = mode;
+  updateModeUI();
+  if(typeof Android!=='undefined'&&Android.setShieldMode){
+    Android.setShieldMode(mode);
+  }
+  // 切换模式后立即刷新权限提示
+  refreshPermBanners();
+}
+
+function updateModeUI(){
+  // 2026-10-31（用户需求）：模式为
+  //   basic 基础 / daily30 日常模式3.0 / daily Super Shield / extreme 极强拦截 / final 终结
+  var basicRow=$('modeBasic'), daily30Row=$('modeDaily30'), dailyRow=$('modeDaily');
+  var extremeRow=$('modeExtreme'), finalRow=$('modeFinal');
+  var basicRadio=$('radioBasic'), daily30Radio=$('radioDaily30'), dailyRadio=$('radioDaily');
+  var extremeRadio=$('radioExtreme'), finalRadio=$('radioFinal');
+  if(!basicRow) return;
+
+  basicRow.className = currentMode==='basic' ? 'mode-row selected' : 'mode-row';
+  if(extremeRow) extremeRow.className = currentMode==='extreme' ? 'mode-row selected' : 'mode-row';
+  if(finalRow) finalRow.className = currentMode==='final' ? 'mode-row selected' : 'mode-row';
+  // 日常模式3.0 保持 featured 推荐样式；Super Shield 改为与终结模式一致的普通样式
+  if(daily30Row) daily30Row.className = currentMode==='daily30' ? 'mode-row featured selected' : 'mode-row featured';
+  if(dailyRow) dailyRow.className = currentMode==='daily' ? 'mode-row selected' : 'mode-row';
+
+  basicRadio.className = currentMode==='basic' ? 'mode-radio checked' : 'mode-radio';
+  if(daily30Radio) daily30Radio.className = currentMode==='daily30' ? 'mode-radio checked' : 'mode-radio';
+  if(dailyRadio) dailyRadio.className = currentMode==='daily' ? 'mode-radio checked' : 'mode-radio';
+  if(extremeRadio) extremeRadio.className = currentMode==='extreme' ? 'mode-radio checked' : 'mode-radio';
+  if(finalRadio) finalRadio.className = currentMode==='final' ? 'mode-radio checked' : 'mode-radio';
+}
+
+function updateShizukuStatus(){
+  var stEl=$('shizukuStatus');
+  if(!stEl)return;
+  var shizukuOk = false;
+  var serviceSt = '';
+  if(typeof Shizuku!=='undefined'&&Shizuku.getServiceStatus){
+    try{ serviceSt=Shizuku.getServiceStatus(); }catch(e){ serviceSt=''; }
+  }
+
+  if(serviceSt==='Shizuku已连接'){
+    // 【入口】已连接时在「已连接」旁边再给一个「点击查看」，直达内置特权服务
+    // 管理器界面（服务状态 / 已授权应用列表 / 终端都在那里），不用先回引导页。
+    stEl.innerHTML='内置特权服务已连接 — 高级拦截模式可用 · <span style="color:#007AFF;text-decoration:underline" id="szViewManager">点击查看</span>';
+    stEl.style.color='#34C759';
+    shizukuOk = true;
+    szAutoAsked = false;
+    var vm=$('szViewManager');
+    if(vm) vm.onclick=function(){ openStellarManager(); };
+  }else if(serviceSt==='Shizuku待授权'){
+    // 【入口】待授权状态：状态行只留「待授权」+「点击授权」，
+    // 不再写「正在自动请求授权…」（与手动点击的语义重复）。
+    // 点击「点击授权」会**再次**发起授权请求 —— 授权弹窗被误点「拒绝」时，
+    // 本段会话内不会再自动请求，只能靠这里再来一次。
+    stEl.innerHTML='内置特权服务待授权 — <span style="color:#007AFF;text-decoration:underline" id="szViewManagerWait">点击授权</span>';
+    stEl.style.color='#FF9500';
+    // 自动授权：服务已启动但未授权 → 主动弹出系统授权框（每段会话只自动请求一次）
+    if(!szAutoAsked){
+      szAutoAsked = true;
+      try{ if(typeof Shizuku!=='undefined'&&Shizuku.requestPermission) Shizuku.requestPermission(); }catch(e){}
+    }
+    var vmw=$('szViewManagerWait');
+    if(vmw) vmw.onclick=function(){
+      var sent = false;
+      try{
+        if(typeof Shizuku!=='undefined' && Shizuku.requestPermission){ Shizuku.requestPermission(); sent = true; }
+      }catch(e){ sent = false; }
+      if(sent){ showToast('已发送授权请求，请点击「允许」'); }
+      else { openStellarManager(); }   // 桥接拿不到时退回内置管理器界面
+    };
+  }else if(serviceSt==='Shizuku未启动'){
+    // 【入口】服务未启动时给「点击启动」。这里直接开内置管理器的主界面
+    // （首页第一项就是「通过无线调试启动」），少一跳、点完即可启动服务。
+    // 注意：**不要**再指向 #pageShizuku 引导页 —— 那里的按钮也是开管理器，
+    // 多一层反而让「点击启动」这个字面承诺与行为不符。
+    stEl.innerHTML='内置特权服务未启动 — <span style="color:#007AFF;text-decoration:underline" id="szStartSrv">点击启动</span>';
+    stEl.style.color='#FF3B30';
+    szAutoAsked = false;
+    var go=$('szStartSrv');
+    if(go) go.onclick=function(){ openStellarManager(); };
+  }else{
+    stEl.innerHTML='内置特权服务桥接不可用 — 仅基础模式可用';
+    stEl.style.color='#FF3B30';
+    szAutoAsked = false;
+  }
+
+  // Shizuku 断开时自动降级页面显示（与 ProtectService 后台降级保持一致）
+  // 2026-10-31：日常模式3.0 / Super Shield / 极强拦截 / 终结模式 都依赖内置特权
+  var privilegedMode = (currentMode === 'daily30' || currentMode === 'daily' || currentMode === 'extreme' || currentMode === 'final');
+  if (!shizukuOk && privilegedMode) {
+    currentMode = 'basic';
+    updateModeUI();
+    if (typeof Android !== 'undefined' && Android.setShieldMode) {
+      Android.setShieldMode('basic');
+    }
+    refreshPermBanners();
+    // 正在等待授权时不打扰用户
+    if (serviceSt !== 'Shizuku待授权') showToast('内置特权服务已断开，已自动降级为基础模式');
+  }
+}
+
+function startPolling(){
+  stopPolling();
+  shieldPollTimer=setInterval(function(){
+    if(typeof Android!=='undefined'&&Android.getProtectStatus){
+      try{
+        var st=JSON.parse(Android.getProtectStatus());
+        updateStatus(st.on,st.duration||'0m');
+      }catch(e){}
+    }
+    // 每次轮询也刷新权限小栏（适配停留在页面上授权的情况）
+    refreshPermBanners();
+
+    // 权限实时监控：守护开启期间权限丢失 → 自动关闭守护
+    checkPermissionLoss();
+  },5000);
+}
+function stopPolling(){if(shieldPollTimer){clearInterval(shieldPollTimer);shieldPollTimer=null}}
+
+// 权限丢失检测：守护开启时若必要权限掉了，自动关闭开关
+// 特殊豁免：仅无障碍权限丢失且 Shizuku 已连接授权 → 不关闭守护，由 Shizuku 兜底继续守护
+var permFallbackShown = false; // 无障碍丢失+Shizuku兜底弹窗是否已显示（只提示一次，避免每5秒重复弹）
+function checkPermissionLoss(){
+  var toggle=$('shieldToggle');
+  if(!toggle||!toggle.checked) return; // 只有守护开启时才检查
+
+  if(typeof Android==='undefined'||!Android.getMissingPermissions) return;
+
+  var perms;
+  try{ perms = JSON.parse(Android.getMissingPermissions()); }
+  catch(e){ return; }
+
+  var anyMissing = false;
+  var missingNames = [];
+  for(var i=0;i<PERM_INFO.length;i++){
+    // ⚠️ 2026-10-01：deviceAdmin 项已删除，不再需要相应特判
+    if(perms[PERM_INFO[i].key]!==true){
+      anyMissing=true;
+      missingNames.push(PERM_INFO[i].title);
+    }
+  }
+  if(!anyMissing){ permFallbackShown=false; return; } // 权限恢复后重置，下次丢失可再次提示
+
+  // ===== 无障碍丢失 + Shizuku 在：守护不关闭，Shizuku 兜底继续守护 =====
+  var shizukuOk = false;
+  try{
+    shizukuOk = typeof Android!=='undefined' && _hasBridge(Android,BRIDGE_IS_READY) &&
+                _bridgeCall(Android,BRIDGE_IS_READY)===true;
+  }catch(e){ shizukuOk=false; }
+  if(missingNames.length===1 && perms.accessibility===false && shizukuOk){
+    if(!permFallbackShown){
+      permFallbackShown=true;
+      showPermissionModal('无障碍权限', true, true); // 第三参数=true 表示 Shizuku 兜底中
+      showToast('无障碍权限已丢失，已通过特权服务继续守护');
+    }
+    return; // 守护保持运行，不自动关闭
+  }
+
+  // 权限掉了 → 自动关闭守护
+  toggle.checked=false;
+  shieldProtectOn=false;
+  try{ if(typeof Android!=='undefined'&&Android.stopProtect) Android.stopProtect(); }catch(e){}
+  updateStatus(false,'');
+  stopPolling();
+  showPermissionModal(missingNames.join('、'), true);
+  refreshPermBanners();
+  showToast('权限丢失，守护已自动关闭');
+}
+function updateStatus(on,duration){
+  var el=$('shieldStatus');
+  if(!el)return;
+  if(on){
+    el.className='status-box active';
+    el.innerHTML='已守护 <strong>'+escapeHtml(duration)+'</strong>';
+  }else{
+    el.className='status-box';
+    el.style.background='';el.style.color='';
+    el.textContent='未开启';
+  }
+}
+function renderHistory(records){
+  var panel=$('shieldHistoryResult');
+  if(!records||records.length===0){
+    panel.innerHTML='<div style="text-align:center;padding:20px;color:#8e8e93;">暂无拦截记录</div>';return;
+  }
+  var html='<div style="font-size:0.85rem;color:#007AFF;margin-bottom:10px;font-weight:600;">拦截历史 ('+records.length+' 条)</div>';
+  for(var i=0;i<records.length;i++){
+    var r=records[i];
+    html+='<div class="history-item"><div>'+escapeHtml(r.description||r.type||'未知事件')+'</div>';
+    if(r.packageName)html+='<div style="font-size:0.75rem;color:#8e8e93;">包名: '+escapeHtml(r.packageName)+'</div>';
+    if(r.time)html+='<div class="history-time">'+escapeHtml(r.time)+'</div></div>';
+  }
+  panel.innerHTML=html;
+}
+function escapeHtml(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML}
+function showToast(msg){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#fff;padding:10px 22px;border-radius:20px;font-size:0.85rem;z-index:9999';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove()},2500);
+}
+
+// ===== 高级设置逻辑 =====
+// 注意：摇一摇检测由 Android 原生层（MainActivity / ProtectService）在后台处理
+//       即使游龙安全护盾不在前台，传感器也能检测摇动并触发弹窗
+//       HTML 页面只负责开关配置的展示与持久化
+
+// ===== 音量触发自定义配置（触发按键 + 连按次数）=====
+var volKey = 'down';   // 'down' = 音量−键，'up' = 音量+键
+var volCount = 3;      // 连按次数，2~10
+var VOL_COUNT_MIN = 2, VOL_COUNT_MAX = 10;
+
+function volKeyText(){ return volKey === 'up' ? '音量+键' : '音量−键'; }
+
+// 刷新自定义控件状态与各处文案（紧急逃生横幅 / 开关副标题 / 灰显）
+function syncVolCustomUI(){
+  var seg = $('volKeySeg');
+  var box = $('volCustomBox');
+  var tip = $('volCustomTip');
+  var desc = $('volumeTriggerDesc');
+  var val = $('volCountVal');
+  var minus = $('volCountMinus');
+  var plus = $('volCountPlus');
+  var toggle = $('volumeTriggerToggle');
+
+  if(seg){
+    var btns = seg.querySelectorAll('.seg-btn');
+    for(var i=0;i<btns.length;i++){
+      if(btns[i].getAttribute('data-key') === volKey) btns[i].classList.add('active');
+      else btns[i].classList.remove('active');
+    }
+  }
+  if(val) val.textContent = volCount;
+  if(minus) minus.disabled = (volCount <= VOL_COUNT_MIN);
+  if(plus)  plus.disabled  = (volCount >= VOL_COUNT_MAX);
+  if(tip) tip.textContent = volCount + ' 次' + volKeyText();
+  if(desc) desc.textContent = '连续按 ' + volCount + ' 次' + volKeyText() + '触发紧急弹窗';
+
+  // 音量触发关闭时，自定义项灰显（配置保留，重新开启即恢复）
+  if(box) box.className = 'vol-custom' + ((toggle && toggle.checked) ? '' : ' disabled');
+
+  // 摇一摇自定义项一并刷新（紧急逃生文案同时依赖两者状态）
+  syncShakeCustomUI();
+}
+
+// 修改连按次数（步进器）
+function changeVolCount(delta){
+  var n = volCount + delta;
+  if(n < VOL_COUNT_MIN) n = VOL_COUNT_MIN;
+  if(n > VOL_COUNT_MAX) n = VOL_COUNT_MAX;
+  if(n === volCount) return;
+  volCount = n;
+  if(typeof Android !== 'undefined' && Android.setVolumeTriggerCount){
+    Android.setVolumeTriggerCount(volCount);
+  }
+  syncVolCustomUI();
+  showToast('已设为：连续按 ' + volCount + ' 次' + volKeyText());
+}
+
+// 初始化自定义控件（读取原生已保存配置 + 绑定事件）
+function initVolCustom(){
+  try{
+    if(typeof Android !== 'undefined' && Android.getVolumeTriggerKey){
+      volKey = (Android.getVolumeTriggerKey() === 'up') ? 'up' : 'down';
+    }
+    if(typeof Android !== 'undefined' && Android.getVolumeTriggerCount){
+      var n = Android.getVolumeTriggerCount();
+      if(n >= VOL_COUNT_MIN && n <= VOL_COUNT_MAX) volCount = n;
+    }
+  }catch(e){}
+
+  var seg = $('volKeySeg');
+  if(seg){
+    seg.onclick = function(e){
+      var t = e.target;
+      if(!t || !t.getAttribute) return;
+      var k = t.getAttribute('data-key');
+      if(k !== 'down' && k !== 'up') return;
+      if(k === volKey) return;
+      volKey = k;
+      if(typeof Android !== 'undefined' && Android.setVolumeTriggerKey){
+        Android.setVolumeTriggerKey(volKey);
+      }
+      syncVolCustomUI();
+      showToast('触发按键已改为 ' + volKeyText());
+    };
+  }
+  var minus = $('volCountMinus');
+  if(minus) minus.onclick = function(){ changeVolCount(-1); };
+  var plus = $('volCountPlus');
+  if(plus) plus.onclick = function(){ changeVolCount(1); };
+
+  syncVolCustomUI();
+}
+
+// ===== 摇一摇触发力度档位（2=标准 3=用力 4=猛摇 5=超级猛摇）=====
+// 档位对应原生的加速度阈值 + 需要连续命中的尖峰次数（见 ProtectService.SHAKE_THRESHOLDS），
+// 原生每次传感器采样实时读取，改档位后立刻生效，无需重启守护服务。
+// 2026-10-30（用户需求）：去掉「轻摇」，增加最高档「超级猛摇」；默认仍为「猛摇」。
+// 注意：原生 ProtectService.SHAKE_LEVEL_DEFAULT 也是 4，
+//      两边默认值必须一致，否则首启时 UI 显示与实际阈值会不符。
+var shakeLevel = 4;
+var SHAKE_LEVEL_MIN = 2, SHAKE_LEVEL_MAX = 5;
+var SHAKE_LEVEL_NAMES = ['标准', '用力', '猛摇', '超级猛摇'];
+var SHAKE_LEVEL_DESCS = [
+  '用力摇晃手机即可触发紧急弹窗（推荐）',
+  '需要明显用力甩动手机才会触发，不易误触',
+  '需要非常用力猛摇手机才会触发，几乎不会误触',
+  '需要非常用力连续猛摇才会触发，防误触更强'
+];
+
+function shakeLevelName(){
+  return SHAKE_LEVEL_NAMES[shakeLevel - SHAKE_LEVEL_MIN] || '标准';
+}
+function shakeLevelDesc(){
+  return SHAKE_LEVEL_DESCS[shakeLevel - SHAKE_LEVEL_MIN] || SHAKE_LEVEL_DESCS[1];
+}
+
+// 刷新摇一摇力度控件的选中态与各处文案
+function syncShakeCustomUI(){
+  var seg = $('shakeLevelSeg');
+  var box = $('shakeCustomBox');
+  var tip = $('shakeLevelTip');
+  var desc = $('shakeTriggerDesc');
+  var toggle = $('shakeTriggerToggle');
+
+  if(seg){
+    var btns = seg.querySelectorAll('.seg-btn');
+    for(var i=0;i<btns.length;i++){
+      if(parseInt(btns[i].getAttribute('data-level'),10) === shakeLevel) btns[i].classList.add('active');
+      else btns[i].classList.remove('active');
+    }
+  }
+  if(tip) tip.textContent = shakeLevelName();
+  if(desc) desc.textContent = shakeLevelDesc();
+
+  // 摇一摇关闭时自定义项灰显（档位保留，重新开启即恢复）
+  if(box) box.className = 'vol-custom' + ((toggle && toggle.checked) ? '' : ' disabled');
+
+  updateEmergencyText();
+}
+
+// 初始化摇一摇力度控件（读取原生已保存档位 + 绑定事件）
+function initShakeCustom(){
+  try{
+    if(typeof Android !== 'undefined' && Android.getShakeSensitivity){
+      var n = Android.getShakeSensitivity();
+      if(n >= SHAKE_LEVEL_MIN && n <= SHAKE_LEVEL_MAX) shakeLevel = n;
+    }
+  }catch(e){}
+
+  var seg = $('shakeLevelSeg');
+  if(seg){
+    seg.onclick = function(e){
+      var t = e.target;
+      if(!t || !t.getAttribute) return;
+      var lv = parseInt(t.getAttribute('data-level'), 10);
+      if(!(lv >= SHAKE_LEVEL_MIN && lv <= SHAKE_LEVEL_MAX)) return;
+      if(lv === shakeLevel) return;
+      shakeLevel = lv;
+      if(typeof Android !== 'undefined' && Android.setShakeSensitivity){
+        Android.setShakeSensitivity(shakeLevel);
+      }
+      syncShakeCustomUI();
+      showToast('摇一摇力度已设为「' + shakeLevelName() + '」— ' + shakeLevelDesc());
+    };
+  }
+  syncShakeCustomUI();
+}
+
+// 根据高级设置开关状态，动态更新紧急逃生操作文案
+function updateEmergencyText(){
+  var el = $('emergencyText');
+  if(!el) return;
+  var volOn = false, shakeOn = false;
+  var volToggle = $('volumeTriggerToggle');
+  var shakeToggle = $('shakeTriggerToggle');
+  if(volToggle) volOn = volToggle.checked;
+  if(shakeToggle) shakeOn = shakeToggle.checked;
+
+  var parts = [];
+  if(volOn) parts.push('连续按 <strong>' + volCount + ' 次' + volKeyText() + '</strong>');
+  if(shakeOn) parts.push('以 <strong>' + shakeLevelName() + '</strong> 力度摇晃手机');
+
+  var html = '<strong>紧急逃生操作</strong><br>';
+  if(parts.length === 0){
+    html += '当前无可用触发方式';
+  }else{
+    html += parts.join(' 或 ') + ' 立即触发紧急拦截救援';
+  }
+  el.innerHTML = html;
+}
+
+function initAdvancedSettings(){
+  var volToggle = $('volumeTriggerToggle');
+  var shakeToggle = $('shakeTriggerToggle');
+  var hideRecentsToggle = $('hideRecentsToggle');
+  var selfDefenseToggle = $('selfDefenseToggle');
+
+  // 从原生读取开关初始状态（保持界面与实际配置同步）
+  try{
+    if(typeof Android !== 'undefined' && Android.getVolumeTriggerEnabled){
+      volToggle.checked = Android.getVolumeTriggerEnabled();
+    }
+    if(typeof Android !== 'undefined' && Android.getShakeTriggerEnabled){
+      shakeToggle.checked = Android.getShakeTriggerEnabled();
+    }
+    if(typeof Android !== 'undefined' && Android.getHideRecents){
+      hideRecentsToggle.checked = Android.getHideRecents();
+    }
+    if(selfDefenseToggle && typeof Android !== 'undefined' && Android.getSelfDefenseMode){
+      selfDefenseToggle.checked = Android.getSelfDefenseMode();
+    }
+  }catch(e){}
+
+  // 初始化时同步紧急逃生操作文案
+  updateEmergencyText();
+
+  // 隐藏后台开关 → 通知原生 MainActivity（从最近任务隐藏，防划掉）
+  hideRecentsToggle.onchange = function(){
+    var on = this.checked;
+    if(typeof Android !== 'undefined' && Android.setHideRecents){
+      Android.setHideRecents(on);
+    }
+    showToast(on ? '已开启隐藏后台 — 最近任务中不再显示本应用' : '已关闭隐藏后台');
+  };
+
+  // 自保模式开关：只有同时开启安全守护时才真正启动自保 watchdog
+  if(selfDefenseToggle){
+    selfDefenseToggle.onchange = function(){
+      var on = this.checked;
+      if(typeof Android !== 'undefined' && Android.setSelfDefenseMode){
+        Android.setSelfDefenseMode(on);
+      }
+      showToast(on
+        ? '自保模式已开启（需同时开启安全守护才生效）'
+        : '自保模式已关闭，自保 watchdog 将停止');
+    };
+  }
+
+  // 完整日志 → 复制给开发者
+  var fullLogRow = $('fullLogRow');
+  if(fullLogRow){
+    fullLogRow.onclick = function(){
+      if(typeof Android !== 'undefined' && Android.copyFullStartupLog){
+        Android.copyFullStartupLog();
+      }else{
+        showToast('原生桥接未就绪');
+      }
+    };
+  }
+
+  // 允许后台高耗电 → 跳转系统电池优化设置，并显示当前状态
+  var batteryOptRow = $('batteryOptRow');
+  var batteryOptStatus = $('batteryOptStatus');
+  function refreshBatteryOptStatus(){
+    if(typeof Android !== 'undefined' && Android.isBatteryOptIgnored){
+      try{
+        var on = Android.isBatteryOptIgnored();
+        batteryOptStatus.textContent = on ? '已开启' : '未开启';
+        batteryOptStatus.style.color = on ? '#34C759' : '#8e8e93';
+      }catch(e){}
+    }
+  }
+  refreshBatteryOptStatus();
+  batteryOptRow.onclick = function(){
+    if(typeof Android !== 'undefined' && Android.openBatteryOptSettings){
+      Android.openBatteryOptSettings();
+    }else{
+      showToast('原生桥接未就绪');
+    }
+  };
+
+  // 开源许可 → 原生弹出许可证全文（Apache-2.0 §4(a) 要求把许可证副本
+  // 提供给使用者；文本随 APK 分发在 res/raw/open_source_licenses.txt）
+  var oslRow = $('oslRow');
+  if(oslRow) oslRow.onclick = function(){
+    if(typeof Android !== 'undefined' && Android.openSourceLicenses){
+      Android.openSourceLicenses();
+    }else{
+      showToast('原生桥接未就绪');
+    }
+  };
+
+  // 音量按键触发开关 → 通知原生 ProtectService（与摇一摇互斥，不能同时开启）
+  volToggle.onchange = function(){
+    var on = this.checked;
+    // 至少保留一个触发开关开启
+    if(!on && !shakeToggle.checked){
+      this.checked = true;
+      showToast('至少需要保留一个触发方式');
+      return;
+    }
+    // 互斥：开启音量键时强制关闭摇一摇
+    if(on && shakeToggle.checked){
+      shakeToggle.checked = false;
+      if(typeof Android !== 'undefined' && Android.setShakeTriggerEnabled){
+        Android.setShakeTriggerEnabled(false);
+      }
+    }
+    if(typeof Android !== 'undefined' && Android.setVolumeTriggerEnabled){
+      Android.setVolumeTriggerEnabled(on);
+    }
+    syncVolCustomUI();
+    showToast(on ? '音量按键触发已开启' : '音量按键触发已关闭');
+  };
+
+  // 使劲一摇触发开关 → 通知原生层（MainActivity 传感器 + ProtectService）（与音量键互斥，不能同时开启）
+  shakeToggle.onchange = function(){
+    var on = this.checked;
+    // 至少保留一个触发开关开启
+    if(!on && !volToggle.checked){
+      this.checked = true;
+      showToast('至少需要保留一个触发方式');
+      return;
+    }
+    // 互斥：开启摇一摇时强制关闭音量键
+    if(on && volToggle.checked){
+      volToggle.checked = false;
+      if(typeof Android !== 'undefined' && Android.setVolumeTriggerEnabled){
+        Android.setVolumeTriggerEnabled(false);
+      }
+    }
+    if(typeof Android !== 'undefined' && Android.setShakeTriggerEnabled){
+      Android.setShakeTriggerEnabled(on);
+    }
+    syncVolCustomUI();
+    showToast(on ? '摇一摇触发已开启 — 在任意应用中用力摇晃即可触发拦截弹窗' : '摇一摇触发已关闭');
+  };
+
+  // 音量触发自定义（触发按键 + 连按次数）
+  initVolCustom();
+  // 摇一摇自定义（触发力度档位）
+  initShakeCustom();
+}
+
+// 页面完全加载后初始化
+document.addEventListener('DOMContentLoaded',init);
+
+// 2026-10 改动：页面 load 完成后再补请求一次权限。
+// 有些机型上 init() 跑得比原生桥接注入早，这里兜住"打开就弹"的体验。
+window.addEventListener('load', function(){
+  try{ requestEntryPermissions(); }catch(e){}
+});
+</script>
+</body>
+</html>

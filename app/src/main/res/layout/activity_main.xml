@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ==========================================================================
+  2026-10 改动（用户反馈：Android 16 上状态栏遮挡内容）
+  ==========================================================================
+  Android 15（API 35）起，targetSdk >= 35 的应用被强制 edge-to-edge：
+  系统不再自动为窗口预留状态栏/导航栏区域，应用必须自己消费 WindowInsets，
+  否则内容会被状态栏压住（时间、图标与页面顶部叠在一起）。
+
+  本次做法（"显式预留"）—— 2026-10 白屏修复后的最终版：
+    · 不引入任何占位 View：直接把系统栏 inset 作为 **mainContent 的内边距**
+      （paddingTop = statusBars.top，paddingBottom = navigationBars.bottom，
+       paddingLeft/Right = systemBars.left/right），见 MainActivity.applyInsetsToViews()；
+    · activity 在 WindowInsets 可用时会自行控管 inset 派发；
+    · 进入全屏（WebView 视频）时把内边距归零，让视频真正铺满。
+
+  ⚠️ 历史教训：最初用两个占位 View（statusBarSpacer / navBarSpacer）预留，
+     结果 ConstraintLayout 把「layout_height=0dp 且只有 bottom 约束」的
+     navBarSpacer 拉伸到填满剩余空间（实测 0,0-1080,2280），
+     mainContent 被挤成 0 高 → 整个界面白屏。
+     加 layout_constrainedHeight="true" 也没用。故改为 padding 方案。
+  ⚠️ XML 注释里不能出现连续两个减号，本文件分隔线一律用等号。
+  ==========================================================================
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:background="@color/app_window_bg"
+    tools:context=".MainActivity">
+
+    <!-- 权限提示条（无障碍 / 悬浮窗 / 使用情况访问）— 全部授权后自动隐藏 -->
+    <LinearLayout
+        android:id="@+id/permissionBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:background="#FFF3E0"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/bannerIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️"
+            android:textSize="16sp"
+            android:layout_marginEnd="6dp" />
+
+        <TextView
+            android:id="@+id/bannerLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="需授权："
+            android:textSize="12sp"
+            android:textColor="#E65100"
+            android:layout_marginEnd="4dp" />
+
+        <LinearLayout
+            android:id="@+id/bannerChips"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical" />
+    </LinearLayout>
+
+    <!-- 主内容 ComposeView：包含 WebView(AndroidView) + 玻璃导航栏 -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/mainContent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toBottomOf="@id/permissionBanner"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 2026-10 改动：原来这里有一个底部的 navBarSpacer 占位 View，
+         现在改为直接把导航栏 inset 作为 mainContent 的 paddingBottom
+         （见 MainActivity.applyInsetsToViews）。 -->
+
+    <ImageButton
+        android:id="@+id/backButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_back_arrow"
+        android:background="@drawable/back_button_background"
+        android:elevation="8dp"
+        android:contentDescription="@string/back"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="16dp" />
+
+    <FrameLayout
+        android:id="@+id/fullscreenContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/black"
+        android:visibility="gone">
+
+        <WebView
+            android:id="@+id/fullscreenWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/exitFullscreenButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_close"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/exit_fullscreen"
+            android:layout_gravity="top|end"
+            android:layout_margin="16dp"
+            android:tint="@color/white" />
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
