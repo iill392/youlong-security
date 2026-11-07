@@ -306,6 +306,14 @@
             android:label="无线调试配对"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
+        <!-- 二改版新增：本地 ADB 终端，无需电脑，特权 shell 直连本机 -->
+        <activity
+            android:name="com.youlong.hd.LocalAdbActivity"
+            android:exported="false"
+            android:label="本地 ADB"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Self-developed pairing foreground service: the user types the system
              pairing code into a notification (the system pairing dialog is a secure
              window that hides all app overlays). -->
